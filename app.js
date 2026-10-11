@@ -66,6 +66,7 @@ let toastTimer;
 const markerSource = new VectorSource();
 const selectionSource = new VectorSource();
 const geoJson = new GeoJSON();
+const parcelFeatureCache = new Map();
 
 function markerStyle(feature) {
   const label = feature.get("label") || "";
@@ -585,6 +586,7 @@ async function inspectParcel(lonLat, searchResult) {
     ]);
     const record = buildRecord(lonLat, searchResult, parcelFeature, reverseAddress);
     addOrUpdateRecord(record);
+    if (parcelFeature?.feature) parcelFeatureCache.set(record.id, parcelFeature.feature);
     showSelectedParcel(record, parcelFeature?.feature || null);
     openDetail(record);
   } catch (error) {
@@ -799,6 +801,20 @@ function showSelectedParcel(record, rawFeature) {
       console.warn("Parcel geometry could not be rendered", error);
     }
   }
+}
+
+async function selectRecordFromList(record) {
+  setMapMode("cadastral", false);
+  map.getView().animate({center: fromLonLat([record.lon, record.lat]), zoom: 18, duration: 450});
+  const cachedFeature = parcelFeatureCache.get(record.id) || null;
+  showSelectedParcel(record, cachedFeature);
+  openDetail(record);
+  if (cachedFeature) return;
+
+  const parcelFeature = await fetchParcelFeature([record.lon, record.lat]);
+  if (!parcelFeature?.feature || state.selectedId !== record.id) return;
+  parcelFeatureCache.set(record.id, parcelFeature.feature);
+  showSelectedParcel(record, parcelFeature.feature);
 }
 
 function ensureSourceMeta(record) {
@@ -1577,13 +1593,10 @@ function render() {
         <em>›</em>
       </button>
     </article>`).join("") : `<div class="empty-result">${state.filter === "favorite" ? "아직 저장한 관심 토지가 없어요." : "주소를 검색하거나 지도에서 필지를 선택해 보세요."}</div>`;
-  $$("[data-record-id]").forEach((button) => button.addEventListener("click", async () => {
+  $$("[data-record-id]").forEach((button) => button.addEventListener("click", () => {
     const record = state.records.find((item) => item.id === button.dataset.recordId);
     if (!record) return;
-    setMapMode("cadastral", false);
-    map.getView().animate({center: fromLonLat([record.lon, record.lat]), zoom: 18, duration: 450});
-    showSelectedParcel(record, null);
-    openDetail(record);
+    void selectRecordFromList(record);
   }));
   $$("[data-compare-id]").forEach((checkbox) => checkbox.addEventListener("change", () => {
     const id = checkbox.dataset.compareId;
