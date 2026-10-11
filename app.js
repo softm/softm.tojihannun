@@ -457,7 +457,11 @@ function openEumLandUse(record) {
 
 async function searchVWorld(query, mode = "all") {
   const categories = mode === "road" ? ["road"] : mode === "lot" ? ["parcel"] : ["road", "parcel"];
-  const requests = categories.map(async (category) => {
+  const targets = [
+    ...categories.map((category) => ({type: "address", category})),
+    ...(mode === "all" ? [{type: "place", category: ""}] : [])
+  ];
+  const requests = targets.map(async ({type, category}) => {
     const url = apiUrl("search", {
       service: "search",
       request: "search",
@@ -466,7 +470,7 @@ async function searchVWorld(query, mode = "all") {
       size: 10,
       page: 1,
       query,
-      type: "address",
+      type,
       category,
       format: "json",
       errorformat: "json"
@@ -476,20 +480,34 @@ async function searchVWorld(query, mode = "all") {
     if (response?.status && response.status !== "OK" && response.status !== "NOT_FOUND") {
       throw new Error(response?.error?.text || response.status);
     }
-    return (response?.result?.items || []).map((item, index) => normalizeSearchItem(item, category, index));
+    return (response?.result?.items || []).map((item, index) => normalizeSearchItem(item, type === "place" ? "place" : category, index));
   });
   const settled = await Promise.allSettled(requests);
   const failures = settled.filter((result) => result.status === "rejected");
   const items = settled.flatMap((result) => result.status === "fulfilled" ? result.value : []);
   if (!items.length && failures.length === settled.length) throw failures[0].reason;
 
+  const normalizedQuery = query.replace(/\s+/g, "").toLowerCase();
+  const ranked = items.sort((a, b) => searchResultRank(b, normalizedQuery) - searchResultRank(a, normalizedQuery));
   const seen = new Set();
-  return items.filter((item) => {
-    const key = item.address.replace(/\s+/g, " ").trim();
+  return ranked.filter((item) => {
+    const key = (item.parcel || item.road || item.address || `${item.lon},${item.lat}`).replace(/\s+/g, " ").trim();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   }).slice(0, 12);
+}
+
+function searchResultRank(item, normalizedQuery) {
+  if (item.category !== "place") return 100;
+  const title = item.title.replace(/\s+/g, "").toLowerCase();
+  const placeCategory = item.placeCategory || "";
+  let rank = /아파트단지|건물|주거용공동주택/.test(placeCategory) ? 40 : 0;
+  if (/버스터미널|정류장/.test(placeCategory)) rank -= 20;
+  if (title === normalizedQuery) rank += 20;
+  else if (title.startsWith(normalizedQuery)) rank += 10;
+  else if (title.includes(normalizedQuery) || normalizedQuery.includes(title)) rank += 5;
+  return rank;
 }
 
 function normalizeSearchItem(item, category, index) {
@@ -498,7 +516,7 @@ function normalizeSearchItem(item, category, index) {
   const road = cleanText(item?.address?.road || "");
   const parcel = cleanText(item?.address?.parcel || "");
   const title = cleanText(item?.title || "");
-  const address = category === "parcel" ? parcel || road || title : road || parcel || title;
+  const address = category === "parcel" || category === "place" ? parcel || road || title : road || parcel || title;
   return {
     id: `search-${category}-${lon}-${lat}-${index}`,
     pnu: /^\d{19}$/.test(String(item?.id || "")) ? String(item.id) : "",
@@ -507,6 +525,7 @@ function normalizeSearchItem(item, category, index) {
     address,
     road,
     parcel,
+    placeCategory: category === "place" ? cleanText(item?.category || "") : "",
     lon,
     lat
   };
@@ -529,11 +548,11 @@ async function performSearch(query) {
     const results = await searchVWorld(value, state.searchMode);
     state.searchResults = results.filter((item) => Number.isFinite(item.lon) && Number.isFinite(item.lat));
     renderSuggestions(state.searchResults);
-    if (!state.searchResults.length) showToast("검색 결과가 없어요. 주소나 지번을 다시 확인해 주세요.");
+    if (!state.searchResults.length) showToast("검색 결과가 없어요. 주소·지번·건물명을 다시 확인해 주세요.");
   } catch (error) {
     console.error("VWorld search failed", error);
     renderSuggestions([]);
-    showToast("주소 검색에 실패했어요. 인증키와 네트워크를 확인해 주세요.");
+    showToast("검색에 실패했어요. 인증키와 네트워크를 확인해 주세요.");
   } finally {
     setSearchLoading(false);
   }
@@ -548,14 +567,14 @@ function setSearchLoading(loading) {
 function renderSuggestions(results) {
   const box = $("#searchSuggestions");
   if (!results.length) {
-    box.innerHTML = `<div class="empty-suggestion">일치하는 주소를 찾지 못했어요.<br><small>시·군·구와 읍면동, 지번을 함께 입력해 보세요.</small></div>`;
+    box.innerHTML = `<div class="empty-suggestion">일치하는 주소나 명칭을 찾지 못했어요.<br><small>주소·지번 또는 아파트·건물명을 입력해 보세요.</small></div>`;
     box.classList.add("show");
     return;
   }
   box.innerHTML = results.map((item, index) => `
     <button class="suggestion" type="button" role="option" data-result-index="${index}">
-      <span>${item.category === "parcel" ? "지" : "길"}</span>
-      <span><strong>${escapeHtml(item.address)}</strong><small>${escapeHtml(item.category === "parcel" ? item.road || "지번 주소" : item.parcel || "도로명 주소")}</small></span>
+      <span>${item.category === "place" ? "명" : item.category === "parcel" ? "지" : "길"}</span>
+      <span><strong>${escapeHtml(item.category === "place" ? item.title : item.address)}</strong><small>${escapeHtml(item.category === "place" ? [item.address, item.placeCategory].filter(Boolean).join(" · ") : item.category === "parcel" ? item.road || "지번 주소" : item.parcel || "도로명 주소")}</small></span>
     </button>`).join("");
   box.classList.add("show");
   $$("[data-result-index]").forEach((button) => button.addEventListener("click", () => selectSearchResult(state.searchResults[Number(button.dataset.resultIndex)])));
@@ -567,12 +586,12 @@ function escapeHtml(value) {
 
 async function selectSearchResult(result) {
   if (!result) return;
-  $("#searchInput").value = result.address;
+  $("#searchInput").value = result.category === "place" ? result.title : result.address;
   $("#searchSuggestions").classList.remove("show");
   setMapMode("cadastral", false);
   mainSheetCollapse(true);
   map.getView().animate({center: fromLonLat([result.lon, result.lat]), zoom: 18, duration: 550});
-  $("#mapStatus").textContent = result.address;
+  $("#mapStatus").textContent = result.category === "place" ? `${result.title} · ${result.address}` : result.address;
   await inspectParcel([result.lon, result.lat], result);
 }
 
