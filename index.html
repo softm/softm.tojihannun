@@ -151,6 +151,18 @@
             <p class="building-empty">토지대장 공개정보를 확인하고 있어요.</p>
           </div>
         </section>
+        <section class="building-card eum-card" aria-labelledby="eumCardTitle">
+          <div class="building-card-head">
+            <div>
+              <span>토지이음 공식 조회</span>
+              <strong id="eumCardTitle">토지이용계획</strong>
+            </div>
+            <span class="building-count" id="eumLandUseBadge">조회 중</span>
+          </div>
+          <div class="building-content" id="eumLandUseContent" aria-live="polite">
+            <p class="building-empty">용도지역·지구와 행위제한 근거를 확인하고 있어요.</p>
+          </div>
+        </section>
         <section class="building-card" aria-labelledby="buildingCardTitle">
           <div class="building-card-head">
             <div>
@@ -165,8 +177,8 @@
         </section>
         <div class="source-card">
           <span>조회 출처</span>
-          <strong>VWorld 공간정보 오픈플랫폼</strong>
-          <small>국토교통부 국가공간정보센터 공개 API · 필지 경계는 측량 성과와 차이가 있을 수 있습니다.</small>
+          <strong>VWorld · 토지이음</strong>
+          <small>국토교통부 공개정보 · 토지이용계획 열람정보와 필지 경계는 참고용이며 법적 증명 효력이 없습니다.</small>
         </div>
         <section class="related-services" aria-labelledby="relatedServicesTitle">
           <div class="related-services-head">
@@ -175,7 +187,7 @@
             <small><b id="relatedParcelAddress">선택한 지번</b>을 복사하고 공식 사이트를 새 창에서 엽니다.</small>
           </div>
           <div class="related-services-grid">
-            <a class="related-service-link" href="https://www.eum.go.kr/" target="_blank" rel="noopener noreferrer" data-service-label="토지이용계획 확인">
+            <a class="related-service-link" href="https://www.eum.go.kr/web/ar/lu/luLandDet.jsp" target="_blank" rel="noopener noreferrer" data-service-label="토지이용계획 확인" data-eum-land-use>
               <b>🏛 토지이용계획 확인</b><span>용도지역·지구 및 행위제한</span>
             </a>
             <a class="related-service-link" href="https://www.iros.go.kr/" target="_blank" rel="noopener noreferrer" data-service-label="인터넷등기소">

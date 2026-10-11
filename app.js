@@ -17,6 +17,7 @@ const Text = ol.style.Text;
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const API_BASE = "/api/vworld";
+const EUM_DETAIL_URL = "https://www.eum.go.kr/web/ar/lu/luLandDet.jsp";
 const FAVORITES_KEY = "tojihannun-vworld-favorites-v1";
 
 const state = {
@@ -206,6 +207,171 @@ async function fetchJson(url, timeout = 12000) {
   }
 }
 
+function buildEumLandUseParams(pnu) {
+  if (!/^\d{19}$/.test(String(pnu || ""))) throw new Error("19자리 PNU가 필요합니다.");
+  return new URLSearchParams({
+    selGbn: "umd",
+    isNoScr: "script",
+    s_type: "1",
+    viewType: "",
+    p_location: "",
+    p_type: "",
+    p_type1: "",
+    p_type2: "",
+    p_type3: "",
+    p_type4: "",
+    p_type5: "",
+    p_type6: "",
+    p_type7: "",
+    mode: "search",
+    sggcd: "",
+    pnu,
+    ucodes: "",
+    markUcodes: "",
+    adzoom: "",
+    scale: "",
+    scaleFlag: "",
+    hash: "",
+    mobile_yn: "",
+    add: "land",
+    selSido: pnu.slice(0, 2),
+    selSgg: pnu.slice(2, 5),
+    selUmd: pnu.slice(4, 8),
+    selRi: pnu.slice(8, 10),
+    landGbn: pnu.slice(10, 11),
+    bobn: String(Number(pnu.slice(11, 15))),
+    bubn: String(Number(pnu.slice(15, 19)))
+  });
+}
+
+async function decodeHtmlResponse(response) {
+  const bytes = await response.arrayBuffer();
+  const charset = /euc-kr/i.test(response.headers.get("content-type") || "") ? "euc-kr" : "utf-8";
+  return new TextDecoder(charset).decode(bytes);
+}
+
+async function fetchEumLandUseHtml(pnu) {
+  const proxyUrl = new URL("/api/eum/land-use", window.location.origin);
+  proxyUrl.searchParams.set("pnu", pnu);
+  try {
+    const response = await fetch(proxyUrl, {signal: AbortSignal.timeout(22000)});
+    if (response.ok && /text\/html/i.test(response.headers.get("content-type") || "")) return await decodeHtmlResponse(response);
+  } catch {
+    // 정적 호스팅에서는 서버 프록시가 없으므로 토지이음의 CORS 허용 응답을 직접 조회한다.
+  }
+  const response = await fetch(EUM_DETAIL_URL, {
+    method: "POST",
+    mode: "cors",
+    credentials: "omit",
+    headers: {
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: buildEumLandUseParams(pnu),
+    signal: AbortSignal.timeout(22000)
+  });
+  if (!response.ok) throw new Error(`토지이음 HTTP ${response.status}`);
+  return await decodeHtmlResponse(response);
+}
+
+function cleanNodeText(node) {
+  return String(node?.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function parseEumZoneGroup(documentNode, id, category) {
+  const container = documentNode.querySelector(`#${id}`);
+  if (!container) return [];
+  const linkedZones = [...container.children].filter((node) => node.matches?.("a.link")).map((link) => {
+    let layer = link.nextElementSibling;
+    while (layer && !layer.classList.contains("layer_pop")) layer = layer.nextElementSibling;
+    const code = link.getAttribute("onclick")?.match(/live_layer_([A-Z0-9]+)/)?.[1] || "";
+    return {
+      category,
+      code,
+      name: cleanNodeText(link),
+      description: cleanNodeText(layer?.querySelector(".layer_body strong"))
+    };
+  }).filter((item) => item.name);
+  const visibleClone = container.cloneNode(true);
+  visibleClone.querySelectorAll(".layer_pop, input").forEach((node) => node.remove());
+  const plainZones = cleanNodeText(visibleClone).split(/\s*,\s*/).map((name) => name.trim()).filter(Boolean)
+    .filter((name) => !linkedZones.some((item) => item.name === name))
+    .map((name) => ({category, code: "", name, description: ""}));
+  return [...linkedZones, ...plainZones].filter((item, index, items) => items.findIndex((candidate) => candidate.name === item.name) === index);
+}
+
+function parseEumLandUseHtml(html, pnu) {
+  const documentNode = new DOMParser().parseFromString(html, "text/html");
+  const responsePnu = documentNode.querySelector("#pnu")?.value || "";
+  if (responsePnu !== pnu) throw new Error("토지이음 조회 결과의 PNU가 일치하지 않습니다.");
+  const nationalPlan = parseEumZoneGroup(documentNode, "present_mark1", "국토계획법");
+  const otherLaws = parseEumZoneGroup(documentNode, "present_mark2", "다른 법령");
+  const decreeText = cleanNodeText(documentNode.querySelector("#present_mark3"));
+  const decree = decreeText ? [{category: "토지이용규제법 시행령", code: "", name: decreeText, description: ""}] : [];
+  const restrictions = [...documentNode.querySelectorAll("#act_content .act_contxt")].map((group) => ({
+    zone: cleanNodeText(group.querySelector(":scope > .title")),
+    rules: [...group.querySelectorAll(":scope > p")].map((row) => ({
+      law: cleanNodeText(row.querySelector("strong")),
+      article: cleanNodeText(row.querySelector("a.link"))
+        .replace(/근거법령 접기펴기.*$/, "")
+        .replace(cleanNodeText(row.querySelector("strong")), "")
+        .trim(),
+      subject: cleanNodeText(row.querySelector(".mblock")).replace(/^\(|\)$/g, "")
+    })).filter((item) => item.law || item.article || item.subject)
+  })).filter((group) => group.zone && group.rules.length);
+  return {
+    version: 1,
+    pnu,
+    address: cleanNodeText(documentNode.querySelector("#present_addr")?.parentElement).replace(/\s+번지$/, "번지"),
+    landCategory: documentNode.querySelector("#present_class_val")?.value || cleanNodeText(documentNode.querySelector("#present_class")),
+    area: cleanNodeText(documentNode.querySelector("#present_area")),
+    nationalPlan,
+    otherLaws,
+    decree,
+    zones: [...nationalPlan, ...otherLaws, ...decree],
+    restrictions
+  };
+}
+
+async function fetchEumLandUse(pnu) {
+  return parseEumLandUseHtml(await fetchEumLandUseHtml(pnu), pnu);
+}
+
+function openEumLandUse(record) {
+  if (!record?.pnu || !/^\d{19}$/.test(record.pnu)) {
+    showToast("토지이음 조회에 필요한 PNU가 없어요.");
+    return;
+  }
+  const targetName = `eum-land-use-${Date.now()}`;
+  const popup = window.open("about:blank", targetName);
+  if (!popup) {
+    showToast("팝업 차단을 해제하면 토지이음 상세정보를 열 수 있어요.");
+    return;
+  }
+  try {
+    popup.opener = null;
+    popup.document.title = "토지이음 연결 중";
+    popup.document.body.textContent = "토지이음 토지이용계획을 여는 중입니다…";
+  } catch {
+    // 새 창 준비 문구를 표시할 수 없어도 폼 전송은 계속한다.
+  }
+  const form = document.createElement("form");
+  form.method = "post";
+  form.action = EUM_DETAIL_URL;
+  form.target = targetName;
+  form.hidden = true;
+  buildEumLandUseParams(record.pnu).forEach((value, name) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    form.append(input);
+  });
+  document.body.append(form);
+  form.submit();
+  form.remove();
+}
+
 async function searchVWorld(query, mode = "all") {
   const categories = mode === "road" ? ["road"] : mode === "lot" ? ["parcel"] : ["road", "parcel"];
   const requests = categories.map(async (category) => {
@@ -252,6 +418,7 @@ function normalizeSearchItem(item, category, index) {
   const address = category === "parcel" ? parcel || road || title : road || parcel || title;
   return {
     id: `search-${category}-${lon}-${lat}-${index}`,
+    pnu: /^\d{19}$/.test(String(item?.id || "")) ? String(item.id) : "",
     category,
     title: title || address,
     address,
@@ -491,7 +658,7 @@ async function reverseGeocode([lon, lat]) {
 function buildRecord([lon, lat], searchResult, parcelFeature, reverseResults) {
   const properties = parcelFeature?.feature?.properties || {};
   const lower = Object.fromEntries(Object.entries(properties).map(([key, value]) => [key.toLowerCase(), value]));
-  const pnu = String(lower.pnu || "");
+  const pnu = String(lower.pnu || searchResult?.pnu || "");
   const reverseParcel = (reverseResults || []).find((item) => String(item?.type || "").toLowerCase().includes("parcel"));
   const reverseRoad = (reverseResults || []).find((item) => String(item?.type || "").toLowerCase().includes("road"));
   const address = searchResult?.parcel || searchResult?.address || cleanText(reverseParcel?.text || reverseRoad?.text || "선택한 필지");
@@ -579,6 +746,7 @@ function formatEstimatedValue(price, area) {
 
 function buildReportModel(record) {
   const land = record.landRegister || {};
+  const eum = record.eumLandUse || {};
   const base = land.base;
   const characteristic = land.characteristic;
   const price = land.price;
@@ -643,6 +811,27 @@ function buildReportModel(record) {
     }
   ];
 
+  if (eum.zones?.length) {
+    sections.splice(3, 0, {
+      title: "토지이음 지역·지구 지정정보",
+      kind: "table",
+      headers: ["구분", "지역·지구", "설명"],
+      rows: eum.zones.map((item) => [item.category || "-", item.name || "-", item.description || "-"])
+    });
+  }
+  if (eum.restrictions?.length) {
+    sections.splice(4, 0, {
+      title: "토지이음 행위제한 근거",
+      kind: "table",
+      headers: ["지역·지구", "근거 법령", "조문·내용"],
+      rows: eum.restrictions.flatMap((group) => group.rules.map((rule) => [
+        group.zone || "-",
+        rule.law || "-",
+        [rule.article, rule.subject].filter(Boolean).join(" · ") || "-"
+      ]))
+    });
+  }
+
   (record.buildings || []).forEach((building, index) => {
     const floors = [building.groundFloors ? `지상 ${building.groundFloors}층` : "", building.undergroundFloors ? `지하 ${building.undergroundFloors}층` : ""].filter(Boolean).join(" · ") || "-";
     sections.push({
@@ -676,7 +865,7 @@ function buildReportModel(record) {
     pnu: record.pnu || "미제공",
     generatedAt,
     sections,
-    source: "VWorld 공간정보 오픈플랫폼 · 국토교통부 국가공간정보센터 공개 API",
+    source: `VWorld 공간정보 오픈플랫폼 · 국토교통부 국가공간정보센터 공개 API${eum.zones?.length ? " · 토지이음 토지이용계획 열람" : ""}`,
     notice: "이 보고서는 공개 API 조회정보를 정리한 참고자료이며 법적 증명 효력이 없습니다. 필지 경계와 면적은 측량 성과와 다를 수 있고, 전체면적 공시지가 환산액은 면적과 공시지가를 곱한 단순 계산값입니다. 소유자 성명, 주소, 등록번호, 지분 등 개인정보는 포함하지 않습니다."
   };
 }
@@ -762,8 +951,69 @@ async function loadLandRegisterDetails(record) {
     record.landRegisterError = true;
   } finally {
     record.landRegisterLoading = false;
-    if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) renderLandRegisterSection(record);
+    if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) {
+      renderLandRegisterSection(record);
+      if (record.eumLandUse) renderEumLandUseSection(record);
+    }
     if (state.favorites.has(record.id)) persistFavorites();
+  }
+}
+
+function renderEumLandUseSection(record) {
+  const content = $("#eumLandUseContent");
+  const badge = $("#eumLandUseBadge");
+  const data = record.eumLandUse;
+  if (!data) {
+    badge.textContent = record.eumLandUseError ? "조회 실패" : "조회 중";
+    content.innerHTML = `<p class="building-empty">${record.eumLandUseError ? "토지이음 정보를 불러오지 못했어요. 아래 공식 상세보기에서 확인해 주세요." : "용도지역·지구와 행위제한 근거를 확인하고 있어요."}</p>
+      <button class="building-ledger-button eum-open-button" type="button" data-open-eum>토지이음에서 상세보기</button>`;
+    content.querySelector("[data-open-eum]")?.addEventListener("click", () => openEumLandUse(record));
+    return;
+  }
+  const zoneCount = data.zones?.length || 0;
+  badge.textContent = zoneCount ? `${zoneCount}개 지정` : "정보 없음";
+  const summaryFacts = [
+    ["소재지", data.address || record.address || "-"],
+    ["지목", data.landCategory || "-"],
+    ["면적", data.area || "-"],
+    ["개별공시지가", formatLandPrice(record.landRegister?.price)]
+  ];
+  const zoneGroup = (title, items) => items?.length ? `
+    <details open>
+      <summary>${escapeHtml(title)} <span>${items.length}건</span></summary>
+      <div class="eum-zone-list">${items.map((item) => `
+        <article><strong>${escapeHtml(item.name)}</strong>${item.description ? `<small>${escapeHtml(item.description)}</small>` : ""}</article>`).join("")}</div>
+    </details>` : "";
+  const restrictionGroups = (data.restrictions || []).map((group) => `
+    <article class="eum-restriction-group">
+      <strong>${escapeHtml(group.zone)}</strong>
+      <ul>${group.rules.map((rule) => `<li><b>${escapeHtml(rule.law || "근거 법령")}</b><span>${escapeHtml([rule.article, rule.subject].filter(Boolean).join(" · ") || "상세 내용은 토지이음에서 확인")}</span></li>`).join("")}</ul>
+    </article>`).join("");
+  content.innerHTML = `
+    <dl class="building-facts eum-summary">${summaryFacts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>
+    <div class="land-register-details eum-details">
+      ${zoneGroup("국토의 계획 및 이용에 관한 법률", data.nationalPlan)}
+      ${zoneGroup("다른 법령 등에 따른 지역·지구", data.otherLaws)}
+      ${zoneGroup("토지이용규제 기본법 시행령 사항", data.decree)}
+      ${restrictionGroups ? `<details><summary>행위제한 근거 법령 <span>${data.restrictions.length}개 지역·지구</span></summary><div class="eum-restrictions">${restrictionGroups}</div></details>` : ""}
+    </div>
+    <p class="land-register-note">토지이음 열람정보는 참고자료이며 법적 효력이 없습니다. 중요한 사항은 토지이용계획확인서를 발급해 확인해 주세요.</p>
+    <button class="building-ledger-button eum-open-button" type="button" data-open-eum>토지이음에서 상세보기</button>`;
+  content.querySelector("[data-open-eum]")?.addEventListener("click", () => openEumLandUse(record));
+}
+
+async function loadEumLandUse(record) {
+  if (!record?.pnu || record.eumLandUse?.version === 1 || record.eumLandUseLoading) return;
+  record.eumLandUseLoading = true;
+  record.eumLandUseError = false;
+  try {
+    record.eumLandUse = await fetchEumLandUse(record.pnu);
+  } catch (error) {
+    console.error("토지이음 토지이용계획 조회 실패", error);
+    record.eumLandUseError = true;
+  } finally {
+    record.eumLandUseLoading = false;
+    if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) renderEumLandUseSection(record);
   }
 }
 
@@ -850,6 +1100,8 @@ function openDetail(record) {
   $("#landFacts").innerHTML = facts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
   renderLandRegisterSection(record);
   void loadLandRegisterDetails(record);
+  renderEumLandUseSection(record);
+  void loadEumLandUse(record);
   renderBuildingSection(record);
   void loadBuildingDetails(record);
   updateDetailFavorite(record.id);
@@ -919,7 +1171,13 @@ function updateFavoriteCount() {
 }
 
 function persistFavorites() {
-  const records = state.records.filter((record) => state.favorites.has(record.id)).map(({properties, ...record}) => record);
+  const records = state.records.filter((record) => state.favorites.has(record.id)).map(({
+    properties,
+    eumLandUse,
+    eumLandUseLoading,
+    eumLandUseError,
+    ...record
+  }) => record);
   localStorage.setItem(FAVORITES_KEY, JSON.stringify(records));
 }
 
@@ -1013,8 +1271,13 @@ $("#favoritesButton").addEventListener("click", () => {
 $("#detailFavorite").addEventListener("click", () => toggleFavorite());
 $("#detailClose").addEventListener("click", closeDetail);
 
-$$('.related-service-link').forEach((link) => link.addEventListener("click", async () => {
+$$('.related-service-link').forEach((link) => link.addEventListener("click", async (event) => {
   const record = state.records.find((item) => item.id === state.selectedId);
+  if (link.hasAttribute("data-eum-land-use")) {
+    event.preventDefault();
+    openEumLandUse(record);
+    return;
+  }
   const address = record?.address || record?.road;
   const label = link.dataset.serviceLabel || "유관 기관";
   if (!address) return showToast(`${label} 공식 사이트를 새 창에서 열었어요.`);
@@ -1040,7 +1303,7 @@ function setExportBusy(busy, format = "") {
 $("#openExport").addEventListener("click", () => {
   const record = state.records.find((item) => item.id === state.selectedId);
   if (!record) return;
-  if (record.landRegisterLoading || record.buildingLoading) {
+  if (record.landRegisterLoading || record.eumLandUseLoading || record.buildingLoading) {
     showToast("토지·건축물 정보 조회가 끝난 뒤 다운로드할 수 있어요.");
     return;
   }

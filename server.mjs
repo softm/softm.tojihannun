@@ -5,6 +5,7 @@ import {fileURLToPath} from "node:url";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 4173);
+const eumLandUseUrl = "https://www.eum.go.kr/web/ar/lu/luLandDet.jsp";
 const allowedVWorldServices = new Set(["search", "data", "address", "wms"]);
 const allowedNedOperations = new Set([
   "getBuildingUse",
@@ -110,6 +111,79 @@ async function proxyVWorldNed(request, response, operation, incomingUrl) {
   }
 }
 
+function buildEumLandUseParams(pnu) {
+  const mainNumber = String(Number(pnu.slice(11, 15)));
+  const subNumber = String(Number(pnu.slice(15, 19)));
+  return new URLSearchParams({
+    selGbn: "umd",
+    isNoScr: "script",
+    s_type: "1",
+    viewType: "",
+    p_location: "",
+    p_type: "",
+    p_type1: "",
+    p_type2: "",
+    p_type3: "",
+    p_type4: "",
+    p_type5: "",
+    p_type6: "",
+    p_type7: "",
+    mode: "search",
+    sggcd: "",
+    pnu,
+    ucodes: "",
+    markUcodes: "",
+    adzoom: "",
+    scale: "",
+    scaleFlag: "",
+    hash: "",
+    mobile_yn: "",
+    add: "land",
+    selSido: pnu.slice(0, 2),
+    selSgg: pnu.slice(2, 5),
+    selUmd: pnu.slice(4, 8),
+    selRi: pnu.slice(8, 10),
+    landGbn: pnu.slice(10, 11),
+    bobn: mainNumber,
+    bubn: subNumber
+  });
+}
+
+async function proxyEumLandUse(response, incomingUrl) {
+  const pnu = String(incomingUrl.searchParams.get("pnu") || "");
+  if (!/^\d{19}$/.test(pnu)) {
+    response.writeHead(400, {"Content-Type": "application/json; charset=utf-8"});
+    response.end(JSON.stringify({error: "19자리 PNU가 필요합니다."}));
+    return;
+  }
+  try {
+    const upstream = await fetch(eumLandUseUrl, {
+      method: "POST",
+      headers: {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Origin": "https://www.eum.go.kr",
+        "Referer": "https://www.eum.go.kr/web/am/amMain.jsp",
+        "User-Agent": "Mozilla/5.0 (compatible; Tojihannun/1.0)"
+      },
+      body: buildEumLandUseParams(pnu),
+      signal: AbortSignal.timeout(20000)
+    });
+    const html = new TextDecoder("euc-kr").decode(await upstream.arrayBuffer());
+    response.writeHead(upstream.status, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "private, max-age=600",
+      "X-Content-Type-Options": "nosniff"
+    });
+    response.end(html);
+  } catch (error) {
+    console.error("토지이음 토지이용계획 연결 실패:", error.message);
+    response.writeHead(502, {"Content-Type": "application/json; charset=utf-8"});
+    response.end(JSON.stringify({error: "토지이음 연결에 실패했습니다."}));
+  }
+}
+
 function serveStatic(response, pathname) {
   const requestPath = pathname === "/" ? "/index.html" : pathname;
   if (deniedFiles.has(requestPath) || requestPath.startsWith("/.")) {
@@ -132,6 +206,15 @@ function serveStatic(response, pathname) {
 
 const server = http.createServer(async (request, response) => {
   const incomingUrl = new URL(request.url || "/", `http://${request.headers.host || `localhost:${port}`}`);
+  if (incomingUrl.pathname === "/api/eum/land-use") {
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      response.writeHead(405, {"Allow": "GET, HEAD"});
+      response.end("Method not allowed");
+      return;
+    }
+    await proxyEumLandUse(response, incomingUrl);
+    return;
+  }
   const nedMatch = incomingUrl.pathname.match(/^\/api\/vworld\/ned\/([A-Za-z]+)$/);
   if (nedMatch) {
     await proxyVWorldNed(request, response, nedMatch[1], incomingUrl);
