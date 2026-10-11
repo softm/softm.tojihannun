@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261012.2" />
+    <link rel="stylesheet" href="./styles.css?v=20261012.3" />
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -137,9 +137,36 @@
         </div>
         <h2 id="detailTitle">선택한 토지</h2>
         <p class="detail-road" id="detailRoad">VWorld 검색 결과</p>
-        <div class="demo-notice"><span>i</span> 국토교통부 공개정보를 별도 발급 없이 조회합니다. 소유자 개인정보는 제외되며, 법적 증명이 필요하면 정부24 공식 열람·발급을 이용해 주세요.</div>
-        <dl class="land-facts" id="landFacts"></dl>
-        <section class="building-card land-register-card" aria-labelledby="landRegisterCardTitle">
+        <div class="demo-notice"><span>i</span> 국토교통부 공개정보를 별도 발급 없이 조회합니다. 소유자 개인정보는 제외되며, 법적 증명이 필요하면 정부24 토지대장 열람·발급을 이용해 주세요.</div>
+        <nav class="detail-tabs" role="tablist" aria-label="필지 상세정보">
+          <button class="active" type="button" role="tab" id="detailTabSummary" aria-selected="true" aria-controls="detailPanelSummary" tabindex="0" data-detail-tab="summary">한눈요약</button>
+          <button type="button" role="tab" id="detailTabRegister" aria-selected="false" aria-controls="detailPanelRegister" tabindex="-1" data-detail-tab="register">토지대장</button>
+          <button type="button" role="tab" id="detailTabUse" aria-selected="false" aria-controls="detailPanelUse" tabindex="-1" data-detail-tab="use">토지이용</button>
+          <button type="button" role="tab" id="detailTabBuilding" aria-selected="false" aria-controls="detailPanelBuilding" tabindex="-1" data-detail-tab="building">건축물</button>
+          <button type="button" role="tab" id="detailTabLinks" aria-selected="false" aria-controls="detailPanelLinks" tabindex="-1" data-detail-tab="links">공식연결</button>
+        </nav>
+        <div class="detail-tab-panel" id="detailPanelSummary" role="tabpanel" aria-labelledby="detailTabSummary" data-detail-panel="summary">
+          <section class="detail-highlight" aria-labelledby="detailHighlightTitle">
+            <div class="detail-section-heading">
+              <span>핵심 정보</span>
+              <strong id="detailHighlightTitle">선택 필지 한눈에 보기</strong>
+            </div>
+            <dl id="detailHighlight"></dl>
+          </section>
+          <section class="parcel-id-card" aria-labelledby="parcelIdTitle">
+            <div class="detail-section-heading">
+              <span>조회 기준</span>
+              <strong id="parcelIdTitle">필지 식별정보</strong>
+            </div>
+            <dl class="land-facts" id="landFacts"></dl>
+          </section>
+          <div class="source-card">
+            <span>조회 출처</span>
+            <strong>VWorld · 토지이음</strong>
+            <small>국토교통부 공개정보 · 토지이용계획 열람정보와 필지 경계는 참고용이며 법적 증명 효력이 없습니다.</small>
+          </div>
+        </div>
+        <section class="detail-tab-panel building-card land-register-card" id="detailPanelRegister" role="tabpanel" aria-labelledby="detailTabRegister" data-detail-panel="register" hidden>
           <div class="building-card-head">
             <div>
               <span>토지·임야대장 공개정보</span>
@@ -151,7 +178,7 @@
             <p class="building-empty">토지대장 공개정보를 확인하고 있어요.</p>
           </div>
         </section>
-        <section class="building-card eum-card" aria-labelledby="eumCardTitle">
+        <section class="detail-tab-panel building-card eum-card" id="detailPanelUse" role="tabpanel" aria-labelledby="detailTabUse" data-detail-panel="use" hidden>
           <div class="building-card-head">
             <div>
               <span>토지이음 공식 조회</span>
@@ -163,7 +190,7 @@
             <p class="building-empty">용도지역·지구와 행위제한 근거를 확인하고 있어요.</p>
           </div>
         </section>
-        <section class="building-card" aria-labelledby="buildingCardTitle">
+        <section class="detail-tab-panel building-card" id="detailPanelBuilding" role="tabpanel" aria-labelledby="detailTabBuilding" data-detail-panel="building" hidden>
           <div class="building-card-head">
             <div>
               <span>건축물대장</span>
@@ -175,12 +202,7 @@
             <p class="building-empty">건축물 정보를 확인하고 있어요.</p>
           </div>
         </section>
-        <div class="source-card">
-          <span>조회 출처</span>
-          <strong>VWorld · 토지이음</strong>
-          <small>국토교통부 공개정보 · 토지이용계획 열람정보와 필지 경계는 참고용이며 법적 증명 효력이 없습니다.</small>
-        </div>
-        <section class="related-services" aria-labelledby="relatedServicesTitle">
+        <section class="detail-tab-panel related-services" id="detailPanelLinks" role="tabpanel" aria-labelledby="detailTabLinks" data-detail-panel="links" hidden>
           <div class="related-services-head">
             <span>공식 정보 확인</span>
             <strong id="relatedServicesTitle">유관 기관 바로가기</strong>
@@ -212,7 +234,7 @@
         </section>
         <div class="detail-buttons">
           <button class="button secondary" type="button" id="openExport">보고서 다운로드</button>
-          <a class="button primary" href="https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000026&HighCtgCD=A09005" target="_blank" rel="noopener noreferrer">정부24 공식 열람·발급</a>
+          <a class="button primary" href="https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000026&HighCtgCD=A09005" target="_blank" rel="noopener noreferrer">토지대장 열람·발급</a>
         </div>
       </section>
 
@@ -222,12 +244,12 @@
         <button class="dialog-close" type="button" id="dialogClose" aria-label="도움말 닫기">×</button>
         <span class="dialog-icon">⌁</span>
         <h2>토지한눈 이용 안내</h2>
-        <p>주소나 지번을 검색하거나 ‘위성+지적’ 지도에서 필지를 눌러 토지 정보를 살펴보세요.</p>
+        <p>주소나 지번을 검색하거나 일반·위성·위성+지적 지도에서 필지를 눌러 토지 정보를 살펴보세요.</p>
         <ul>
           <li>검색과 필지 경계는 VWorld 공간정보 오픈플랫폼을 이용합니다.</li>
           <li>연속지적도는 참고용이며 실제 측량 경계와 차이가 있을 수 있습니다.</li>
           <li>지목·면적·소유구분 등 개인정보를 제외한 대장 정보는 화면에서 바로 조회합니다.</li>
-          <li>소유자 성명 등 전체 내용과 법적 증명이 필요하면 정부24 공식 열람·발급을 이용해 주세요.</li>
+          <li>소유자 성명 등 전체 내용과 법적 증명이 필요하면 정부24 토지대장 열람·발급을 이용해 주세요.</li>
         </ul>
         <a class="privacy-link" href="./privacy.html" target="_blank" rel="noopener noreferrer">개인정보처리방침</a>
         <button class="button primary full" type="button" id="dialogConfirm">확인했어요</button>
@@ -259,6 +281,6 @@
     <script src="https://cdn.jsdelivr.net/npm/docx@9.10.0/dist/index.iife.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.0/dist/pptxgen.bundle.js"></script>
     <script src="./report-export.js?v=20261012.2"></script>
-    <script src="./app.js?v=20261012.2"></script>
+    <script src="./app.js?v=20261012.3"></script>
   </body>
 </html>

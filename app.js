@@ -25,6 +25,7 @@ const FAVORITES_KEY = "tojihannun-vworld-favorites-v1";
 
 const state = {
   mapMode: "normal",
+  detailTab: "summary",
   filter: "all",
   view: "map",
   searchMode: "all",
@@ -83,16 +84,19 @@ function initMap() {
   baseSource = new XYZ({
     url: "https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png",
     maxZoom: 19,
+    transition: 0,
     attributions: "© VWorld"
   });
   satelliteSource = new XYZ({
     url: "https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{y}.jpeg",
     maxZoom: 19,
+    transition: 0,
     attributions: "© VWorld"
   });
   hybridSource = new XYZ({
     url: "https://xdworld.vworld.kr/2d/Hybrid/service/{z}/{x}/{y}.png",
     maxZoom: 19,
+    transition: 0,
     attributions: "© VWorld"
   });
 
@@ -113,10 +117,10 @@ function initMap() {
   if (!USE_VWORLD_JSONP) cadastralOptions.crossOrigin = "anonymous";
   cadastralSource = new TileWMS(cadastralOptions);
 
-  baseLayer = new TileLayer({source: baseSource, visible: true});
-  satelliteLayer = new TileLayer({source: satelliteSource, visible: false});
-  hybridLayer = new TileLayer({source: hybridSource, visible: false});
-  cadastralLayer = new TileLayer({source: cadastralSource, visible: false, opacity: 0.88});
+  baseLayer = new TileLayer({source: baseSource, visible: true, preload: 0, useInterimTilesOnError: false});
+  satelliteLayer = new TileLayer({source: satelliteSource, visible: false, preload: 0, useInterimTilesOnError: false});
+  hybridLayer = new TileLayer({source: hybridSource, visible: false, preload: 0, useInterimTilesOnError: false});
+  cadastralLayer = new TileLayer({source: cadastralSource, visible: false, opacity: 0.88, preload: 0, useInterimTilesOnError: false});
   markerLayer = new VectorLayer({source: markerSource, style: markerStyle, zIndex: 20});
   selectionLayer = new VectorLayer({source: selectionSource, style: selectionStyle, zIndex: 18});
 
@@ -128,7 +132,8 @@ function initMap() {
       center: fromLonLat([126.978, 37.5665]),
       zoom: 12,
       minZoom: 6,
-      maxZoom: 19
+      maxZoom: 19,
+      constrainResolution: true
     })
   });
 
@@ -170,7 +175,7 @@ function setMapMode(mode, announce = true) {
   hybridLayer.setVisible(mode === "satellite");
   cadastralLayer.setVisible(mode === "cadastral");
   $$("[data-map-mode]").forEach((button) => button.classList.toggle("active", button.dataset.mapMode === mode));
-  $("#vworldMap").classList.toggle("parcel-pick-mode", mode === "cadastral");
+  $("#vworldMap").classList.add("parcel-pick-mode");
   if (announce) {
     const labels = {normal: "일반지도로 전환했어요.", satellite: "위성지도로 전환했어요.", cadastral: "위성지도에 연속지적도를 표시했어요."};
     showToast(labels[mode]);
@@ -182,10 +187,6 @@ async function handleMapClick(event) {
   if (hit?.get("recordId")) {
     const record = state.records.find((item) => item.id === hit.get("recordId"));
     if (record) openDetail(record);
-    return;
-  }
-  if (state.mapMode !== "cadastral") {
-    showToast("‘위성+지적’을 선택하면 필지를 눌러 조회할 수 있어요.");
     return;
   }
   if (state.loadingParcel) return;
@@ -755,11 +756,29 @@ function showSelectedParcel(record, rawFeature) {
       const feature = geoJson.readFeature(rawFeature, {dataProjection: "EPSG:4326", featureProjection: "EPSG:3857"});
       feature.set("recordId", record.id);
       selectionSource.addFeature(feature);
+      map.getView().cancelAnimations();
       map.getView().fit(feature.getGeometry().getExtent(), {padding: [140, 70, 260, 70], maxZoom: 19, duration: 450});
     } catch (error) {
       console.warn("Parcel geometry could not be rendered", error);
     }
   }
+}
+
+function renderDetailHighlight(record) {
+  const land = record.landRegister || {};
+  const base = land.base || {};
+  const ownership = land.ownership || {};
+  const characteristic = land.characteristic || {};
+  const price = land.price || {};
+  const area = Number(base.lndpclAr || ownership.lndpclAr || characteristic.lndpclAr || 0);
+  const items = [
+    ["지목", base.lndcgrCodeNm || ownership.lndcgrCodeNm || characteristic.lndcgrCodeNm || "조회 중", "green"],
+    ["면적", area ? formatMetric(area, "㎡") : "조회 중", "blue"],
+    ["용도지역", characteristic.prposArea1Nm || record.eumLandUse?.nationalPlan?.[0]?.name || "조회 중", "purple"],
+    ["개별공시지가", formatLandPrice(price) === "-" ? "조회 중" : formatLandPrice(price), "orange"]
+  ];
+  $("#detailHighlight").innerHTML = items.map(([label, value, tone]) => `
+    <div class="${tone}"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
 }
 
 function formatMetric(value, suffix) {
@@ -1004,6 +1023,7 @@ async function loadLandRegisterDetails(record) {
     record.landRegisterLoading = false;
     if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) {
       renderLandRegisterSection(record);
+      renderDetailHighlight(record);
       if (record.eumLandUse) renderEumLandUseSection(record);
     }
     if (state.favorites.has(record.id)) persistFavorites();
@@ -1064,7 +1084,10 @@ async function loadEumLandUse(record) {
     record.eumLandUseError = true;
   } finally {
     record.eumLandUseLoading = false;
-    if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) renderEumLandUseSection(record);
+    if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) {
+      renderEumLandUseSection(record);
+      renderDetailHighlight(record);
+    }
   }
 }
 
@@ -1149,6 +1172,7 @@ function openDetail(record) {
     ["위도", Number(record.lat).toFixed(6)]
   ];
   $("#landFacts").innerHTML = facts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+  renderDetailHighlight(record);
   renderLandRegisterSection(record);
   void loadLandRegisterDetails(record);
   renderEumLandUseSection(record);
@@ -1158,8 +1182,24 @@ function openDetail(record) {
   updateDetailFavorite(record.id);
   detailSheet.classList.add("open");
   detailSheet.setAttribute("aria-hidden", "false");
+  setDetailTab("summary", false);
   $("#mapStatus").textContent = record.address || "선택한 필지";
   render();
+}
+
+function setDetailTab(tab, focus = true) {
+  const nextButton = $(`[data-detail-tab="${tab}"]`);
+  if (!nextButton) return;
+  state.detailTab = tab;
+  $$('[data-detail-tab]').forEach((button) => {
+    const active = button === nextButton;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  $$('[data-detail-panel]').forEach((panel) => { panel.hidden = panel.dataset.detailPanel !== tab; });
+  $("#detailSheet").scrollTo({top: 0, behavior: "auto"});
+  if (focus) nextButton.focus({preventScroll: true});
 }
 
 function closeDetail() {
@@ -1183,7 +1223,7 @@ function render() {
       <strong>${escapeHtml(record.address || "선택한 필지")}</strong>
       <small>${escapeHtml(record.number || "지번 확인 중")} · ${state.favorites.has(record.id) ? "★ 관심 토지" : record.pnu ? "PNU 확인됨" : "주소 검색 결과"}</small>
       <em>›</em>
-    </button>`).join("") : `<div class="empty-result">${state.filter === "favorite" ? "아직 저장한 관심 토지가 없어요." : "주소를 검색하거나 ‘위성+지적’ 지도에서 필지를 선택해 보세요."}</div>`;
+    </button>`).join("") : `<div class="empty-result">${state.filter === "favorite" ? "아직 저장한 관심 토지가 없어요." : "주소를 검색하거나 지도에서 필지를 선택해 보세요."}</div>`;
   $$("[data-record-id]").forEach((button) => button.addEventListener("click", async () => {
     const record = state.records.find((item) => item.id === button.dataset.recordId);
     if (!record) return;
@@ -1321,6 +1361,18 @@ $("#favoritesButton").addEventListener("click", () => {
 
 $("#detailFavorite").addEventListener("click", () => toggleFavorite());
 $("#detailClose").addEventListener("click", closeDetail);
+
+$$('[data-detail-tab]').forEach((button) => {
+  button.addEventListener("click", () => setDetailTab(button.dataset.detailTab));
+  button.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const tabs = $$('[data-detail-tab]');
+    const current = tabs.indexOf(button);
+    const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    setDetailTab(tabs[nextIndex].dataset.detailTab);
+  });
+});
 
 $$('.related-service-link').forEach((link) => link.addEventListener("click", async (event) => {
   const record = state.records.find((item) => item.id === state.selectedId);

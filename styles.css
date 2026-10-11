@@ -24,6 +24,7 @@ button { color: inherit; }
 .map-stage { position: fixed; inset: 0; overflow: hidden; background: #e9eee8; }
 .map-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(12, 49, 39, .06), transparent 25%, transparent 72%, rgba(12, 49, 39, .08)); }
 .vworld-map { position: absolute; inset: 0; background: #e8eee9; }
+.vworld-map.parcel-pick-mode { cursor: crosshair; }
 .vworld-map .ol-viewport { font-family: "Noto Sans KR", system-ui, sans-serif; }
 .vworld-map .ol-attribution { right: 10px; bottom: 11px; max-width: min(70%, 620px); }
 .vworld-map .ol-attribution button { border-radius: 8px; }
@@ -138,11 +139,33 @@ button { color: inherit; }
 .detail-road { margin: 0 0 14px; color: var(--ink-soft); font-size: 13px; }
 .demo-notice { display: flex; gap: 9px; align-items: flex-start; padding: 10px 12px; border-radius: 11px; background: #fff8e8; color: #705d2e; font-size: 11px; line-height: 1.55; }
 .demo-notice span { display: grid; place-items: center; flex: 0 0 17px; height: 17px; border-radius: 50%; background: #e8b54d; color: #fff; font-family: serif; font-weight: 700; }
+.detail-tabs { position: sticky; z-index: 3; top: -7px; display: flex; gap: 5px; margin: 13px -22px 0; padding: 8px 22px; overflow-x: auto; border-top: 1px solid #e4ebe7; border-bottom: 1px solid #dfe7e3; background: rgba(255,255,255,.97); box-shadow: 0 5px 14px rgba(23,54,45,.05); scrollbar-width: none; }
+.detail-tabs::-webkit-scrollbar { display: none; }
+.detail-tabs button { flex: 1 0 auto; min-height: 38px; padding: 0 12px; border: 1px solid transparent; border-radius: 11px; background: #f2f5f3; color: #5d7069; font-size: 11px; font-weight: 800; cursor: pointer; }
+.detail-tabs button:hover, .detail-tabs button:focus-visible { border-color: #93b9aa; outline: 0; }
+.detail-tabs button.active { border-color: var(--green); background: var(--green); color: #fff; box-shadow: 0 5px 14px rgba(23,107,84,.2); }
+.detail-tab-panel { padding-top: 14px; }
+.detail-tab-panel[hidden] { display: none; }
+.detail-tab-panel.building-card, .detail-tab-panel.related-services { margin-top: 14px; padding-top: 0; }
+.detail-section-heading > * { display: block; }
+.detail-section-heading span { color: #71827c; font-size: 10px; font-weight: 700; }
+.detail-section-heading strong { margin-top: 2px; color: var(--ink); font-size: 15px; }
+.detail-highlight { padding: 15px; border: 1px solid #dce7e2; border-radius: 17px; background: linear-gradient(145deg, #f8fbf9, #fff); }
+.detail-highlight dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 13px 0 0; }
+.detail-highlight dl > div { min-width: 0; padding: 12px; border-radius: 12px; }
+.detail-highlight dt { font-size: 10px; font-weight: 800; opacity: .72; }
+.detail-highlight dd { margin: 5px 0 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 850; line-height: 1.35; }
+.detail-highlight .green { background: #e3f4eb; color: #0f6249; }
+.detail-highlight .blue { background: #e7f1fc; color: #1d5b97; }
+.detail-highlight .purple { background: #eee9fa; color: #604490; }
+.detail-highlight .orange { background: #fff0de; color: #a45112; }
+.parcel-id-card { margin-top: 12px; padding: 15px; border: 1px solid #e1e8e4; border-radius: 16px; background: #fff; }
 .land-facts { display: grid; grid-template-columns: repeat(2, 1fr); margin: 16px 0; border-top: 1px solid #e2e8e4; }
 .land-facts > div { padding: 12px 4px; border-bottom: 1px solid #e2e8e4; }
 .land-facts > div:nth-child(odd) { border-right: 1px solid #e2e8e4; }
 .land-facts dt { color: #71827c; font-size: 11px; }
 .land-facts dd { margin: 4px 0 0; color: var(--ink); font-size: 14px; font-weight: 700; }
+.parcel-id-card .land-facts { margin: 11px 0 0; }
 .building-card { margin: 15px 0; overflow: hidden; border: 1px solid #dfe8e3; border-radius: 16px; background: #fff; }
 .building-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 14px; background: #f2f7f4; }
 .building-card-head div > span, .building-card-head div > strong { display: block; }
@@ -289,6 +312,8 @@ button { color: inherit; }
   .quick-card { min-height: 82px; }
   .quick-copy small { margin-top: 2px; }
   .detail-sheet { width: 100%; border-radius: 26px 26px 0 0; }
+  .detail-tabs { margin-left: -22px; margin-right: -22px; padding-left: 16px; padding-right: 16px; }
+  .detail-tabs button { flex: 0 0 auto; }
   .export-dialog { padding: 22px 18px; }
   .export-grid { gap: 7px; }
   .export-grid button { grid-template-columns: 46px 1fr; min-height: 66px; padding: 8px; }
