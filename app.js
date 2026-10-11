@@ -1500,6 +1500,12 @@ function openGoogleDirections(record) {
   window.open(url.toString(), "_blank", "noopener,noreferrer");
 }
 
+function openKakaoDirections(record) {
+  if (!record || !Number.isFinite(record.lat) || !Number.isFinite(record.lon)) return showToast("길찾기에 사용할 좌표가 없습니다.");
+  const name = encodeURIComponent(record.address || record.road || "선택한 필지");
+  window.open(`https://map.kakao.com/link/to/${name},${record.lat},${record.lon}`, "_blank", "noopener,noreferrer");
+}
+
 function openDetail(record) {
   if (!record) return;
   const detailSheet = $("#detailSheet");
@@ -1786,6 +1792,11 @@ $("#openNaverDirections").addEventListener("click", () => {
 $("#openGoogleDirections").addEventListener("click", () => {
   const record = state.records.find((item) => item.id === state.selectedId);
   openGoogleDirections(record);
+});
+
+$("#openKakaoDirections").addEventListener("click", () => {
+  const record = state.records.find((item) => item.id === state.selectedId);
+  openKakaoDirections(record);
 });
 
 $("#fieldRecordForm").addEventListener("submit", (event) => {

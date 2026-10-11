@@ -152,11 +152,11 @@ button { color: inherit; }
 .detail-sheet h2 { margin: 13px 0 5px; font-size: clamp(20px, 5vw, 27px); letter-spacing: -.045em; }
 .detail-road { margin: 0 0 10px; color: var(--ink-soft); font-size: 13px; }
 .directions-actions { display: flex; flex-wrap: wrap; gap: 7px; }
-.directions-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 35px; padding: 0 10px; border: 1px solid #d9e4df; border-radius: 10px; background: #fff; color: #425e55; font-size: 11px; font-weight: 800; cursor: pointer; }
+.directions-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 35px; padding: 0 10px; border: 1px solid #d9e4df; border-radius: 10px; background: #fff; color: #425e55; font-size: 11px; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .directions-actions button:hover, .directions-actions button:focus-visible { border-color: var(--green); outline: 0; background: #f0f8f4; }
 .directions-actions span { display: grid; place-items: center; width: 19px; height: 19px; border-radius: 6px; background: var(--green); color: #fff; font-size: 10px; font-weight: 900; }
 #openGoogleDirections span { background: #3976d7; }
-.directions-notice { margin: 7px 0 0; color: #7a6450; font-size: 9px; line-height: 1.5; }
+#openKakaoDirections span { background: #fee500; color: #191919; }
 .demo-notice { display: flex; gap: 9px; align-items: flex-start; padding: 10px 12px; border-radius: 11px; background: #fff8e8; color: #705d2e; font-size: 11px; line-height: 1.55; }
 .demo-notice span { display: grid; place-items: center; flex: 0 0 17px; height: 17px; border-radius: 50%; background: #e8b54d; color: #fff; font-family: serif; font-weight: 700; }
 .detail-notice-bottom { margin-top: 12px; }
@@ -182,13 +182,14 @@ button { color: inherit; }
 .detail-highlight .orange { background: #fff0de; color: #a45112; }
 .detail-highlight .gold { background: #fff7d8; color: #80650b; }
 .detail-highlight .purple:last-child { grid-column: 1 / -1; }
-.parcel-id-card { margin-top: 12px; padding: 15px; border: 1px solid #e1e8e4; border-radius: 16px; background: #fff; }
+.parcel-identity { margin-top: 14px; padding-top: 14px; border-top: 1px solid #dce7e2; }
 .land-facts { display: grid; grid-template-columns: repeat(2, 1fr); margin: 16px 0; border-top: 1px solid #e2e8e4; }
 .land-facts > div { padding: 12px 4px; border-bottom: 1px solid #e2e8e4; }
 .land-facts > div:nth-child(odd) { border-right: 1px solid #e2e8e4; }
 .land-facts dt { color: #71827c; font-size: 11px; }
 .land-facts dd { margin: 4px 0 0; color: var(--ink); font-size: 14px; font-weight: 700; }
-.parcel-id-card .land-facts { margin: 11px 0 0; }
+.parcel-identity .land-facts { margin: 11px 0 0; }
+.detail-summary-panel { padding-top: 0; }
 .card-meta { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 7px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e9e5; color: #6f7f79; line-height: 1.45; }
 .card-meta span { grid-row: 1 / 3; align-self: start; padding: 2px 6px; border-radius: 6px; background: #edf4f0; color: #526c63; font-size: 9px; font-weight: 800; }
 .card-meta strong { overflow-wrap: anywhere; color: #36594d; font-size: 10px; }
@@ -409,7 +410,7 @@ button { color: inherit; }
   .detail-sheet { width: 100%; border-radius: 26px 26px 0 0; }
   .detail-tabs { margin-left: -22px; margin-right: -22px; padding-left: 16px; padding-right: 16px; }
   .detail-tabs button { flex: 0 0 auto; }
-  .directions-actions button { flex: 1 1 140px; justify-content: center; }
+  .directions-actions button { flex: 1 1 100px; justify-content: center; gap: 4px; padding: 0 7px; font-size: 10px; }
   .field-status-options { gap: 4px; }
   .field-status span { min-height: 39px; padding: 4px; font-size: 8px; }
   .export-dialog { padding: 22px 18px; }
@@ -441,7 +442,6 @@ button { color: inherit; }
   .detail-highlight dt { font-size: 12px; }
   .detail-highlight dd { font-size: 17px; }
   .directions-actions button { min-height: 39px; font-size: 13px; }
-  .directions-notice { font-size: 11px; }
   .card-meta span { font-size: 10px; }
   .card-meta strong { font-size: 12px; }
   .card-meta small { font-size: 11px; }
