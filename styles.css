@@ -139,6 +139,7 @@ button { color: inherit; }
 .detail-road { margin: 0 0 14px; color: var(--ink-soft); font-size: 13px; }
 .demo-notice { display: flex; gap: 9px; align-items: flex-start; padding: 10px 12px; border-radius: 11px; background: #fff8e8; color: #705d2e; font-size: 11px; line-height: 1.55; }
 .demo-notice span { display: grid; place-items: center; flex: 0 0 17px; height: 17px; border-radius: 50%; background: #e8b54d; color: #fff; font-family: serif; font-weight: 700; }
+.detail-notice-bottom { margin-top: 12px; }
 .detail-tabs { position: sticky; z-index: 3; top: -7px; display: flex; gap: 5px; margin: 13px -22px 0; padding: 8px 22px; overflow-x: auto; border-top: 1px solid #e4ebe7; border-bottom: 1px solid #dfe7e3; background: rgba(255,255,255,.97); box-shadow: 0 5px 14px rgba(23,54,45,.05); scrollbar-width: none; }
 .detail-tabs::-webkit-scrollbar { display: none; }
 .detail-tabs button { flex: 1 0 auto; min-height: 38px; padding: 0 12px; border: 1px solid transparent; border-radius: 11px; background: #f2f5f3; color: #5d7069; font-size: 11px; font-weight: 800; cursor: pointer; }
