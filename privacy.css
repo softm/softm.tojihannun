@@ -1,0 +1,19 @@
+:root { color-scheme: light; --ink: #16241f; --soft: #64766f; --green: #176b54; --pale: #eaf3ef; --line: #dce5e0; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #f3f7f5; color: var(--ink); font-family: "Noto Sans KR", Arial, sans-serif; }
+.policy-shell { width: min(760px, calc(100% - 28px)); margin: 0 auto; padding: 32px 0 56px; }
+.back-link { display: inline-flex; margin-bottom: 18px; color: var(--green); font-size: 13px; font-weight: 700; text-decoration: none; }
+header, section { border: 1px solid var(--line); border-radius: 20px; background: #fff; box-shadow: 0 10px 32px rgba(25, 64, 51, .06); }
+header { padding: clamp(26px, 6vw, 48px); }
+header span { color: var(--green); font-size: 13px; font-weight: 800; letter-spacing: .08em; }
+h1 { margin: 10px 0 12px; font-size: clamp(30px, 7vw, 46px); letter-spacing: -.05em; }
+header p { max-width: 620px; margin: 0; color: var(--soft); font-size: 15px; line-height: 1.75; }
+header time { display: inline-flex; margin-top: 20px; padding: 7px 10px; border-radius: 8px; background: var(--pale); color: var(--green); font-size: 11px; font-weight: 700; }
+section { margin-top: 14px; padding: 24px 28px; }
+h2 { margin: 0 0 10px; font-size: 18px; letter-spacing: -.03em; }
+section p, section li { color: #50645c; font-size: 13px; line-height: 1.8; }
+section p { margin: 0; }
+ul { margin: 10px 0 0; padding-left: 20px; }
+a { color: var(--green); text-underline-offset: 3px; }
+footer { padding: 25px 4px 0; color: #718079; font-size: 11px; text-align: center; }
+@media (max-width: 520px) { .policy-shell { padding-top: 20px; } section { padding: 20px; border-radius: 16px; } }

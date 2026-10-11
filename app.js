@@ -838,6 +838,7 @@ function openDetail(record) {
   $("#detailType").classList.toggle("forest", record.type === "forest");
   $("#detailTitle").textContent = record.address || "선택한 토지";
   $("#detailRoad").textContent = record.road || "도로명 주소가 제공되지 않는 필지입니다.";
+  $("#relatedParcelAddress").textContent = record.address || record.road || "선택한 지번";
   const facts = [
     ["지번", record.number || "확인되지 않음"],
     ["대장 구분", record.typeLabel],
@@ -1011,6 +1012,19 @@ $("#favoritesButton").addEventListener("click", () => {
 
 $("#detailFavorite").addEventListener("click", () => toggleFavorite());
 $("#detailClose").addEventListener("click", closeDetail);
+
+$$('.related-service-link').forEach((link) => link.addEventListener("click", async () => {
+  const record = state.records.find((item) => item.id === state.selectedId);
+  const address = record?.address || record?.road;
+  const label = link.dataset.serviceLabel || "유관 기관";
+  if (!address) return showToast(`${label} 공식 사이트를 새 창에서 열었어요.`);
+  try {
+    await navigator.clipboard.writeText(address);
+    showToast(`${label} 검색용 지번을 복사했어요.`);
+  } catch {
+    showToast(`${label} 공식 사이트를 새 창에서 열었어요.`);
+  }
+}));
 
 const exportDialog = $("#exportDialog");
 const exportLabels = {pdf: "PDF", docx: "DOCX", hwpx: "HWPX", pptx: "PPTX", png: "PNG", jpg: "JPG"};
