@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>건축물대장 원문 | 토지한눈</title>
+    <link rel="stylesheet" href="./building-ledger.css" />
+  </head>
+  <body>
+    <header class="viewer-header">
+      <a class="viewer-brand" href="./" aria-label="토지한눈으로 돌아가기"><span>▣</span> 토지한눈</a>
+      <nav class="viewer-tabs" aria-label="대장 보기">
+        <a href="./">지도</a>
+        <span aria-current="page">건축물대장</span>
+      </nav>
+      <div class="viewer-actions">
+        <a id="externalLink" href="#" target="_blank" rel="noopener noreferrer">새 창으로 열기</a>
+        <button id="closeViewer" type="button">닫기</button>
+      </div>
+    </header>
+    <main class="viewer-main">
+      <div class="viewer-status" id="viewerStatus" role="status">국토교통부 건축물대장을 불러오고 있어요.</div>
+      <iframe id="ledgerFrame" title="국토교통부 건축물대장 미리보기" loading="eager"></iframe>
+      <section class="viewer-error" id="viewerError" hidden>
+        <strong>건축물대장을 표시할 수 없습니다.</strong>
+        <p>주소가 올바르지 않거나 외부 사이트 연결이 제한되었을 수 있습니다.</p>
+        <a id="errorExternalLink" href="#" target="_blank" rel="noopener noreferrer">국토교통부 페이지에서 열기</a>
+      </section>
+    </main>
+    <script src="./building-ledger.js"></script>
+  </body>
+</html>

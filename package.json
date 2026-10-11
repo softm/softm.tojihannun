@@ -1,0 +1,20 @@
+{
+  "name": "land-at-a-glance",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@ssabrojs/hwpxjs": "^0.4.0",
+    "docx": "^9.10.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "ol": "10.6.1",
+    "pptxgenjs": "^4.0.0"
+  },
+  "overrides": {
+    "image-size": "2.0.4"
+  }
+}

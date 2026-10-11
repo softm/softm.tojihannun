@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#163d32" />
+    <meta name="description" content="VWorld 지도에서 주소와 지번을 검색하고 연속지적도를 확인하는 토지한눈" />
+    <title>토지한눈 | 쉬운 토지대장 조회</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./node_modules/ol/ol.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">본문으로 바로가기</a>
+    <main id="main" class="app-shell">
+      <section class="map-stage" aria-label="토지 위치 지도">
+        <div class="vworld-map" id="vworldMap" aria-label="VWorld 지도"></div>
+        <div class="map-loading" id="mapLoading" role="status">
+          <span class="loading-spinner" aria-hidden="true"></span>
+          <b>VWorld 지도를 불러오는 중</b>
+        </div>
+        <div class="map-error" id="mapError" role="alert" hidden>
+          <strong>지도를 불러오지 못했어요</strong>
+          <span id="mapErrorMessage">잠시 후 다시 시도해 주세요.</span>
+          <button type="button" id="mapRetry">다시 시도</button>
+        </div>
+
+        <header class="topbar">
+          <button class="brand" type="button" aria-label="토지한눈 홈" id="brandButton">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 40 40"><path d="M7 9.5 20 4l13 5.5v20L20 36 7 29.5Z"/><path d="m7 9.5 13 6 13-6M20 15.5V36"/></svg>
+            </span>
+            <span>토지<b>한눈</b></span>
+          </button>
+          <div class="top-actions">
+            <button class="round-button" type="button" id="favoritesButton" aria-label="관심 토지 보기">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg>
+              <span class="badge" id="favoriteCount">0</span>
+            </button>
+            <button class="round-button" type="button" id="helpButton" aria-label="도움말">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.3 1-1.3 1.9M12 17h.01"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="search-wrap">
+          <form class="search-box" id="searchForm" role="search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+            <label class="sr-only" for="searchInput">도로명, 지번 또는 건물명 검색</label>
+            <input id="searchInput" type="search" autocomplete="off" placeholder="도로명, 지번 또는 건물명 검색" />
+            <button class="search-submit" type="submit">검색</button>
+          </form>
+          <div class="search-suggestions" id="searchSuggestions" role="listbox" aria-label="검색 결과"></div>
+        </div>
+
+        <div class="map-mode-control" role="group" aria-label="지도 유형">
+          <button class="active" type="button" data-map-mode="normal">일반</button>
+          <button type="button" data-map-mode="satellite">위성</button>
+          <button type="button" data-map-mode="cadastral">위성+지적</button>
+        </div>
+
+        <div class="map-controls" aria-label="지도 조작">
+          <button type="button" id="locateButton" aria-label="내 위치로 이동">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          </button>
+          <div class="zoom-controls">
+            <button type="button" id="zoomIn" aria-label="지도 확대">＋</button>
+            <button type="button" id="zoomOut" aria-label="지도 축소">−</button>
+          </div>
+        </div>
+
+        <div class="map-status" id="mapStatus">대한민국 · VWorld</div>
+        <div class="map-attribution">공간정보 오픈플랫폼 VWorld · 연속지적도는 참고용입니다</div>
+      </section>
+
+      <section class="sheet" id="mainSheet" aria-labelledby="sheetTitle">
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <div class="sheet-header">
+          <div>
+            <span class="eyebrow">쉬운 토지 정보 찾기</span>
+            <h1 id="sheetTitle">어떤 토지를 찾으세요?</h1>
+          </div>
+          <button class="sheet-close" id="sheetToggle" type="button" aria-label="검색 패널 접기" aria-expanded="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg>
+          </button>
+        </div>
+
+        <div class="quick-grid" id="quickGrid">
+          <button class="quick-card blue" type="button" data-mode="road">
+            <span class="quick-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 27 12 5h8l5 22M16 7v4M16 15v4M16 23v3"/></svg></span>
+            <span class="quick-copy"><b>도로명으로 찾기</b><strong>도로명 주소</strong><small>건물 주소로 토지를 찾아요</small></span>
+            <span class="chevron">›</span>
+          </button>
+          <button class="quick-card green" type="button" data-mode="lot">
+            <span class="quick-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 7h22v18H5zM12 7v18M21 7v18M5 15h22"/></svg></span>
+            <span class="quick-copy"><b>지번으로 찾기</b><strong>토지·임야</strong><small>읍면동과 지번으로 찾아요</small></span>
+            <span class="chevron">›</span>
+          </button>
+          <button class="quick-card purple" type="button" data-mode="map">
+            <span class="quick-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="m4 8 8-4 8 4 8-4v20l-8 4-8-4-8 4ZM12 4v20M20 8v20"/></svg></span>
+            <span class="quick-copy"><b>지도에서 고르기</b><strong>주변 토지</strong><small>지적 경계를 눌러 살펴봐요</small></span>
+            <span class="chevron">›</span>
+          </button>
+        </div>
+
+        <div class="filter-row" aria-label="토지 필터">
+          <button class="filter-chip active" type="button" data-filter="all">전체</button>
+          <button class="filter-chip" type="button" data-filter="land">토지대장</button>
+          <button class="filter-chip" type="button" data-filter="forest">임야대장</button>
+          <button class="filter-chip" type="button" data-filter="favorite">관심 토지</button>
+        </div>
+
+        <div class="result-head">
+          <p><b id="resultCount">0</b>개의 토지를 찾았어요</p>
+          <div class="view-switch" role="group" aria-label="보기 방식">
+            <button class="active" type="button" data-view="map">지도</button>
+            <button type="button" data-view="list">목록</button>
+          </div>
+        </div>
+        <div class="land-list" id="landList"></div>
+      </section>
+
+      <section class="detail-sheet" id="detailSheet" aria-labelledby="detailTitle" aria-hidden="true">
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <div class="detail-top">
+          <span class="status-pill" id="detailType">토지대장</span>
+          <div class="detail-actions">
+            <button type="button" id="detailFavorite" aria-label="관심 토지에 추가">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg>
+            </button>
+            <button type="button" id="detailClose" aria-label="상세 정보 닫기">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            </button>
+          </div>
+        </div>
+        <h2 id="detailTitle">선택한 토지</h2>
+        <p class="detail-road" id="detailRoad">VWorld 검색 결과</p>
+        <div class="demo-notice"><span>i</span> 국토교통부 공개정보를 별도 발급 없이 조회합니다. 소유자 개인정보는 제외되며, 법적 증명이 필요하면 정부24 공식 열람·발급을 이용해 주세요.</div>
+        <dl class="land-facts" id="landFacts"></dl>
+        <section class="building-card land-register-card" aria-labelledby="landRegisterCardTitle">
+          <div class="building-card-head">
+            <div>
+              <span>토지·임야대장 공개정보</span>
+              <strong id="landRegisterCardTitle">토지대장 정보</strong>
+            </div>
+            <span class="building-count land-register-badge" id="landRegisterBadge">조회 중</span>
+          </div>
+          <div class="building-content" id="landRegisterContent" aria-live="polite">
+            <p class="building-empty">토지대장 공개정보를 확인하고 있어요.</p>
+          </div>
+        </section>
+        <section class="building-card" aria-labelledby="buildingCardTitle">
+          <div class="building-card-head">
+            <div>
+              <span>건축물대장</span>
+              <strong id="buildingCardTitle">건축물 정보</strong>
+            </div>
+            <span class="building-count" id="buildingCount" hidden></span>
+          </div>
+          <div class="building-content" id="buildingContent" aria-live="polite">
+            <p class="building-empty">건축물 정보를 확인하고 있어요.</p>
+          </div>
+        </section>
+        <div class="source-card">
+          <span>조회 출처</span>
+          <strong>VWorld 공간정보 오픈플랫폼</strong>
+          <small>국토교통부 국가공간정보센터 공개 API · 필지 경계는 측량 성과와 차이가 있을 수 있습니다.</small>
+        </div>
+        <div class="detail-buttons">
+          <button class="button secondary" type="button" id="openExport">보고서 다운로드</button>
+          <a class="button primary" href="https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000026&HighCtgCD=A09005" target="_blank" rel="noopener noreferrer">정부24 공식 열람·발급</a>
+        </div>
+      </section>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+      <dialog class="info-dialog" id="infoDialog">
+        <button class="dialog-close" type="button" id="dialogClose" aria-label="도움말 닫기">×</button>
+        <span class="dialog-icon">⌁</span>
+        <h2>토지한눈 이용 안내</h2>
+        <p>주소나 지번을 검색하거나 ‘위성+지적’ 지도에서 필지를 눌러 토지 정보를 살펴보세요.</p>
+        <ul>
+          <li>검색과 필지 경계는 VWorld 공간정보 오픈플랫폼을 이용합니다.</li>
+          <li>연속지적도는 참고용이며 실제 측량 경계와 차이가 있을 수 있습니다.</li>
+          <li>지목·면적·소유구분 등 개인정보를 제외한 대장 정보는 화면에서 바로 조회합니다.</li>
+          <li>소유자 성명 등 전체 내용과 법적 증명이 필요하면 정부24 공식 열람·발급을 이용해 주세요.</li>
+        </ul>
+        <button class="button primary full" type="button" id="dialogConfirm">확인했어요</button>
+      </dialog>
+
+      <dialog class="export-dialog" id="exportDialog" aria-labelledby="exportDialogTitle">
+        <button class="dialog-close" type="button" id="exportClose" aria-label="다운로드 창 닫기">×</button>
+        <span class="export-kicker">토지정보 보고서</span>
+        <h2 id="exportDialogTitle">다운로드 형식을 선택하세요</h2>
+        <p class="export-address" id="exportAddress">선택한 필지</p>
+        <div class="export-grid" id="exportFormats">
+          <button type="button" data-export-format="pdf"><b>PDF</b><span>인쇄용 보고서</span></button>
+          <button type="button" data-export-format="docx"><b>DOCX</b><span>편집 가능한 문서</span></button>
+          <button type="button" data-export-format="hwpx"><b>HWPX</b><span>한글 표준문서</span></button>
+          <button type="button" data-export-format="pptx"><b>PPTX</b><span>발표용 슬라이드</span></button>
+          <button type="button" data-export-format="png"><b>PNG</b><span>고화질 긴 이미지</span></button>
+          <button type="button" data-export-format="jpg"><b>JPG</b><span>공유용 이미지</span></button>
+        </div>
+        <div class="export-progress" id="exportProgress" role="status" aria-live="polite" hidden>
+          <span class="loading-spinner" aria-hidden="true"></span>
+          <b id="exportProgressText">보고서를 만들고 있어요.</b>
+        </div>
+        <p class="export-note">공개 API 조회정보를 정리한 참고용 문서입니다. 법적 증명 효력은 없습니다.</p>
+      </dialog>
+    </main>
+    <script src="./node_modules/ol/dist/ol.js"></script>
+    <script src="./node_modules/html2canvas/dist/html2canvas.min.js"></script>
+    <script src="./node_modules/jspdf/dist/jspdf.umd.min.js"></script>
+    <script src="./node_modules/docx/dist/index.iife.js"></script>
+    <script src="./node_modules/pptxgenjs/dist/pptxgen.bundle.js"></script>
+    <script src="./report-export.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

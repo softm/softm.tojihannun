@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+config.local.js
+work.md
+softm.realestate.tojihannun/
+*.log
+
