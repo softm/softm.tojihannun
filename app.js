@@ -1310,6 +1310,25 @@ function showToast(message) {
   toastTimer = window.setTimeout(() => toast.classList.remove("show"), 2400);
 }
 
+async function copyToClipboard(text) {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.position = "fixed";
+    helper.style.opacity = "0";
+    document.body.appendChild(helper);
+    helper.select();
+    const copied = document.execCommand("copy");
+    helper.remove();
+    return copied;
+  }
+}
+
 function mainSheetCollapse(collapsed) {
   $("#mainSheet").classList.toggle("collapsed", collapsed);
   $("#sheetToggle").setAttribute("aria-expanded", String(!collapsed));
@@ -1391,6 +1410,14 @@ $$('[data-detail-tab]').forEach((button) => {
   });
 });
 
+$("#copyParcelAddress").addEventListener("click", async () => {
+  const record = state.records.find((item) => item.id === state.selectedId);
+  const address = record?.address || record?.road;
+  if (!address) return showToast("복사할 주소가 없습니다.");
+  const copied = await copyToClipboard(address);
+  showToast(copied ? "선택한 지번 주소를 복사했어요." : "주소를 복사하지 못했어요.");
+});
+
 $$('.related-service-link').forEach((link) => link.addEventListener("click", async (event) => {
   const record = state.records.find((item) => item.id === state.selectedId);
   if (link.hasAttribute("data-eum-land-use")) {
@@ -1401,12 +1428,8 @@ $$('.related-service-link').forEach((link) => link.addEventListener("click", asy
   const address = record?.address || record?.road;
   const label = link.dataset.serviceLabel || "유관 기관";
   if (!address) return showToast(`${label} 공식 사이트를 새 창에서 열었어요.`);
-  try {
-    await navigator.clipboard.writeText(address);
-    showToast(`${label} 검색용 지번을 복사했어요.`);
-  } catch {
-    showToast(`${label} 공식 사이트를 새 창에서 열었어요.`);
-  }
+  const copied = await copyToClipboard(address);
+  showToast(copied ? `${label} 검색용 지번을 복사했어요.` : `${label} 공식 사이트를 새 창에서 열었어요.`);
 }));
 
 const exportDialog = $("#exportDialog");
