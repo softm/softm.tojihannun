@@ -135,6 +135,8 @@ button { color: inherit; }
 .detail-actions button { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 12px; background: #f4f7f5; cursor: pointer; }
 .detail-actions svg { width: 20px; fill: none; stroke: #566b64; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 #detailFavorite.active svg { fill: #f5b943; stroke: #dc9e21; }
+.detail-title-row { display: flex; align-items: flex-start; gap: 10px; }
+.detail-title-row h2 { min-width: 0; flex: 1; }
 .detail-sheet h2 { margin: 13px 0 5px; font-size: clamp(20px, 5vw, 27px); letter-spacing: -.045em; }
 .detail-road { margin: 0 0 14px; color: var(--ink-soft); font-size: 13px; }
 .demo-notice { display: flex; gap: 9px; align-items: flex-start; padding: 10px 12px; border-radius: 11px; background: #fff8e8; color: #705d2e; font-size: 11px; line-height: 1.55; }
@@ -243,11 +245,11 @@ button { color: inherit; }
 .related-services-head span { color: #71827c; font-size: 10px; font-weight: 700; }
 .related-services-head strong { margin-top: 2px; color: var(--ink); font-size: 14px; }
 .related-services-head small { margin-top: 5px; color: #687a73; font-size: 10px; line-height: 1.5; }
-.related-address-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 9px; padding: 8px 9px 8px 11px; border: 1px solid #d7e6df; border-radius: 11px; background: #fff; }
-.related-address-row b { min-width: 0; overflow: hidden; color: var(--green-dark); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.related-services-head small b { color: var(--green-dark); }
 .copy-address-link { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 5px; min-height: 32px; padding: 0 10px; border: 1px solid #96bcad; border-radius: 9px; background: #edf7f2; color: var(--green-dark); font-size: 10px; font-weight: 800; cursor: pointer; }
 .copy-address-link:hover, .copy-address-link:focus-visible { border-color: var(--green); outline: 0; background: #dff1e8; }
 .copy-address-link svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.detail-copy-address { margin-top: 11px; white-space: nowrap; }
 .related-services-grid { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 12px; }
 .related-service-group { grid-column: 1 / -1; margin: 9px 2px 1px; color: #667871; font-size: 10px; letter-spacing: .04em; }
 .related-service-group:first-child { margin-top: 0; }
@@ -372,7 +374,6 @@ button { color: inherit; }
   .related-services-head span { font-size: 12px; }
   .related-services-head strong { font-size: 17px; }
   .related-services-head small { font-size: 12px; }
-  .related-address-row b { font-size: 13px; }
   .copy-address-link { min-height: 36px; padding: 0 12px; font-size: 12px; }
   .related-services-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .related-service-group { font-size: 12px; }

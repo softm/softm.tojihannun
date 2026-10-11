@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261012.7" />
+    <link rel="stylesheet" href="./styles.css?v=20261012.8" />
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -135,7 +135,13 @@
             </button>
           </div>
         </div>
-        <h2 id="detailTitle">선택한 토지</h2>
+        <div class="detail-title-row">
+          <h2 id="detailTitle">선택한 토지</h2>
+          <button class="copy-address-link detail-copy-address" type="button" id="copyParcelAddress" aria-label="선택한 지번 주소 복사">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            주소 복사
+          </button>
+        </div>
         <p class="detail-road" id="detailRoad">VWorld 검색 결과</p>
         <nav class="detail-tabs" role="tablist" aria-label="필지 상세정보">
           <button class="active" type="button" role="tab" id="detailTabSummary" aria-selected="true" aria-controls="detailPanelSummary" tabindex="0" data-detail-tab="summary">한눈요약</button>
@@ -205,14 +211,7 @@
           <div class="related-services-head">
             <span>공식 정보 확인</span>
             <strong id="relatedServicesTitle">유관 기관 바로가기</strong>
-            <div class="related-address-row">
-              <b id="relatedParcelAddress">선택한 지번</b>
-              <button class="copy-address-link" type="button" id="copyParcelAddress" aria-label="선택한 지번 주소 복사">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
-                주소 복사
-              </button>
-            </div>
-            <small>복사한 주소를 이용해 공식 사이트에서 검색할 수 있습니다.</small>
+            <small><b id="relatedParcelAddress">선택한 지번</b>을 공식 사이트에서 검색할 수 있습니다.</small>
           </div>
           <div class="related-services-grid">
             <h3 class="related-service-group">토지 이용·가격</h3>
