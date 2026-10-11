@@ -30,7 +30,9 @@ VWORLD_API_KEY=발급받은_키
 VWORLD_DOMAIN=tojihannun.designboard.net
 ```
 
-실행 명령은 `npm ci && npm start`이며 서버가 제공하는 `/api/vworld/*` 프록시가 필요합니다. 따라서 정적 파일만 제공하는 GitHub Pages가 아니라 Node.js 서버를 실행할 수 있는 호스팅에서 이 GitHub 저장소를 연결해야 합니다.
+Node.js 배포에서는 실행 명령 `npm ci && npm start`와 환경변수를 사용하며, 서버의 `/api/vworld/*` 프록시가 인증키를 대신 전달합니다.
+
+GitHub Pages 정적 배포에서는 등록 도메인 전용 VWorld 브라우저 키와 JSONP를 이용해 검색·데이터 조회를 수행합니다. 키가 다른 도메인에서 동작하지 않도록 VWorld 인증키 관리에서 `tojihannun.designboard.net`만 허용해야 합니다. 브라우저용 라이브러리는 버전을 고정한 jsDelivr CDN에서 불러옵니다.
 
 ## 포함 기능
 

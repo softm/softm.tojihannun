@@ -17,6 +17,9 @@ const Text = ol.style.Text;
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const API_BASE = "/api/vworld";
+// VWorld 브라우저 키는 등록 도메인에서만 동작하는 공개 클라이언트 식별자다.
+const VWORLD_BROWSER_KEY = "BC222DE5-514C-4E8A-A143-73DD322834D1";
+const USE_VWORLD_JSONP = window.location.hostname === "tojihannun.designboard.net" || window.location.hostname.endsWith(".github.io");
 const EUM_DETAIL_URL = "https://www.eum.go.kr/web/ar/lu/luLandDet.jsp";
 const FAVORITES_KEY = "tojihannun-vworld-favorites-v1";
 
@@ -100,12 +103,15 @@ function initMap() {
     TRANSPARENT: true,
     VERSION: "1.3.0"
   };
-  cadastralSource = new TileWMS({
-    url: `${API_BASE}/wms`,
+  const cadastralOptions = {
+    url: USE_VWORLD_JSONP
+      ? `https://api.vworld.kr/req/wms?key=${encodeURIComponent(VWORLD_BROWSER_KEY)}&domain=${encodeURIComponent(window.location.hostname)}`
+      : `${API_BASE}/wms`,
     params: wmsParams,
-    crossOrigin: "anonymous",
     transition: 0
-  });
+  };
+  if (!USE_VWORLD_JSONP) cadastralOptions.crossOrigin = "anonymous";
+  cadastralSource = new TileWMS(cadastralOptions);
 
   baseLayer = new TileLayer({source: baseSource, visible: true});
   satelliteLayer = new TileLayer({source: satelliteSource, visible: false});
@@ -196,6 +202,7 @@ function apiUrl(path, params) {
 }
 
 async function fetchJson(url, timeout = 12000) {
+  if (USE_VWORLD_JSONP && url.pathname.startsWith(`${API_BASE}/`)) return fetchVWorldJsonp(url, timeout);
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeout);
   try {
@@ -205,6 +212,50 @@ async function fetchJson(url, timeout = 12000) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+let jsonpSequence = 0;
+
+function directVWorldUrl(proxyUrl) {
+  const relativePath = proxyUrl.pathname.slice(`${API_BASE}/`.length);
+  const nedMatch = relativePath.match(/^ned\/([A-Za-z]+)$/);
+  const target = new URL(nedMatch
+    ? `https://api.vworld.kr/ned/data/${nedMatch[1]}`
+    : `https://api.vworld.kr/req/${relativePath}`);
+  proxyUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
+  if (nedMatch) target.searchParams.set("format", "json");
+  target.searchParams.set("key", VWORLD_BROWSER_KEY);
+  target.searchParams.set("domain", window.location.hostname);
+  return target;
+}
+
+function fetchVWorldJsonp(proxyUrl, timeout) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `tojihannunVWorld${Date.now()}${jsonpSequence += 1}`;
+    const target = directVWorldUrl(proxyUrl);
+    target.searchParams.set("callback", callbackName);
+    const script = document.createElement("script");
+    let timer;
+    const cleanup = () => {
+      clearTimeout(timer);
+      script.remove();
+      delete window[callbackName];
+    };
+    window[callbackName] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("VWorld JSONP 연결에 실패했습니다."));
+    };
+    timer = window.setTimeout(() => {
+      cleanup();
+      reject(new DOMException("VWorld 요청 시간이 초과되었습니다.", "TimeoutError"));
+    }, timeout);
+    script.src = target.toString();
+    document.head.append(script);
+  });
 }
 
 function buildEumLandUseParams(pnu) {

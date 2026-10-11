@@ -325,7 +325,7 @@
   }
 
   async function exportHwpx(model) {
-    const module = await import("./node_modules/@ssabrojs/hwpxjs/dist/browser/hwpxjs.browser.mjs");
+    const module = await import("https://cdn.jsdelivr.net/npm/@ssabrojs/hwpxjs@0.4.0/dist/browser/hwpxjs.browser.mjs");
     if (typeof module.htmlToHwpx !== "function") throw new Error("HWPX 생성 모듈을 불러오지 못했습니다.");
     const bytes = await module.htmlToHwpx(hwpxHtml(model), {title: model.title, creator: "토지한눈"});
     saveBlob(new Blob([bytes], {type: "application/vnd.hancom.hwpx"}), fileName(model, "hwpx"));
