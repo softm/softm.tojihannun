@@ -60,7 +60,7 @@ async function proxyVWorld(request, response, service, incomingUrl) {
       method: "GET",
       headers: {
         "Accept": request.headers.accept || "*/*",
-        "Referer": request.headers.referer || `https://${vworldDomain}/`,
+        "Referer": `https://${vworldDomain}/`,
         "User-Agent": "Tojihannun/1.0"
       }
     });
@@ -94,7 +94,7 @@ async function proxyVWorldNed(request, response, operation, incomingUrl) {
     const upstream = await fetch(target, {
       headers: {
         "Accept": "application/json",
-        "Referer": request.headers.referer || `https://${vworldDomain}/`,
+        "Referer": `https://${vworldDomain}/`,
         "User-Agent": "Tojihannun/1.0"
       }
     });
