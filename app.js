@@ -56,10 +56,11 @@ const geoJson = new GeoJSON();
 
 function markerStyle(feature) {
   const label = feature.get("label") || "";
+  const onImagery = state.mapMode !== "normal";
   return new Style({
     image: new CircleStyle({
       radius: 17,
-      fill: new Fill({color: "#176b54"}),
+      fill: new Fill({color: onImagery ? "#f51d76" : "#176b54"}),
       stroke: new Stroke({color: "#ffffff", width: 4})
     }),
     text: new Text({
@@ -70,10 +71,24 @@ function markerStyle(feature) {
   });
 }
 
-const selectionStyle = new Style({
+const normalSelectionStyle = new Style({
   fill: new Fill({color: "rgba(30, 133, 98, 0.20)"}),
   stroke: new Stroke({color: "#0b7555", width: 4})
 });
+
+const imagerySelectionStyle = [
+  new Style({
+    stroke: new Stroke({color: "rgba(255, 255, 255, 0.96)", width: 9})
+  }),
+  new Style({
+    fill: new Fill({color: "rgba(245, 29, 118, 0.22)"}),
+    stroke: new Stroke({color: "#f51d76", width: 5})
+  })
+];
+
+function selectionStyleForMode() {
+  return state.mapMode === "normal" ? normalSelectionStyle : imagerySelectionStyle;
+}
 
 function initMap() {
   if (map) map.setTarget(undefined);
@@ -122,7 +137,7 @@ function initMap() {
   hybridLayer = new TileLayer({source: hybridSource, visible: false, preload: 0, useInterimTilesOnError: false});
   cadastralLayer = new TileLayer({source: cadastralSource, visible: false, opacity: 0.88, preload: 0, useInterimTilesOnError: false});
   markerLayer = new VectorLayer({source: markerSource, style: markerStyle, zIndex: 20});
-  selectionLayer = new VectorLayer({source: selectionSource, style: selectionStyle, zIndex: 18});
+  selectionLayer = new VectorLayer({source: selectionSource, style: selectionStyleForMode, zIndex: 18});
 
   map = new OLMap({
     target: "vworldMap",
@@ -174,6 +189,8 @@ function setMapMode(mode, announce = true) {
   satelliteLayer.setVisible(mode !== "normal");
   hybridLayer.setVisible(mode === "satellite");
   cadastralLayer.setVisible(mode === "cadastral");
+  selectionLayer.changed();
+  markerLayer.changed();
   $$("[data-map-mode]").forEach((button) => button.classList.toggle("active", button.dataset.mapMode === mode));
   $("#vworldMap").classList.add("parcel-pick-mode");
   if (announce) {

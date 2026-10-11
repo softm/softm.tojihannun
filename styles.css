@@ -325,8 +325,40 @@ button { color: inherit; }
   .sheet.collapsed { transform: translateY(calc(100% - 88px)); }
   .quick-grid { grid-template-columns: 1fr; }
   .quick-card { min-height: 88px; }
-  .detail-sheet { left: auto; right: 26px; bottom: 24px; width: 420px; border-radius: 28px; transform: translateY(calc(100% + 40px)); }
+  .detail-sheet { left: auto; right: 26px; bottom: 24px; width: min(580px, calc(100vw - 52px)); max-height: calc(100dvh - 98px); border-radius: 28px; transform: translateY(calc(100% + 40px)); }
   .detail-sheet.open { transform: translateY(0); }
+  .detail-sheet h2 { font-size: 30px; }
+  .detail-road { font-size: 15px; }
+  .demo-notice { font-size: 13px; }
+  .detail-tabs button { min-height: 43px; padding: 0 15px; font-size: 13px; }
+  .detail-section-heading span { font-size: 12px; }
+  .detail-section-heading strong { font-size: 18px; }
+  .detail-highlight dt { font-size: 12px; }
+  .detail-highlight dd { font-size: 17px; }
+  .land-facts dt { font-size: 13px; }
+  .land-facts dd { font-size: 16px; }
+  .building-card-head div > span { font-size: 12px; }
+  .building-card-head div > strong { font-size: 17px; }
+  .building-count { font-size: 12px; }
+  .building-empty, .building-selector, .building-ledger-button { font-size: 14px; }
+  .building-facts dt { font-size: 12px; }
+  .building-facts dd { font-size: 14px; }
+  .land-value-note { font-size: 11px; }
+  .land-register-details summary { font-size: 14px; }
+  .land-use-tags span { font-size: 12px; }
+  .land-history time { font-size: 12px; }
+  .land-history span { font-size: 13px; }
+  .ownership-record > strong { font-size: 13px; }
+  .ownership-record dt { font-size: 11px; }
+  .ownership-record dd { font-size: 13px; }
+  .source-card span { font-size: 12px; }
+  .source-card strong { font-size: 18px; }
+  .source-card small { font-size: 12px; }
+  .related-services-head span { font-size: 12px; }
+  .related-services-head strong { font-size: 17px; }
+  .related-services-head small { font-size: 12px; }
+  .related-service-link b { font-size: 13px; }
+  .related-service-link span { font-size: 11px; }
   .map-mode-control { top: max(22px, env(safe-area-inset-top)); }
   .map-status { left: 470px; }
 }
