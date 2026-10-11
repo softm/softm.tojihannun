@@ -59,6 +59,7 @@
         <span>작성일 ${escapeHtml(model.generatedAt)}</span>
         <span>PNU ${escapeHtml(safeValue(model.pnu))}</span>
       </div>
+      ${model.mapImage ? `<figure class="download-report__map"><img src="${escapeHtml(model.mapImage)}" alt="${escapeHtml(model.address)} 필지 주변 지도"><figcaption>필지 주변 지도 · VWorld 배경지도 · 선택 필지 경계 강조 · 참고용</figcaption></figure>` : ""}
       ${model.sections.map((section) => `<section><h2>${escapeHtml(section.title)}</h2>${sectionTableHtml(section)}</section>`).join("")}
       <p class="download-report__notice">${escapeHtml(model.notice)}</p>
       <footer class="download-report__footer"><span>${escapeHtml(model.source)}</span><span>토지한눈 자동 생성 보고서</span></footer>
@@ -71,6 +72,12 @@
     const report = holder.firstElementChild;
     document.body.appendChild(report);
     return report;
+  }
+
+  function renderPreview(model, target) {
+    const element = typeof target === "string" ? document.querySelector(target) : target;
+    if (!element) return;
+    element.innerHTML = reportHtml(model);
   }
 
   function saveBlob(blob, name) {
@@ -95,6 +102,12 @@
     const report = createReportElement(model);
     try {
       if (document.fonts?.ready) await document.fonts.ready;
+      await Promise.all([...report.querySelectorAll("img")].map((image) => image.complete
+        ? Promise.resolve()
+        : new Promise((resolve) => {
+            image.addEventListener("load", resolve, {once: true});
+            image.addEventListener("error", resolve, {once: true});
+          })));
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       return await window.html2canvas(report, {
         backgroundColor: "#ffffff",
@@ -221,6 +234,19 @@
       new docx.Paragraph({spacing: {after: 320}, children: [new docx.TextRun({text: `도로명 ${safeValue(model.road)}    작성일 ${model.generatedAt}    PNU ${safeValue(model.pnu)}`, color: COLORS.soft, font: DOCX_FONT, size: 18})]})
     ];
 
+    if (model.mapImage) {
+      children.push(
+        new docx.Paragraph({keepNext: true, spacing: {before: 80, after: 120}, children: [new docx.TextRun({text: "필지 주변 지도", bold: true, color: "000000", font: DOCX_FONT, size: 27})]}),
+        new docx.Paragraph({alignment: docx.AlignmentType.CENTER, spacing: {after: 80}, children: [new docx.ImageRun({
+          data: model.mapImage,
+          type: "jpg",
+          transformation: {width: 640, height: 360},
+          altText: {title: "필지 주변 지도", description: `${model.address} 선택 필지 경계가 표시된 VWorld 지도`, name: "필지 주변 지도"}
+        })]}),
+        new docx.Paragraph({spacing: {after: 180}, children: [new docx.TextRun({text: "VWorld 배경지도 · 선택 필지 경계 강조 · 참고용", color: COLORS.soft, font: DOCX_FONT, size: 16})]})
+      );
+    }
+
     model.sections.forEach((section) => {
       children.push(new docx.Paragraph({
         keepNext: true,
@@ -286,6 +312,14 @@
     cover.addText(model.notice, {x: 0.85, y: 6.35, w: 11.5, h: 0.45, fontFace: "NanumGothic", fontSize: 9, color: COLORS.soft, margin: 0});
     cover.addText(String(pageNumber), {x: 12.2, y: 7.12, w: 0.45, h: 0.2, fontFace: "Arial", fontSize: 8, color: "78857F", align: "right", margin: 0});
 
+    if (model.mapImage) {
+      pageNumber += 1;
+      const mapSlide = pptx.addSlide();
+      addPptxHeading(mapSlide, "필지 주변 지도", model.address, pageNumber);
+      mapSlide.addImage({data: model.mapImage, x: 0.65, y: 1.42, w: 12.0, h: 5.55});
+      mapSlide.addText("VWorld 배경지도 · 선택 필지 경계 강조 · 참고용", {x: 0.65, y: 7.0, w: 8.5, h: 0.2, fontFace: "NanumGothic", fontSize: 8, color: "78857F", margin: 0});
+    }
+
     model.sections.forEach((section) => {
       const table = pptxRows(section);
       const rows = table.rows.length ? table.rows : [["조회된 정보가 없습니다.", "-"]];
@@ -320,6 +354,7 @@
     return `<h1>${escapeHtml(model.title)}</h1>
       <p><strong>${escapeHtml(model.address)}</strong></p>
       <p>도로명 ${escapeHtml(safeValue(model.road))}<br>PNU ${escapeHtml(safeValue(model.pnu))}<br>작성일 ${escapeHtml(model.generatedAt)}</p>
+      ${model.mapImage ? `<h2>필지 주변 지도</h2><p><img src="${escapeHtml(model.mapImage)}" alt="${escapeHtml(model.address)} 필지 주변 지도" style="width:100%;height:auto"></p><p>VWorld 배경지도 · 선택 필지 경계 강조 · 참고용</p>` : ""}
       ${model.sections.map((section) => `<h2>${escapeHtml(section.title)}</h2>${sectionTableHtml(section)}`).join("")}
       <p>${escapeHtml(model.notice)}</p><p>${escapeHtml(model.source)}</p>`;
   }
@@ -343,5 +378,5 @@
     }
   }
 
-  window.ReportExporter = {exportReport};
+  window.ReportExporter = {exportReport, renderPreview};
 })();

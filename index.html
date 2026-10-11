@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261012.13" />
+    <link rel="stylesheet" href="./styles.css?v=20261012.14" />
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -104,6 +104,7 @@
             <span class="chevron">›</span>
           </button>
         </div>
+
 
         <div class="filter-row" aria-label="토지 필터">
           <button class="filter-chip active" type="button" data-filter="all">전체</button>
@@ -326,21 +327,29 @@
       <dialog class="export-dialog" id="exportDialog" aria-labelledby="exportDialogTitle">
         <button class="dialog-close" type="button" id="exportClose" aria-label="다운로드 창 닫기">×</button>
         <span class="export-kicker">토지정보 보고서</span>
-        <h2 id="exportDialogTitle">다운로드 형식을 선택하세요</h2>
+        <h2 id="exportDialogTitle">보고서 미리보기</h2>
         <p class="export-address" id="exportAddress">선택한 필지</p>
-        <div class="export-grid" id="exportFormats">
-          <button type="button" data-export-format="pdf"><b>PDF</b><span>인쇄용 보고서</span></button>
-          <button type="button" data-export-format="docx"><b>DOCX</b><span>편집 가능한 문서</span></button>
-          <button type="button" data-export-format="hwpx"><b>HWPX</b><span>한글 표준문서</span></button>
-          <button type="button" data-export-format="pptx"><b>PPTX</b><span>발표용 슬라이드</span></button>
-          <button type="button" data-export-format="png"><b>PNG</b><span>고화질 긴 이미지</span></button>
-          <button type="button" data-export-format="jpg"><b>JPG</b><span>공유용 이미지</span></button>
+        <div class="export-layout">
+          <div class="export-viewer" aria-label="보고서 미리보기 영역">
+            <div class="export-preview" id="exportPreview"><p>보고서를 준비하고 있어요.</p></div>
+          </div>
+          <aside class="export-sidebar" aria-label="보고서 다운로드">
+            <strong class="export-sidebar-title">다운로드 형식</strong>
+            <div class="export-grid" id="exportFormats">
+              <button type="button" data-export-format="pdf"><b>PDF</b><span>인쇄용 보고서</span></button>
+              <button type="button" data-export-format="docx"><b>DOCX</b><span>편집 가능한 문서</span></button>
+              <button type="button" data-export-format="hwpx"><b>HWPX</b><span>한글 표준문서</span></button>
+              <button type="button" data-export-format="pptx"><b>PPTX</b><span>발표용 슬라이드</span></button>
+              <button type="button" data-export-format="png"><b>PNG</b><span>고화질 긴 이미지</span></button>
+              <button type="button" data-export-format="jpg"><b>JPG</b><span>공유용 이미지</span></button>
+            </div>
+            <div class="export-progress" id="exportProgress" role="status" aria-live="polite" hidden>
+              <span class="loading-spinner" aria-hidden="true"></span>
+              <b id="exportProgressText">보고서를 만들고 있어요.</b>
+            </div>
+            <p class="export-note">공개 API 조회정보를 정리한 참고용 문서입니다. 법적 증명 효력은 없습니다.</p>
+          </aside>
         </div>
-        <div class="export-progress" id="exportProgress" role="status" aria-live="polite" hidden>
-          <span class="loading-spinner" aria-hidden="true"></span>
-          <b id="exportProgressText">보고서를 만들고 있어요.</b>
-        </div>
-        <p class="export-note">공개 API 조회정보를 정리한 참고용 문서입니다. 법적 증명 효력은 없습니다.</p>
       </dialog>
 
       <dialog class="compare-dialog" id="compareDialog" aria-labelledby="compareDialogTitle">
@@ -363,7 +372,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/docx@9.10.0/dist/index.iife.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.0/dist/pptxgen.bundle.js"></script>
-    <script src="./report-export.js?v=20261012.2"></script>
-    <script src="./app.js?v=20261012.12"></script>
+    <script src="./report-export.js?v=20261012.3"></script>
+    <script src="./app.js?v=20261012.13"></script>
   </body>
 </html>

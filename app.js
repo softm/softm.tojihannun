@@ -817,6 +817,112 @@ async function selectRecordFromList(record) {
   showSelectedParcel(record, parcelFeature.feature);
 }
 
+function waitForMapRender(targetMap, timeout = 5000) {
+  return new Promise((resolve) => {
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(timer);
+      resolve();
+    };
+    const timer = window.setTimeout(done, timeout);
+    targetMap.once("rendercomplete", done);
+    targetMap.renderSync();
+  });
+}
+
+async function captureParcelMapImage(record) {
+  let rawFeature = parcelFeatureCache.get(record.id) || null;
+  if (!rawFeature) {
+    const parcelFeature = await fetchParcelFeature([record.lon, record.lat]);
+    rawFeature = parcelFeature?.feature || null;
+    if (rawFeature) parcelFeatureCache.set(record.id, rawFeature);
+  }
+
+  const target = document.createElement("div");
+  target.className = "report-map-capture";
+  Object.assign(target.style, {
+    position: "fixed",
+    left: "-12000px",
+    top: "0",
+    width: "1200px",
+    height: "675px",
+    background: "#e8eee9"
+  });
+  document.body.appendChild(target);
+
+  const reportSelectionSource = new VectorSource();
+  if (rawFeature?.geometry) {
+    try {
+      reportSelectionSource.addFeature(geoJson.readFeature(rawFeature, {dataProjection: "EPSG:4326", featureProjection: "EPSG:3857"}));
+    } catch (error) {
+      console.warn("Report parcel geometry could not be rendered", error);
+    }
+  }
+  const reportMarkerSource = new VectorSource({features: [new Feature({
+    geometry: new Point(fromLonLat([record.lon, record.lat])),
+    label: record.number || "필지"
+  })]});
+  const sourceOptions = {crossOrigin: "anonymous", maxZoom: 19, transition: 0};
+  const reportLayers = state.mapMode === "normal"
+    ? [new TileLayer({source: new XYZ({...sourceOptions, url: "https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png"})})]
+    : [
+        new TileLayer({source: new XYZ({...sourceOptions, url: "https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{y}.jpeg"})}),
+        new TileLayer({source: new XYZ({...sourceOptions, url: "https://xdworld.vworld.kr/2d/Hybrid/service/{z}/{x}/{y}.png"})})
+      ];
+  reportLayers.push(
+    new VectorLayer({source: reportSelectionSource, style: selectionStyleForMode, zIndex: 18}),
+    new VectorLayer({source: reportMarkerSource, style: markerStyle, zIndex: 20})
+  );
+  const reportMap = new OLMap({
+    target,
+    controls: [],
+    interactions: [],
+    pixelRatio: 1,
+    layers: reportLayers,
+    view: new View({center: fromLonLat([record.lon, record.lat]), zoom: 17, minZoom: 6, maxZoom: 19})
+  });
+
+  try {
+    reportMap.updateSize();
+    const selectedFeature = reportSelectionSource.getFeatures()[0];
+    if (selectedFeature) reportMap.getView().fit(selectedFeature.getGeometry().getExtent(), {padding: [80, 110, 80, 110], maxZoom: 18, duration: 0});
+    await waitForMapRender(reportMap);
+
+    const output = document.createElement("canvas");
+    output.width = 1200;
+    output.height = 675;
+    const context = output.getContext("2d");
+    context.fillStyle = "#e8eee9";
+    context.fillRect(0, 0, output.width, output.height);
+    [...target.querySelectorAll("canvas")].forEach((canvas) => {
+      if (!canvas.width || !canvas.height) return;
+      const opacity = Number(canvas.parentElement?.style.opacity || canvas.style.opacity || 1);
+      const transform = canvas.style.transform?.match(/^matrix\(([^)]+)\)$/)?.[1]?.split(",").map(Number)
+        || [canvas.width / output.width, 0, 0, canvas.height / output.height, 0, 0];
+      context.globalAlpha = Number.isFinite(opacity) ? opacity : 1;
+      context.setTransform(...transform);
+      context.drawImage(canvas, 0, 0);
+    });
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.globalAlpha = 0.9;
+    context.fillStyle = "#163d32";
+    context.fillRect(0, output.height - 48, output.width, 48);
+    context.globalAlpha = 1;
+    context.fillStyle = "#ffffff";
+    context.font = "700 20px 'Noto Sans KR', sans-serif";
+    context.fillText(record.address || "선택한 필지", 24, output.height - 17);
+    context.font = "500 14px 'Noto Sans KR', sans-serif";
+    context.textAlign = "right";
+    context.fillText("VWorld · 선택 필지 경계 강조", output.width - 24, output.height - 18);
+    return output.toDataURL("image/jpeg", 0.9);
+  } finally {
+    reportMap.setTarget(undefined);
+    target.remove();
+  }
+}
+
 function ensureSourceMeta(record) {
   if (!record.sourceMeta || typeof record.sourceMeta !== "object") record.sourceMeta = {};
   const now = new Date().toISOString();
@@ -1833,16 +1939,17 @@ $$('.related-service-link').forEach((link) => link.addEventListener("click", asy
 
 const exportDialog = $("#exportDialog");
 const exportLabels = {pdf: "PDF", docx: "DOCX", hwpx: "HWPX", pptx: "PPTX", png: "PNG", jpg: "JPG"};
+let currentReportModel = null;
 
 function setExportBusy(busy, format = "") {
   exportDialog.setAttribute("aria-busy", String(busy));
   $("#exportProgress").hidden = !busy;
-  $("#exportProgressText").textContent = `${exportLabels[format] || "보고서"} 파일을 만들고 있어요.`;
+  $("#exportProgressText").textContent = format ? `${exportLabels[format]} 파일을 만들고 있어요.` : "필지 주변 지도와 보고서를 준비하고 있어요.";
   $$("[data-export-format]").forEach((button) => { button.disabled = busy; });
   $("#exportClose").disabled = busy;
 }
 
-$("#openExport").addEventListener("click", () => {
+$("#openExport").addEventListener("click", async () => {
   const record = state.records.find((item) => item.id === state.selectedId);
   if (!record) return;
   if (record.landRegisterLoading || record.eumLandUseLoading || record.buildingLoading) {
@@ -1850,8 +1957,21 @@ $("#openExport").addEventListener("click", () => {
     return;
   }
   $("#exportAddress").textContent = record.address || "선택한 필지";
-  setExportBusy(false);
+  currentReportModel = null;
+  $("#exportPreview").innerHTML = "<p>필지 주변 지도와 보고서를 준비하고 있어요.</p>";
+  setExportBusy(true);
   exportDialog.showModal();
+  const model = buildReportModel(record);
+  try {
+    model.mapImage = await captureParcelMapImage(record);
+  } catch (error) {
+    console.warn("Parcel map capture failed", error);
+    model.mapImage = "";
+    showToast("지도 캡처를 만들지 못해 정보 보고서만 표시합니다.");
+  }
+  currentReportModel = model;
+  window.ReportExporter?.renderPreview(model, $("#exportPreview"));
+  setExportBusy(false);
 });
 
 $("#exportClose").addEventListener("click", () => exportDialog.close());
@@ -1860,12 +1980,11 @@ exportDialog.addEventListener("click", (event) => {
 });
 
 $$(`[data-export-format]`).forEach((button) => button.addEventListener("click", async () => {
-  const record = state.records.find((item) => item.id === state.selectedId);
-  if (!record || !window.ReportExporter) return showToast("보고서 생성 기능을 불러오지 못했어요.");
+  if (!currentReportModel || !window.ReportExporter) return showToast("보고서 미리보기가 준비될 때까지 기다려 주세요.");
   const format = button.dataset.exportFormat;
   setExportBusy(true, format);
   try {
-    await window.ReportExporter.exportReport(buildReportModel(record), format);
+    await window.ReportExporter.exportReport(currentReportModel, format);
     exportDialog.close();
     showToast(`${exportLabels[format]} 보고서를 다운로드했어요.`);
   } catch (error) {
