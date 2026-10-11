@@ -1978,6 +1978,9 @@ $("#exportClose").addEventListener("click", () => exportDialog.close());
 exportDialog.addEventListener("click", (event) => {
   if (event.target === exportDialog && exportDialog.getAttribute("aria-busy") !== "true") exportDialog.close();
 });
+exportDialog.addEventListener("cancel", (event) => {
+  if (exportDialog.getAttribute("aria-busy") === "true") event.preventDefault();
+});
 
 $$(`[data-export-format]`).forEach((button) => button.addEventListener("click", async () => {
   if (!currentReportModel || !window.ReportExporter) return showToast("보고서 미리보기가 준비될 때까지 기다려 주세요.");
@@ -2029,7 +2032,8 @@ $("#brandButton").addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && $("#detailSheet").classList.contains("open")) closeDetail();
+  if (event.key !== "Escape" || document.querySelector("dialog[open]")) return;
+  if ($("#detailSheet").classList.contains("open")) closeDetail();
 });
 
 if (document.readyState === "complete") initMap();
