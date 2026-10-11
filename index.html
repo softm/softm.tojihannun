@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261012.8" />
+    <link rel="stylesheet" href="./styles.css?v=20261012.10" />
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -120,6 +120,10 @@
           </div>
         </div>
         <div class="land-list" id="landList"></div>
+        <div class="compare-bar" id="compareBar" hidden>
+          <span><b id="compareCount">0</b>/4개 선택</span>
+          <button type="button" id="openCompare" disabled>비교하기</button>
+        </div>
       </section>
 
       <section class="detail-sheet" id="detailSheet" aria-labelledby="detailTitle" aria-hidden="true">
@@ -143,33 +147,40 @@
           </button>
         </div>
         <p class="detail-road" id="detailRoad">VWorld 검색 결과</p>
+        <div class="directions-actions" aria-label="외부 지도 길찾기">
+          <button type="button" id="openNaverDirections">
+            <span aria-hidden="true">N</span> 네이버 길찾기
+          </button>
+          <button type="button" id="openGoogleDirections">
+            <span aria-hidden="true">G</span> 구글 길찾기
+          </button>
+        </div>
+        <p class="directions-notice">목적지는 필지 중심 좌표이며 실제 도로 진입점과 다를 수 있습니다.</p>
+        <section class="detail-highlight" aria-labelledby="detailHighlightTitle">
+          <div class="detail-section-heading">
+            <span>핵심 정보</span>
+            <strong id="detailHighlightTitle">선택 필지 한눈에 보기</strong>
+          </div>
+          <dl id="detailHighlight"></dl>
+          <div class="card-meta" id="detailHighlightMeta"></div>
+        </section>
         <nav class="detail-tabs" role="tablist" aria-label="필지 상세정보">
           <button class="active" type="button" role="tab" id="detailTabSummary" aria-selected="true" aria-controls="detailPanelSummary" tabindex="0" data-detail-tab="summary">한눈요약</button>
           <button type="button" role="tab" id="detailTabRegister" aria-selected="false" aria-controls="detailPanelRegister" tabindex="-1" data-detail-tab="register">토지대장</button>
           <button type="button" role="tab" id="detailTabUse" aria-selected="false" aria-controls="detailPanelUse" tabindex="-1" data-detail-tab="use">토지이용</button>
           <button type="button" role="tab" id="detailTabBuilding" aria-selected="false" aria-controls="detailPanelBuilding" tabindex="-1" data-detail-tab="building">건축물</button>
+          <button type="button" role="tab" id="detailTabField" aria-selected="false" aria-controls="detailPanelField" tabindex="-1" data-detail-tab="field">현장기록</button>
           <button type="button" role="tab" id="detailTabLinks" aria-selected="false" aria-controls="detailPanelLinks" tabindex="-1" data-detail-tab="links">공식연결</button>
         </nav>
         <div class="detail-tab-panel" id="detailPanelSummary" role="tabpanel" aria-labelledby="detailTabSummary" data-detail-panel="summary">
-          <section class="detail-highlight" aria-labelledby="detailHighlightTitle">
-            <div class="detail-section-heading">
-              <span>핵심 정보</span>
-              <strong id="detailHighlightTitle">선택 필지 한눈에 보기</strong>
-            </div>
-            <dl id="detailHighlight"></dl>
-          </section>
           <section class="parcel-id-card" aria-labelledby="parcelIdTitle">
             <div class="detail-section-heading">
               <span>조회 기준</span>
               <strong id="parcelIdTitle">필지 식별정보</strong>
             </div>
             <dl class="land-facts" id="landFacts"></dl>
+            <div class="card-meta" id="parcelIdMeta"></div>
           </section>
-          <div class="source-card">
-            <span>조회 출처</span>
-            <strong>VWorld · 토지이음</strong>
-            <small>국토교통부 공개정보 · 토지이용계획 열람정보와 필지 경계는 참고용이며 법적 증명 효력이 없습니다.</small>
-          </div>
         </div>
         <section class="detail-tab-panel building-card land-register-card" id="detailPanelRegister" role="tabpanel" aria-labelledby="detailTabRegister" data-detail-panel="register" hidden>
           <div class="building-card-head">
@@ -182,6 +193,7 @@
           <div class="building-content" id="landRegisterContent" aria-live="polite">
             <p class="building-empty">토지대장 공개정보를 확인하고 있어요.</p>
           </div>
+          <div class="card-meta card-meta-inset" id="landRegisterMeta"></div>
         </section>
         <section class="detail-tab-panel building-card eum-card" id="detailPanelUse" role="tabpanel" aria-labelledby="detailTabUse" data-detail-panel="use" hidden>
           <div class="building-card-head">
@@ -194,6 +206,7 @@
           <div class="building-content" id="eumLandUseContent" aria-live="polite">
             <p class="building-empty">용도지역·지구와 행위제한 근거를 확인하고 있어요.</p>
           </div>
+          <div class="card-meta card-meta-inset" id="eumLandUseMeta"></div>
         </section>
         <section class="detail-tab-panel building-card" id="detailPanelBuilding" role="tabpanel" aria-labelledby="detailTabBuilding" data-detail-panel="building" hidden>
           <div class="building-card-head">
@@ -206,6 +219,26 @@
           <div class="building-content" id="buildingContent" aria-live="polite">
             <p class="building-empty">건축물 정보를 확인하고 있어요.</p>
           </div>
+          <div class="card-meta card-meta-inset" id="buildingMeta"></div>
+        </section>
+        <section class="detail-tab-panel field-record-card" id="detailPanelField" role="tabpanel" aria-labelledby="detailTabField" data-detail-panel="field" hidden>
+          <div class="field-record-head">
+            <div>
+              <span>사용자 기록</span>
+              <strong>현장 체크리스트</strong>
+            </div>
+            <time id="fieldRecordUpdated">아직 저장되지 않음</time>
+          </div>
+          <form id="fieldRecordForm">
+            <div class="field-checklist" id="fieldChecklist"></div>
+            <label class="field-memo-label" for="fieldMemo">현장 메모</label>
+            <textarea id="fieldMemo" maxlength="2000" rows="5" placeholder="진입로 상태, 주변 환경, 추가 확인할 내용을 기록하세요."></textarea>
+            <div class="field-record-actions">
+              <button class="button secondary" type="button" id="deleteFieldRecord">기록 삭제</button>
+              <button class="button primary" type="submit">저장</button>
+            </div>
+          </form>
+          <div class="card-meta" id="fieldRecordMeta"></div>
         </section>
         <section class="detail-tab-panel related-services" id="detailPanelLinks" role="tabpanel" aria-labelledby="detailTabLinks" data-detail-panel="links" hidden>
           <div class="related-services-head">
@@ -316,6 +349,21 @@
         </div>
         <p class="export-note">공개 API 조회정보를 정리한 참고용 문서입니다. 법적 증명 효력은 없습니다.</p>
       </dialog>
+
+      <dialog class="compare-dialog" id="compareDialog" aria-labelledby="compareDialogTitle">
+        <div class="compare-dialog-head">
+          <div>
+            <span>관심 토지 비교</span>
+            <h2 id="compareDialogTitle">선택한 필지를 한눈에 비교하세요</h2>
+          </div>
+          <button class="dialog-close" type="button" id="compareClose" aria-label="비교표 닫기">×</button>
+        </div>
+        <div class="compare-content" id="compareContent" aria-live="polite"></div>
+        <div class="compare-dialog-actions">
+          <button class="button secondary" type="button" id="retryCompare" hidden>조회 실패 다시 시도</button>
+          <button class="button primary" type="button" id="compareConfirm">확인</button>
+        </div>
+      </dialog>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -323,6 +371,6 @@
     <script src="https://cdn.jsdelivr.net/npm/docx@9.10.0/dist/index.iife.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.0/dist/pptxgen.bundle.js"></script>
     <script src="./report-export.js?v=20261012.2"></script>
-    <script src="./app.js?v=20261012.6"></script>
+    <script src="./app.js?v=20261012.8"></script>
   </body>
 </html>

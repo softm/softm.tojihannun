@@ -118,12 +118,24 @@ button { color: inherit; }
 .land-list { display: flex; gap: 9px; overflow-x: auto; padding: 1px 1px 4px; scrollbar-width: none; }
 .land-list::-webkit-scrollbar { display: none; }
 .land-list.list-view { display: grid; overflow: visible; }
-.land-card { min-width: 260px; display: grid; grid-template-columns: 1fr auto; gap: 7px; padding: 13px; border: 1px solid #e0e7e3; border-radius: 16px; background: #fff; cursor: pointer; text-align: left; }
+.land-card-shell { position: relative; min-width: 260px; }
+.land-list.list-view .land-card-shell { min-width: 0; }
+.land-card { width: 100%; min-width: 260px; display: grid; grid-template-columns: 1fr auto; gap: 7px; padding: 13px; border: 1px solid #e0e7e3; border-radius: 16px; background: #fff; cursor: pointer; text-align: left; }
+.land-list.list-view .land-card { min-width: 0; }
 .land-card:hover { border-color: #9bc5b5; }
 .land-card span { grid-column: 1; width: max-content; padding: 3px 7px; border-radius: 6px; background: #eaf5ef; color: var(--green); font-size: 10px; font-weight: 800; }
 .land-card strong { grid-column: 1; font-size: 14px; }
 .land-card small { grid-column: 1; color: #718079; font-size: 11px; }
 .land-card em { grid-column: 2; grid-row: 1 / 4; align-self: center; color: #83908b; font-size: 20px; font-style: normal; }
+.compare-selected .land-card { border-color: var(--green); box-shadow: 0 0 0 2px rgba(23,107,84,.12); }
+.compare-select { position: absolute; z-index: 2; top: 10px; right: 36px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border: 1px solid #cfe0d8; border-radius: 8px; background: rgba(255,255,255,.96); color: #567069; font-size: 10px; font-weight: 800; cursor: pointer; }
+.compare-select input { width: 14px; height: 14px; margin: 0; accent-color: var(--green); }
+.compare-bar { position: sticky; z-index: 4; bottom: -18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px -16px -18px; padding: 11px 16px calc(11px + env(safe-area-inset-bottom)); border-top: 1px solid #dce7e1; background: rgba(255,255,255,.97); box-shadow: 0 -8px 24px rgba(22,55,45,.12); }
+.compare-bar[hidden] { display: none; }
+.compare-bar span { color: #60736c; font-size: 12px; }
+.compare-bar b { color: var(--green); font-size: 15px; }
+.compare-bar button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 11px; background: var(--green); color: #fff; font-size: 12px; font-weight: 800; cursor: pointer; }
+.compare-bar button:disabled { background: #d9e1dd; color: #7f8d88; cursor: default; }
 .empty-result { width: 100%; padding: 24px; border: 1px dashed #ced9d3; border-radius: 16px; text-align: center; color: var(--ink-soft); font-size: 13px; }
 
 .detail-sheet { z-index: 30; max-height: min(83dvh, 720px); padding: 7px 22px calc(22px + env(safe-area-inset-bottom)); transform: translate(-50%, 105%); }
@@ -138,7 +150,13 @@ button { color: inherit; }
 .detail-title-row { display: flex; align-items: flex-start; gap: 10px; }
 .detail-title-row h2 { min-width: 0; flex: 1; }
 .detail-sheet h2 { margin: 13px 0 5px; font-size: clamp(20px, 5vw, 27px); letter-spacing: -.045em; }
-.detail-road { margin: 0 0 14px; color: var(--ink-soft); font-size: 13px; }
+.detail-road { margin: 0 0 10px; color: var(--ink-soft); font-size: 13px; }
+.directions-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.directions-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 35px; padding: 0 10px; border: 1px solid #d9e4df; border-radius: 10px; background: #fff; color: #425e55; font-size: 11px; font-weight: 800; cursor: pointer; }
+.directions-actions button:hover, .directions-actions button:focus-visible { border-color: var(--green); outline: 0; background: #f0f8f4; }
+.directions-actions span { display: grid; place-items: center; width: 19px; height: 19px; border-radius: 6px; background: var(--green); color: #fff; font-size: 10px; font-weight: 900; }
+#openGoogleDirections span { background: #3976d7; }
+.directions-notice { margin: 7px 0 0; color: #7a6450; font-size: 9px; line-height: 1.5; }
 .demo-notice { display: flex; gap: 9px; align-items: flex-start; padding: 10px 12px; border-radius: 11px; background: #fff8e8; color: #705d2e; font-size: 11px; line-height: 1.55; }
 .demo-notice span { display: grid; place-items: center; flex: 0 0 17px; height: 17px; border-radius: 50%; background: #e8b54d; color: #fff; font-family: serif; font-weight: 700; }
 .detail-notice-bottom { margin-top: 12px; }
@@ -153,7 +171,7 @@ button { color: inherit; }
 .detail-section-heading > * { display: block; }
 .detail-section-heading span { color: #71827c; font-size: 10px; font-weight: 700; }
 .detail-section-heading strong { margin-top: 2px; color: var(--ink); font-size: 15px; }
-.detail-highlight { padding: 15px; border: 1px solid #dce7e2; border-radius: 17px; background: linear-gradient(145deg, #f8fbf9, #fff); }
+.detail-highlight { margin-top: 12px; padding: 15px; border: 1px solid #dce7e2; border-radius: 17px; background: linear-gradient(145deg, #f8fbf9, #fff); }
 .detail-highlight dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 13px 0 0; }
 .detail-highlight dl > div { min-width: 0; padding: 12px; border-radius: 12px; }
 .detail-highlight dt { font-size: 10px; font-weight: 800; opacity: .72; }
@@ -162,6 +180,8 @@ button { color: inherit; }
 .detail-highlight .blue { background: #e7f1fc; color: #1d5b97; }
 .detail-highlight .purple { background: #eee9fa; color: #604490; }
 .detail-highlight .orange { background: #fff0de; color: #a45112; }
+.detail-highlight .gold { background: #fff7d8; color: #80650b; }
+.detail-highlight .purple:last-child { grid-column: 1 / -1; }
 .parcel-id-card { margin-top: 12px; padding: 15px; border: 1px solid #e1e8e4; border-radius: 16px; background: #fff; }
 .land-facts { display: grid; grid-template-columns: repeat(2, 1fr); margin: 16px 0; border-top: 1px solid #e2e8e4; }
 .land-facts > div { padding: 12px 4px; border-bottom: 1px solid #e2e8e4; }
@@ -169,6 +189,11 @@ button { color: inherit; }
 .land-facts dt { color: #71827c; font-size: 11px; }
 .land-facts dd { margin: 4px 0 0; color: var(--ink); font-size: 14px; font-weight: 700; }
 .parcel-id-card .land-facts { margin: 11px 0 0; }
+.card-meta { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 7px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e9e5; color: #6f7f79; line-height: 1.45; }
+.card-meta span { grid-row: 1 / 3; align-self: start; padding: 2px 6px; border-radius: 6px; background: #edf4f0; color: #526c63; font-size: 9px; font-weight: 800; }
+.card-meta strong { overflow-wrap: anywhere; color: #36594d; font-size: 10px; }
+.card-meta small { overflow-wrap: anywhere; font-size: 9px; }
+.card-meta-inset { margin: 0 14px 14px; }
 .building-card { margin: 15px 0; overflow: hidden; border: 1px solid #dfe8e3; border-radius: 16px; background: #fff; }
 .building-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 14px; background: #f2f7f4; }
 .building-card-head div > span, .building-card-head div > strong { display: block; }
@@ -234,6 +259,29 @@ button { color: inherit; }
 .eum-restriction-group li span { color: #6b778d; font-size: 9px; line-height: 1.45; }
 .eum-open-button { margin-top: 12px; border-color: #506fac; background: #f0f4fc; color: #315baf; }
 .eum-open-button:hover { background: #e5ebf8; }
+.field-record-card { margin-top: 14px; padding: 15px; border: 1px solid #dfe7e3; border-radius: 16px; background: #fff; }
+.field-record-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #e4ebe7; }
+.field-record-head span, .field-record-head strong { display: block; }
+.field-record-head span { color: #71827c; font-size: 10px; font-weight: 700; }
+.field-record-head strong { margin-top: 2px; font-size: 15px; }
+.field-record-head time { color: #6f817a; font-size: 9px; line-height: 1.45; text-align: right; }
+.field-checklist { display: grid; gap: 10px; margin-top: 13px; }
+.field-check-item { margin: 0; padding: 10px; border: 1px solid #e2e9e5; border-radius: 12px; }
+.field-check-item legend { padding: 0 5px; color: var(--ink); font-size: 11px; font-weight: 800; }
+.field-status-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.field-status { min-width: 0; cursor: pointer; }
+.field-status input { position: absolute; opacity: 0; pointer-events: none; }
+.field-status span { display: grid; place-items: center; min-height: 36px; padding: 4px 6px; border: 1px solid #dfe6e2; border-radius: 9px; background: #f8faf9; color: #667771; font-size: 9px; font-weight: 750; text-align: center; line-height: 1.25; }
+.field-status input:focus-visible + span { outline: 2px solid #75a996; outline-offset: 2px; }
+.field-status-unknown input:checked + span { border-color: #8d9b96; background: #edf0ef; color: #4f5e59; }
+.field-status-confirmed input:checked + span { border-color: #4d9c7e; background: #e3f4eb; color: #0f6249; }
+.field-status-needs_review input:checked + span { border-color: #d4973d; background: #fff3df; color: #91510c; }
+.field-memo-label { display: block; margin-top: 14px; color: var(--ink); font-size: 11px; font-weight: 800; }
+#fieldMemo { width: 100%; margin-top: 7px; padding: 11px 12px; resize: vertical; border: 1px solid #dce5e0; border-radius: 11px; color: var(--ink); font: inherit; font-size: 12px; line-height: 1.6; }
+#fieldMemo:focus { border-color: var(--green); outline: 2px solid rgba(23,107,84,.12); }
+.field-record-actions { display: grid; grid-template-columns: .8fr 1.2fr; gap: 8px; margin-top: 10px; }
+.field-record-actions .button { min-height: 44px; font-size: 12px; }
+.field-record-actions button:disabled { border-color: #dce3df; background: #f2f4f3; color: #95a09c; cursor: default; }
 .source-card { padding: 15px; border-radius: 15px; background: #eef6f2; }
 .source-card span, .source-card strong, .source-card small { display: block; }
 .source-card span { color: #667a72; font-size: 11px; font-weight: 600; }
@@ -300,6 +348,36 @@ button { color: inherit; }
 .export-progress .loading-spinner { width: 18px; height: 18px; border-color: rgba(23,107,84,.2); border-top-color: var(--green); }
 .export-note { margin: 15px 0 0; color: #75837e; font-size: 10px; line-height: 1.55; }
 
+.compare-dialog { width: min(1120px, calc(100% - 36px)); max-height: min(88dvh, 820px); padding: 0; overflow: hidden; border: 0; border-radius: 24px; background: #fff; color: var(--ink); box-shadow: 0 24px 90px rgba(0,0,0,.28); }
+.compare-dialog::backdrop { background: rgba(8,31,24,.5); backdrop-filter: blur(3px); }
+.compare-dialog-head { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 58px 17px 24px; border-bottom: 1px solid #dfe7e3; background: linear-gradient(135deg, #edf7f2, #fff); }
+.compare-dialog-head span { color: var(--green); font-size: 11px; font-weight: 800; letter-spacing: .06em; }
+.compare-dialog-head h2 { margin: 4px 0 0; font-size: 23px; letter-spacing: -.04em; }
+.compare-dialog-head .dialog-close { right: 18px; top: 16px; }
+.compare-content { max-height: calc(min(88dvh, 820px) - 150px); padding: 18px 24px; overflow: auto; }
+.compare-table-wrap { min-width: 760px; overflow: visible; }
+.compare-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 12px; }
+.compare-table th, .compare-table td { min-width: 180px; padding: 12px; border-right: 1px solid #dfe6e2; border-bottom: 1px solid #dfe6e2; vertical-align: top; overflow-wrap: anywhere; }
+.compare-table tr > :first-child { position: sticky; z-index: 1; left: 0; min-width: 132px; width: 132px; border-left: 1px solid #dfe6e2; background: #f3f7f5; }
+.compare-table thead th { position: sticky; z-index: 2; top: 0; border-top: 1px solid #dfe6e2; background: #e8f3ee; color: #214d3f; text-align: left; }
+.compare-table thead th:first-child { z-index: 3; border-radius: 12px 0 0; }
+.compare-table thead th:last-child { border-radius: 0 12px 0 0; }
+.compare-table tbody th { color: #52665f; font-weight: 800; text-align: left; }
+.compare-table td { color: var(--ink); background: #fff; }
+.compare-value { display: inline-flex; font-weight: 750; line-height: 1.55; }
+.compare-value.loading { color: #64766f; }
+.compare-value.missing { color: #8a9692; }
+.compare-value.error { padding: 4px 7px; border-radius: 7px; background: #fff0ed; color: #b23c2c; }
+.compare-regulations, .compare-regulation-details ul { display: grid; gap: 5px; margin: 0; padding-left: 17px; }
+.compare-regulations li, .compare-regulation-details li { line-height: 1.45; }
+.compare-regulation-details summary { color: #315f50; font-weight: 700; line-height: 1.55; cursor: pointer; }
+.compare-regulation-details summary b { color: var(--green); white-space: nowrap; }
+.compare-regulation-details ul { margin-top: 8px; }
+.compare-source-row small { color: #6f7d78; font-size: 9px; line-height: 1.55; }
+.compare-note, .compare-empty { margin: 13px 0 0; padding: 10px 12px; border-radius: 10px; background: #fff7e8; color: #735f35; font-size: 10px; line-height: 1.55; }
+.compare-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 24px 18px; border-top: 1px solid #e2e8e5; }
+.compare-dialog-actions .button { min-width: 150px; min-height: 44px; font-size: 12px; }
+
 .download-report { box-sizing: border-box; position: fixed; z-index: -1; left: -10000px; top: 0; width: 794px; padding: 58px 62px 54px; background: #fff; color: #16241f; font-family: "Noto Sans KR", Arial, sans-serif; }
 .download-report *, .download-report *::before, .download-report *::after { box-sizing: border-box; }
 .download-report__brand { margin: 0 0 10px; color: #176b54; font-size: 15px; font-weight: 800; letter-spacing: .08em; }
@@ -331,10 +409,20 @@ button { color: inherit; }
   .detail-sheet { width: 100%; border-radius: 26px 26px 0 0; }
   .detail-tabs { margin-left: -22px; margin-right: -22px; padding-left: 16px; padding-right: 16px; }
   .detail-tabs button { flex: 0 0 auto; }
+  .directions-actions button { flex: 1 1 140px; justify-content: center; }
+  .field-status-options { gap: 4px; }
+  .field-status span { min-height: 39px; padding: 4px; font-size: 8px; }
   .export-dialog { padding: 22px 18px; }
   .export-grid { gap: 7px; }
   .export-grid button { grid-template-columns: 46px 1fr; min-height: 66px; padding: 8px; }
   .export-grid b { width: 40px; height: 38px; font-size: 10px; }
+  .compare-dialog { width: 100%; max-width: none; max-height: 100dvh; height: 100dvh; border-radius: 0; }
+  .compare-dialog-head { padding: max(18px, env(safe-area-inset-top)) 50px 15px 16px; }
+  .compare-dialog-head h2 { font-size: 19px; }
+  .compare-content { max-height: calc(100dvh - 145px - env(safe-area-inset-top)); padding: 14px 0 14px 16px; }
+  .compare-table-wrap { padding-right: 16px; }
+  .compare-dialog-actions { padding: 11px 16px calc(11px + env(safe-area-inset-bottom)); }
+  .compare-dialog-actions .button { min-width: 0; flex: 1; }
 }
 
 @media (min-width: 721px) {
@@ -352,6 +440,11 @@ button { color: inherit; }
   .detail-section-heading strong { font-size: 18px; }
   .detail-highlight dt { font-size: 12px; }
   .detail-highlight dd { font-size: 17px; }
+  .directions-actions button { min-height: 39px; font-size: 13px; }
+  .directions-notice { font-size: 11px; }
+  .card-meta span { font-size: 10px; }
+  .card-meta strong { font-size: 12px; }
+  .card-meta small { font-size: 11px; }
   .land-facts dt { font-size: 13px; }
   .land-facts dd { font-size: 16px; }
   .building-card-head div > span { font-size: 12px; }
@@ -368,6 +461,12 @@ button { color: inherit; }
   .ownership-record > strong { font-size: 13px; }
   .ownership-record dt { font-size: 11px; }
   .ownership-record dd { font-size: 13px; }
+  .field-record-head span { font-size: 12px; }
+  .field-record-head strong { font-size: 17px; }
+  .field-record-head time { font-size: 11px; }
+  .field-check-item legend, .field-memo-label { font-size: 13px; }
+  .field-status span { font-size: 11px; }
+  #fieldMemo { font-size: 14px; }
   .source-card span { font-size: 12px; }
   .source-card strong { font-size: 18px; }
   .source-card small { font-size: 12px; }

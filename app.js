@@ -22,6 +22,18 @@ const VWORLD_BROWSER_KEY = "BC222DE5-514C-4E8A-A143-73DD322834D1";
 const USE_VWORLD_JSONP = window.location.hostname === "tojihannun.designboard.net" || window.location.hostname.endsWith(".github.io");
 const EUM_DETAIL_URL = "https://www.eum.go.kr/web/ar/lu/luLandDet.jsp";
 const FAVORITES_KEY = "tojihannun-vworld-favorites-v1";
+const FIELD_RECORDS_KEY = "tojihannun-field-records-v1";
+const FIELD_ITEMS = [
+  ["vehicleAccess", "차량 진입"],
+  ["drainage", "배수"],
+  ["waterSupply", "급수"],
+  ["actualUse", "실제 이용 상태"]
+];
+const FIELD_STATUSES = [
+  ["unknown", "미확인"],
+  ["confirmed", "확인"],
+  ["needs_review", "추가 확인 필요"]
+];
 
 const state = {
   mapMode: "normal",
@@ -32,6 +44,7 @@ const state = {
   selectedId: null,
   records: [],
   favorites: new Set(),
+  compareIds: new Set(),
   searchResults: [],
   loadingParcel: false
 };
@@ -635,6 +648,7 @@ async function fetchBuildingRecords(pnu) {
     buildingCoverage: Number(item.btlRt || 0),
     floorAreaRatio: Number(item.measrmtRt || 0),
     approvalDate: String(item.useConfmDe || ""),
+    lastUpdated: String(item.lastUpdtDt || ""),
     isMain: String(item.buldMainAtachSeCode || "") === "0"
   })).filter((item) => item.id).sort((a, b) => Number(b.isMain) - Number(a.isMain) || b.totalArea - a.totalArea);
 }
@@ -673,8 +687,10 @@ async function fetchLandRegisterDetails(pnu) {
     numOfRows: 100
   }))));
   const rows = {};
+  const sourceStatus = {};
   settled.forEach((result, index) => {
     const [key, , rootName] = operations[index];
+    sourceStatus[key] = result.status === "fulfilled" ? "success" : "error";
     rows[key] = result.status === "fulfilled" ? getNedRows(result.value, rootName) : [];
   });
   const availableSources = Object.values(rows).filter((items) => items.length).length;
@@ -700,7 +716,7 @@ async function fetchLandRegisterDetails(pnu) {
   }));
   const movements = [...rows.movements].sort((a, b) => String(b.ladMvmnDe || "").localeCompare(String(a.ladMvmnDe || "")));
 
-  return {version: 2, base, ownership, ownerships, characteristic, price, uses, movements, availableSources, partial: settled.some((result) => result.status === "rejected")};
+  return {version: 2, base, ownership, ownerships, characteristic, price, uses, movements, availableSources, sourceStatus, partial: settled.some((result) => result.status === "rejected")};
 }
 
 async function reverseGeocode([lon, lat]) {
@@ -735,6 +751,7 @@ function buildRecord([lon, lat], searchResult, parcelFeature, reverseResults) {
   const number = String(lower.jibun || lower.jibun_bonbun || address.split(" ").at(-1) || "");
   const isForest = pnu.length > 10 ? pnu.charAt(10) === "2" : /(^|\s)산\s*\d/.test(address);
   const id = pnu || `parcel-${lon.toFixed(7)}-${lat.toFixed(7)}`;
+  const fetchedAt = new Date().toISOString();
   return {
     id,
     pnu,
@@ -746,7 +763,10 @@ function buildRecord([lon, lat], searchResult, parcelFeature, reverseResults) {
     lon,
     lat,
     dataset: parcelFeature?.dataset || "",
-    properties
+    properties,
+    sourceMeta: {
+      parcel: {source: "VWorld 공간정보 오픈플랫폼", asOf: "", fetchedAt, status: parcelFeature ? "success" : "missing"}
+    }
   };
 }
 
@@ -781,21 +801,103 @@ function showSelectedParcel(record, rawFeature) {
   }
 }
 
-function renderDetailHighlight(record) {
+function ensureSourceMeta(record) {
+  if (!record.sourceMeta || typeof record.sourceMeta !== "object") record.sourceMeta = {};
+  const now = new Date().toISOString();
+  if (!record.sourceMeta.parcel) {
+    record.sourceMeta.parcel = {
+      source: "VWorld 공간정보 오픈플랫폼",
+      asOf: "",
+      fetchedAt: now,
+      status: record.pnu ? "success" : "missing"
+    };
+  }
+  if (!record.sourceMeta.landRegister && record.landRegister) {
+    record.sourceMeta.landRegister = {
+      source: "국토교통부 국가공간정보센터 공개 API",
+      asOf: record.landRegister.base?.lastUpdtDt || record.landRegister.characteristic?.lastUpdtDt || "",
+      fetchedAt: now,
+      status: record.landRegister.partial ? "partial" : "success"
+    };
+  }
+  if (!record.sourceMeta.eumLandUse && record.eumLandUse) {
+    record.sourceMeta.eumLandUse = {source: "토지이음", asOf: "", fetchedAt: now, status: "success"};
+  }
+  if (!record.sourceMeta.building && Array.isArray(record.buildings)) {
+    const asOf = [...record.buildings].sort((a, b) => String(b.lastUpdated || "").localeCompare(String(a.lastUpdated || "")))[0]?.lastUpdated || "";
+    record.sourceMeta.building = {source: "VWorld 건축물 공개 API", asOf, fetchedAt: now, status: record.buildingError ? "error" : "success"};
+  }
+  return record.sourceMeta;
+}
+
+function setSourceMeta(record, key, values) {
+  const meta = ensureSourceMeta(record);
+  meta[key] = {...meta[key], ...values};
+}
+
+function getLandSnapshot(record) {
   const land = record.landRegister || {};
   const base = land.base || {};
   const ownership = land.ownership || {};
   const characteristic = land.characteristic || {};
   const price = land.price || {};
   const area = Number(base.lndpclAr || ownership.lndpclAr || characteristic.lndpclAr || 0);
+  const regulations = [...(record.eumLandUse?.nationalPlan || []), ...(record.eumLandUse?.otherLaws || [])]
+    .map((item) => cleanText(item?.name))
+    .filter((name, index, items) => name && items.indexOf(name) === index);
+  return {
+    category: cleanText(base.lndcgrCodeNm || ownership.lndcgrCodeNm || characteristic.lndcgrCodeNm),
+    area,
+    price,
+    priceYear: cleanText(price.stdrYear || characteristic.stdrYear),
+    zone: cleanText(characteristic.prposArea1Nm || record.eumLandUse?.nationalPlan?.[0]?.name),
+    regulations
+  };
+}
+
+function displayDataValue(value, {loading = false, failed = false} = {}) {
+  if (value && value !== "-") return value;
+  if (loading) return "조회 중";
+  if (failed) return "조회 실패";
+  return "미제공";
+}
+
+function sourceMetaText(meta, fallbackSource) {
+  const source = meta?.source || fallbackSource;
+  const lookupDate = formatDate(meta?.fetchedAt);
+  const basis = meta?.asOf ? `기준 ${formatDate(meta.asOf)}` : `기준일 미제공${lookupDate !== "-" ? ` · 조회 ${lookupDate}` : ""}`;
+  return `${source} · ${basis}`;
+}
+
+function setCardMeta(selector, meta, fallbackSource) {
+  const element = $(selector);
+  if (!element) return;
+  element.innerHTML = `<span>출처</span><strong>${escapeHtml(meta?.source || fallbackSource)}</strong><small>${escapeHtml(sourceMetaText(meta, fallbackSource).replace(`${meta?.source || fallbackSource} · `, ""))}</small>`;
+}
+
+function renderDetailHighlight(record) {
+  const snapshot = getLandSnapshot(record);
+  const sourceStatus = record.landRegister?.sourceStatus || {};
+  const landLoading = record.landRegisterLoading || (!record.landRegister && !record.landRegisterError);
+  const landFailed = Boolean(record.landRegisterError && !record.landRegister);
+  const zoneLoading = landLoading || record.eumLandUseLoading || (!record.eumLandUse && !record.eumLandUseError && !snapshot.zone);
+  const categoryFailed = landFailed || ["base", "ownership", "characteristics"].every((source) => sourceStatus[source] === "error");
+  const priceFailed = landFailed || sourceStatus.prices === "error";
+  const yearFailed = landFailed || ["prices", "characteristics"].every((source) => sourceStatus[source] === "error");
+  const zoneFailed = Boolean((landFailed || sourceStatus.characteristics === "error") && record.eumLandUseError && !snapshot.zone);
+  const priceValue = formatLandPrice(snapshot.price);
   const items = [
-    ["지목", base.lndcgrCodeNm || ownership.lndcgrCodeNm || characteristic.lndcgrCodeNm || "조회 중", "green"],
-    ["면적", area ? formatMetric(area, "㎡") : "조회 중", "blue"],
-    ["용도지역", characteristic.prposArea1Nm || record.eumLandUse?.nationalPlan?.[0]?.name || "조회 중", "purple"],
-    ["개별공시지가", formatLandPrice(price) === "-" ? "조회 중" : formatLandPrice(price), "orange"]
+    ["지목", displayDataValue(snapshot.category, {loading: landLoading, failed: categoryFailed}), "green"],
+    ["대장 면적", displayDataValue(snapshot.area ? `${formatMetric(snapshot.area, "㎡")} / ${formatPyeong(snapshot.area)}` : "", {loading: landLoading, failed: categoryFailed}), "blue"],
+    ["개별공시지가", displayDataValue(priceValue, {loading: landLoading, failed: priceFailed}), "orange"],
+    ["공시지가 기준연도", displayDataValue(snapshot.priceYear ? `${snapshot.priceYear}년` : "", {loading: landLoading, failed: yearFailed}), "gold"],
+    ["주요 용도지역", displayDataValue(snapshot.zone, {loading: zoneLoading, failed: zoneFailed}), "purple"]
   ];
   $("#detailHighlight").innerHTML = items.map(([label, value, tone]) => `
     <div class="${tone}"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+  const landMeta = ensureSourceMeta(record).landRegister;
+  const priceYear = snapshot.priceYear ? `${snapshot.priceYear}년 공시지가 기준` : "공시지가 기준연도 미제공";
+  $("#detailHighlightMeta").innerHTML = `<span>출처</span><strong>VWorld · 국토교통부 공개 API · 토지이음</strong><small>${escapeHtml(`${priceYear}${landMeta?.fetchedAt ? ` · 조회 ${formatDate(landMeta.fetchedAt)}` : ""}`)}</small>`;
 }
 
 function formatMetric(value, suffix) {
@@ -810,15 +912,28 @@ function formatApprovalYear(value) {
 }
 
 function formatDate(value) {
-  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (String(value || "").includes("T")) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul", year: "numeric", month: "numeric", day: "numeric"
+    }).format(date).replace(/\s/g, "").replace(/\.$/, "");
+  }
+  const match = String(value || "").match(/^(\d{4})-?(\d{2})-?(\d{2})/);
   return match ? `${match[1]}.${Number(match[2])}.${Number(match[3])}` : "-";
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "아직 저장되지 않음";
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false
+  }).format(date);
 }
 
 function formatLandPrice(price) {
   const amount = Number(price?.pblntfPclnd || 0);
   if (!amount) return "-";
-  const year = price?.stdrYear ? `${price.stdrYear}년 ` : "";
-  return `${year}${new Intl.NumberFormat("ko-KR").format(amount)}원/㎡`;
+  return `${new Intl.NumberFormat("ko-KR").format(amount)}원/㎡`;
 }
 
 function formatPyeong(area) {
@@ -862,8 +977,9 @@ function buildReportModel(record) {
     ["지형 높이", characteristic?.tpgrphHgCodeNm || "-"],
     ["지형 형상", characteristic?.tpgrphFrmCodeNm || "-"],
     ["도로 접면", characteristic?.roadSideCodeNm || "-"],
-    ["공시지가", formatLandPrice(price)],
-    ["전체면적 공시지가 단순환산액", formatEstimatedValue(price, area)],
+    ["개별공시지가", formatLandPrice(price)],
+    ["공시지가 기준연도", price?.stdrYear ? `${price.stdrYear}년` : "-"],
+    ["면적×공시지가 단순 계산 참고값", formatEstimatedValue(price, area)],
     ["소유구분", ownership?.posesnSeCodeNm || base?.posesnSeCodeNm || "-"],
     ["도면축척", base?.ladFrtlScNm || "-"],
     ["정보 기준일", formatDate(base?.lastUpdtDt || characteristic?.lastUpdtDt)]
@@ -953,13 +1069,15 @@ function buildReportModel(record) {
     generatedAt,
     sections,
     source: `VWorld 공간정보 오픈플랫폼 · 국토교통부 국가공간정보센터 공개 API${eum.zones?.length ? " · 토지이음 토지이용계획 열람" : ""}`,
-    notice: "이 보고서는 공개 API 조회정보를 정리한 참고자료이며 법적 증명 효력이 없습니다. 필지 경계와 면적은 측량 성과와 다를 수 있고, 전체면적 공시지가 환산액은 면적과 공시지가를 곱한 단순 계산값입니다. 소유자 성명, 주소, 등록번호, 지분 등 개인정보는 포함하지 않습니다."
+    notice: "이 보고서는 공개 API 조회정보를 정리한 참고자료이며 법적 증명 효력이 없습니다. 필지 경계와 면적은 측량 성과와 다를 수 있고, 면적×공시지가 단순 계산 참고값은 실거래가·매매가격·감정가가 아닙니다. 소유자 성명, 주소, 등록번호, 지분 등 개인정보는 포함하지 않습니다."
   };
 }
 
 function renderLandRegisterSection(record) {
   const content = $("#landRegisterContent");
   const badge = $("#landRegisterBadge");
+  const meta = ensureSourceMeta(record).landRegister;
+  setCardMeta("#landRegisterMeta", meta, "국토교통부 국가공간정보센터 공개 API");
   $("#landRegisterCardTitle").textContent = `${record.typeLabel || "토지대장"} 정보`;
   if (!record.landRegister) {
     badge.textContent = record.landRegisterError ? "조회 실패" : "조회 중";
@@ -987,8 +1105,9 @@ function renderLandRegisterSection(record) {
     ["제2용도지역", characteristic?.prposArea2Nm || "-"],
     ["토지이용상황", characteristic?.ladUseSittnNm || "-"],
     ["도로 접면", characteristic?.roadSideCodeNm || "-"],
-    ["공시지가", formatLandPrice(price)],
-    ["전체면적 환산가", formatEstimatedValue(price, area)],
+    ["개별공시지가", formatLandPrice(price)],
+    ["공시지가 기준연도", price?.stdrYear ? `${price.stdrYear}년` : "-"],
+    ["면적×공시지가 단순 계산 참고값", formatEstimatedValue(price, area)],
     ["소유구분", ownership?.posesnSeCodeNm || base?.posesnSeCodeNm || "-"],
     ["대장구분", registerType],
     ["도면축척", base?.ladFrtlScNm || "-"],
@@ -1018,7 +1137,7 @@ function renderLandRegisterSection(record) {
 
   content.innerHTML = `
     <dl class="building-facts land-register-summary">${summaryFacts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>
-    <p class="land-value-note">전체면적 환산가는 면적 × 공시지가의 단순 계산값이며 실거래가·감정가가 아닙니다.</p>
+    <p class="land-value-note">면적×공시지가 단순 계산 참고값은 실거래가·매매가격·감정가가 아닙니다.</p>
     <div class="land-register-details">
       <details open><summary>토지특성 상세</summary><dl class="building-facts">${characteristicFacts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl></details>
       ${useDetails}
@@ -1031,11 +1150,15 @@ async function loadLandRegisterDetails(record) {
   if (!record?.pnu || record.landRegister?.version === 2 || record.landRegisterLoading) return;
   record.landRegisterLoading = true;
   record.landRegisterError = false;
+  setSourceMeta(record, "landRegister", {source: "국토교통부 국가공간정보센터 공개 API", status: "loading"});
   try {
     record.landRegister = await fetchLandRegisterDetails(record.pnu);
+    const asOf = record.landRegister?.base?.lastUpdtDt || record.landRegister?.characteristic?.lastUpdtDt || "";
+    setSourceMeta(record, "landRegister", {asOf, fetchedAt: new Date().toISOString(), status: record.landRegister?.partial ? "partial" : "success"});
   } catch (error) {
     console.error("VWorld land register lookup failed", error);
     record.landRegisterError = true;
+    setSourceMeta(record, "landRegister", {asOf: "", fetchedAt: new Date().toISOString(), status: "error"});
   } finally {
     record.landRegisterLoading = false;
     if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) {
@@ -1051,6 +1174,7 @@ function renderEumLandUseSection(record) {
   const content = $("#eumLandUseContent");
   const badge = $("#eumLandUseBadge");
   const data = record.eumLandUse;
+  setCardMeta("#eumLandUseMeta", ensureSourceMeta(record).eumLandUse, "토지이음");
   if (!data) {
     badge.textContent = record.eumLandUseError ? "조회 실패" : "조회 중";
     content.innerHTML = `<p class="building-empty">${record.eumLandUseError ? "토지이음 정보를 불러오지 못했어요. 아래 공식 상세보기에서 확인해 주세요." : "용도지역·지구와 행위제한 근거를 확인하고 있어요."}</p>
@@ -1094,11 +1218,14 @@ async function loadEumLandUse(record) {
   if (!record?.pnu || record.eumLandUse?.version === 1 || record.eumLandUseLoading) return;
   record.eumLandUseLoading = true;
   record.eumLandUseError = false;
+  setSourceMeta(record, "eumLandUse", {source: "토지이음", status: "loading"});
   try {
     record.eumLandUse = await fetchEumLandUse(record.pnu);
+    setSourceMeta(record, "eumLandUse", {asOf: "", fetchedAt: new Date().toISOString(), status: "success"});
   } catch (error) {
     console.error("토지이음 토지이용계획 조회 실패", error);
     record.eumLandUseError = true;
+    setSourceMeta(record, "eumLandUse", {asOf: "", fetchedAt: new Date().toISOString(), status: "error"});
   } finally {
     record.eumLandUseLoading = false;
     if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) {
@@ -1111,6 +1238,7 @@ async function loadEumLandUse(record) {
 function renderBuildingSection(record, selectedIndex = 0) {
   const content = $("#buildingContent");
   const count = $("#buildingCount");
+  setCardMeta("#buildingMeta", ensureSourceMeta(record).building, "VWorld 건축물 공개 API");
   if (!Array.isArray(record.buildings)) {
     count.hidden = true;
     content.innerHTML = `<p class="building-empty">건축물 정보를 확인하고 있어요.</p>`;
@@ -1156,13 +1284,17 @@ function renderBuildingSection(record, selectedIndex = 0) {
 async function loadBuildingDetails(record) {
   if (!record?.pnu || Array.isArray(record.buildings) || record.buildingLoading) return;
   record.buildingLoading = true;
+  setSourceMeta(record, "building", {source: "VWorld 건축물 공개 API", status: "loading"});
   try {
     record.buildings = await fetchBuildingRecords(record.pnu);
     record.buildingError = false;
+    const asOf = [...record.buildings].sort((a, b) => String(b.lastUpdated).localeCompare(String(a.lastUpdated)))[0]?.lastUpdated || "";
+    setSourceMeta(record, "building", {asOf, fetchedAt: new Date().toISOString(), status: "success"});
   } catch (error) {
     console.error("VWorld building lookup failed", error);
     record.buildings = [];
     record.buildingError = true;
+    setSourceMeta(record, "building", {asOf: "", fetchedAt: new Date().toISOString(), status: "error"});
   } finally {
     record.buildingLoading = false;
     if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) renderBuildingSection(record);
@@ -1170,10 +1302,209 @@ async function loadBuildingDetails(record) {
   }
 }
 
+function getFieldRecordKey(record) {
+  return record?.pnu || record?.id || "";
+}
+
+function readFieldRecordStore() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FIELD_RECORDS_KEY) || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function isValidFieldRecord(value) {
+  const validStatuses = new Set(FIELD_STATUSES.map(([status]) => status));
+  return value?.version === 1
+    && typeof value.memo === "string"
+    && typeof value.updatedAt === "string"
+    && FIELD_ITEMS.every(([key]) => validStatuses.has(value.checklist?.[key]));
+}
+
+function getFieldRecord(record) {
+  const key = getFieldRecordKey(record);
+  const store = readFieldRecordStore();
+  const saved = key ? store[key] : null;
+  if (saved && !isValidFieldRecord(saved)) {
+    delete store[key];
+    localStorage.setItem(FIELD_RECORDS_KEY, JSON.stringify(store));
+    return null;
+  }
+  return saved || null;
+}
+
+function renderFieldRecord(record) {
+  const saved = getFieldRecord(record);
+  const checklist = saved?.checklist || Object.fromEntries(FIELD_ITEMS.map(([key]) => [key, "unknown"]));
+  $("#fieldChecklist").innerHTML = FIELD_ITEMS.map(([key, label]) => `
+    <fieldset class="field-check-item">
+      <legend>${escapeHtml(label)}</legend>
+      <div class="field-status-options">
+        ${FIELD_STATUSES.map(([status, statusLabel]) => `
+          <label class="field-status field-status-${escapeHtml(status)}">
+            <input type="radio" name="field-${escapeHtml(key)}" value="${escapeHtml(status)}"${checklist[key] === status ? " checked" : ""}>
+            <span>${escapeHtml(statusLabel)}</span>
+          </label>`).join("")}
+      </div>
+    </fieldset>`).join("");
+  $("#fieldMemo").value = saved?.memo || "";
+  $("#fieldRecordUpdated").textContent = saved ? `수정 ${formatDateTime(saved.updatedAt)}` : "아직 저장되지 않음";
+  $("#deleteFieldRecord").disabled = !saved;
+  $("#fieldRecordMeta").innerHTML = `<span>출처</span><strong>사용자 기록</strong><small>${escapeHtml(saved ? `수정 ${formatDateTime(saved.updatedAt)} · 이 브라우저에만 저장됨` : "아직 저장되지 않음 · 이 브라우저에만 저장됨")}</small>`;
+}
+
+function saveFieldRecord(record) {
+  const key = getFieldRecordKey(record);
+  if (!key) return showToast("현장기록을 저장할 필지 식별정보가 없습니다.");
+  const checklist = Object.fromEntries(FIELD_ITEMS.map(([itemKey]) => [
+    itemKey,
+    $(`input[name="field-${itemKey}"]:checked`)?.value || "unknown"
+  ]));
+  const saved = {version: 1, checklist, memo: $("#fieldMemo").value.trim(), updatedAt: new Date().toISOString()};
+  const store = readFieldRecordStore();
+  store[key] = saved;
+  localStorage.setItem(FIELD_RECORDS_KEY, JSON.stringify(store));
+  renderFieldRecord(record);
+  showToast("현장기록을 이 브라우저에 저장했어요.");
+}
+
+function deleteFieldRecord(record) {
+  const key = getFieldRecordKey(record);
+  if (!key || !getFieldRecord(record)) return;
+  if (!window.confirm("이 필지의 현장 체크리스트와 메모를 삭제할까요?")) return;
+  const store = readFieldRecordStore();
+  delete store[key];
+  localStorage.setItem(FIELD_RECORDS_KEY, JSON.stringify(store));
+  renderFieldRecord(record);
+  showToast("현장기록을 삭제했어요.");
+}
+
+function comparisonDatum(record, key) {
+  const snapshot = getLandSnapshot(record);
+  const sourceStatus = record.landRegister?.sourceStatus || {};
+  const landLoading = record.landRegisterLoading || (!record.landRegister && !record.landRegisterError);
+  const landFailed = Boolean(record.landRegisterError && !record.landRegister);
+  const eumLoading = record.eumLandUseLoading || (!record.eumLandUse && !record.eumLandUseError);
+  const eumFailed = Boolean(record.eumLandUseError && !record.eumLandUse);
+  if (key === "address") return {value: record.address || record.road || "미제공", status: record.address || record.road ? "success" : "missing"};
+  const values = {
+    category: snapshot.category,
+    area: snapshot.area ? `${formatMetric(snapshot.area, "㎡")} / ${formatPyeong(snapshot.area)}` : "",
+    price: formatLandPrice(snapshot.price) === "-" ? "" : formatLandPrice(snapshot.price),
+    year: snapshot.priceYear ? `${snapshot.priceYear}년` : "",
+    regulations: snapshot.regulations
+  };
+  if (key === "regulations") {
+    if (values.regulations.length) return {value: values.regulations, status: "success"};
+    if (eumLoading) return {value: "조회 중", status: "loading"};
+    if (eumFailed) return {value: "조회 실패", status: "error"};
+    return {value: "미제공", status: "missing"};
+  }
+  if (values[key]) return {value: values[key], status: "success"};
+  if (landLoading) return {value: "조회 중", status: "loading"};
+  const failedDependencies = {
+    category: ["base", "ownership", "characteristics"],
+    area: ["base", "ownership", "characteristics"],
+    price: ["prices"],
+    year: ["prices", "characteristics"]
+  }[key] || [];
+  const dependencyFailed = failedDependencies.length && failedDependencies.every((source) => sourceStatus[source] === "error");
+  if (landFailed || dependencyFailed) return {value: "조회 실패", status: "error"};
+  return {value: "미제공", status: "missing"};
+}
+
+function comparisonCellMarkup(datum) {
+  if (Array.isArray(datum.value)) {
+    const visible = datum.value.slice(0, 3);
+    const remaining = datum.value.length - visible.length;
+    if (!remaining) return `<ul class="compare-regulations">${visible.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+    return `<details class="compare-regulation-details"><summary>${visible.map(escapeHtml).join(" · ")} <b>외 ${remaining}건</b></summary><ul>${datum.value.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>`;
+  }
+  return `<span class="compare-value ${escapeHtml(datum.status)}">${escapeHtml(datum.value)}</span>`;
+}
+
+function selectedCompareRecords() {
+  return [...state.compareIds].map((id) => state.records.find((record) => record.id === id)).filter(Boolean);
+}
+
+function renderCompareDialog() {
+  const records = selectedCompareRecords();
+  const rows = [
+    ["주소", "address"],
+    ["지목", "category"],
+    ["대장 면적", "area"],
+    ["개별공시지가", "price"],
+    ["공시지가 기준연도", "year"],
+    ["주요 규제", "regulations"]
+  ];
+  $("#compareContent").innerHTML = records.length ? `
+    <div class="compare-table-wrap">
+      <table class="compare-table">
+        <thead><tr><th scope="col">비교 항목</th>${records.map((record) => `<th scope="col">${escapeHtml(record.address || record.number || "선택 필지")}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${rows.map(([label, key]) => `<tr><th scope="row">${escapeHtml(label)}</th>${records.map((record) => `<td>${comparisonCellMarkup(comparisonDatum(record, key))}</td>`).join("")}</tr>`).join("")}
+          <tr class="compare-source-row"><th scope="row">출처·기준일</th>${records.map((record) => {
+            const meta = ensureSourceMeta(record);
+            const landText = sourceMetaText(meta.landRegister, "국토교통부 공개 API");
+            const eumText = sourceMetaText(meta.eumLandUse, "토지이음");
+            return `<td><small>${escapeHtml(landText)}<br>${escapeHtml(eumText)}</small></td>`;
+          }).join("")}</tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="compare-note">개별공시지가는 원/㎡ 단가이며 실거래가·매매가격·감정가가 아닙니다.</p>` : `<p class="compare-empty">비교할 관심 토지를 선택해 주세요.</p>`;
+  $("#retryCompare").hidden = !records.some((record) => (record.landRegisterError && !record.landRegister) || record.landRegister?.partial || (record.eumLandUseError && !record.eumLandUse));
+}
+
+async function loadCompareRecords() {
+  const records = selectedCompareRecords();
+  renderCompareDialog();
+  await Promise.all(records.map((record) => Promise.all([loadLandRegisterDetails(record), loadEumLandUse(record)])));
+  renderCompareDialog();
+  persistFavorites();
+}
+
+async function retryCompareRecords() {
+  selectedCompareRecords().forEach((record) => {
+    if (record.landRegisterError || record.landRegister?.partial) {
+      record.landRegister = null;
+      record.landRegisterError = false;
+    }
+    if (record.eumLandUseError && !record.eumLandUse) record.eumLandUseError = false;
+  });
+  await loadCompareRecords();
+}
+
+function openNaverDirections(record) {
+  if (!record || !Number.isFinite(record.lat) || !Number.isFinite(record.lon)) return showToast("길찾기에 사용할 좌표가 없습니다.");
+  const name = encodeURIComponent(record.address || "선택한 필지");
+  const appName = encodeURIComponent("https://tojihannun.designboard.net");
+  const query = `dlat=${record.lat}&dlng=${record.lon}&dname=${name}&appname=${appName}`;
+  if (/Android/i.test(navigator.userAgent)) {
+    window.location.href = `intent://navigation?${query}#Intent;scheme=nmap;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.nmap;end`;
+  } else if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    window.location.href = `nmap://navigation?${query}`;
+  } else {
+    window.open(`https://map.naver.com/p/search/${name}`, "_blank", "noopener,noreferrer");
+  }
+}
+
+function openGoogleDirections(record) {
+  if (!record || !Number.isFinite(record.lat) || !Number.isFinite(record.lon)) return showToast("길찾기에 사용할 좌표가 없습니다.");
+  const url = new URL("https://www.google.com/maps/dir/");
+  url.searchParams.set("api", "1");
+  url.searchParams.set("destination", `${record.lat},${record.lon}`);
+  url.searchParams.set("dir_action", "navigate");
+  window.open(url.toString(), "_blank", "noopener,noreferrer");
+}
+
 function openDetail(record) {
   if (!record) return;
   const detailSheet = $("#detailSheet");
   detailSheet.scrollTop = 0;
+  const sourceMeta = ensureSourceMeta(record);
   state.selectedId = record.id;
   $("#detailType").textContent = record.typeLabel;
   $("#detailType").classList.toggle("forest", record.type === "forest");
@@ -1189,6 +1520,7 @@ function openDetail(record) {
     ["위도", Number(record.lat).toFixed(6)]
   ];
   $("#landFacts").innerHTML = facts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+  setCardMeta("#parcelIdMeta", sourceMeta.parcel, "VWorld 공간정보 오픈플랫폼");
   renderDetailHighlight(record);
   renderLandRegisterSection(record);
   void loadLandRegisterDetails(record);
@@ -1196,6 +1528,7 @@ function openDetail(record) {
   void loadEumLandUse(record);
   renderBuildingSection(record);
   void loadBuildingDetails(record);
+  renderFieldRecord(record);
   updateDetailFavorite(record.id);
   detailSheet.classList.add("open");
   detailSheet.setAttribute("aria-hidden", "false");
@@ -1235,12 +1568,15 @@ function render() {
   $("#resultCount").textContent = records.length;
   $("#landList").classList.toggle("list-view", state.view === "list");
   $("#landList").innerHTML = records.length ? records.map((record) => `
-    <button class="land-card" type="button" data-record-id="${escapeHtml(record.id)}">
-      <span>${escapeHtml(record.typeLabel)}</span>
-      <strong>${escapeHtml(record.address || "선택한 필지")}</strong>
-      <small>${escapeHtml(record.number || "지번 확인 중")} · ${state.favorites.has(record.id) ? "★ 관심 토지" : record.pnu ? "PNU 확인됨" : "주소 검색 결과"}</small>
-      <em>›</em>
-    </button>`).join("") : `<div class="empty-result">${state.filter === "favorite" ? "아직 저장한 관심 토지가 없어요." : "주소를 검색하거나 지도에서 필지를 선택해 보세요."}</div>`;
+    <article class="land-card-shell${state.compareIds.has(record.id) ? " compare-selected" : ""}">
+      ${state.filter === "favorite" ? `<label class="compare-select"><input type="checkbox" data-compare-id="${escapeHtml(record.id)}"${state.compareIds.has(record.id) ? " checked" : ""}><span>비교</span></label>` : ""}
+      <button class="land-card" type="button" data-record-id="${escapeHtml(record.id)}">
+        <span>${escapeHtml(record.typeLabel)}</span>
+        <strong>${escapeHtml(record.address || "선택한 필지")}</strong>
+        <small>${escapeHtml(record.number || "지번 확인 중")} · ${state.favorites.has(record.id) ? "★ 관심 토지" : record.pnu ? "PNU 확인됨" : "주소 검색 결과"}</small>
+        <em>›</em>
+      </button>
+    </article>`).join("") : `<div class="empty-result">${state.filter === "favorite" ? "아직 저장한 관심 토지가 없어요." : "주소를 검색하거나 지도에서 필지를 선택해 보세요."}</div>`;
   $$("[data-record-id]").forEach((button) => button.addEventListener("click", async () => {
     const record = state.records.find((item) => item.id === button.dataset.recordId);
     if (!record) return;
@@ -1249,7 +1585,30 @@ function render() {
     showSelectedParcel(record, null);
     openDetail(record);
   }));
+  $$("[data-compare-id]").forEach((checkbox) => checkbox.addEventListener("change", () => {
+    const id = checkbox.dataset.compareId;
+    if (checkbox.checked && state.compareIds.size >= 4) {
+      checkbox.checked = false;
+      showToast("관심 토지는 최대 4개까지 비교할 수 있어요.");
+      return;
+    }
+    if (checkbox.checked) state.compareIds.add(id);
+    else state.compareIds.delete(id);
+    render();
+  }));
+  updateCompareBar();
   updateFavoriteCount();
+}
+
+function updateCompareBar() {
+  [...state.compareIds].forEach((id) => {
+    if (!state.favorites.has(id) || !state.records.some((record) => record.id === id)) state.compareIds.delete(id);
+  });
+  const count = state.compareIds.size;
+  $("#compareBar").hidden = state.filter !== "favorite";
+  $("#compareCount").textContent = count;
+  $("#openCompare").disabled = count < 2;
+  $("#openCompare").textContent = count >= 2 ? `${count}개 비교하기` : "2개 이상 선택";
 }
 
 function toggleFavorite(id = state.selectedId) {
@@ -1257,6 +1616,7 @@ function toggleFavorite(id = state.selectedId) {
   if (!record) return;
   if (state.favorites.has(id)) {
     state.favorites.delete(id);
+    state.compareIds.delete(id);
     showToast("관심 토지에서 삭제했어요.");
   } else {
     state.favorites.add(id);
@@ -1418,6 +1778,27 @@ $("#copyParcelAddress").addEventListener("click", async () => {
   showToast(copied ? "선택한 지번 주소를 복사했어요." : "주소를 복사하지 못했어요.");
 });
 
+$("#openNaverDirections").addEventListener("click", () => {
+  const record = state.records.find((item) => item.id === state.selectedId);
+  openNaverDirections(record);
+});
+
+$("#openGoogleDirections").addEventListener("click", () => {
+  const record = state.records.find((item) => item.id === state.selectedId);
+  openGoogleDirections(record);
+});
+
+$("#fieldRecordForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const record = state.records.find((item) => item.id === state.selectedId);
+  if (record) saveFieldRecord(record);
+});
+
+$("#deleteFieldRecord").addEventListener("click", () => {
+  const record = state.records.find((item) => item.id === state.selectedId);
+  if (record) deleteFieldRecord(record);
+});
+
 $$('.related-service-link').forEach((link) => link.addEventListener("click", async (event) => {
   const record = state.records.find((item) => item.id === state.selectedId);
   if (link.hasAttribute("data-eum-land-use")) {
@@ -1476,6 +1857,20 @@ $$(`[data-export-format]`).forEach((button) => button.addEventListener("click", 
     setExportBusy(false);
   }
 }));
+
+const compareDialog = $("#compareDialog");
+$("#openCompare").addEventListener("click", () => {
+  if (state.compareIds.size < 2) return showToast("비교할 관심 토지를 2개 이상 선택해 주세요.");
+  renderCompareDialog();
+  compareDialog.showModal();
+  void loadCompareRecords();
+});
+$("#compareClose").addEventListener("click", () => compareDialog.close());
+$("#compareConfirm").addEventListener("click", () => compareDialog.close());
+$("#retryCompare").addEventListener("click", () => void retryCompareRecords());
+compareDialog.addEventListener("click", (event) => {
+  if (event.target === compareDialog) compareDialog.close();
+});
 
 const infoDialog = $("#infoDialog");
 $("#helpButton").addEventListener("click", () => infoDialog.showModal());
