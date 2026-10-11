@@ -895,9 +895,6 @@ function renderDetailHighlight(record) {
   ];
   $("#detailHighlight").innerHTML = items.map(([label, value, tone]) => `
     <div class="${tone}"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
-  const landMeta = ensureSourceMeta(record).landRegister;
-  const priceYear = snapshot.priceYear ? `${snapshot.priceYear}년 공시지가 기준` : "공시지가 기준연도 미제공";
-  $("#detailHighlightMeta").innerHTML = `<span>출처</span><strong>VWorld · 국토교통부 공개 API · 토지이음</strong><small>${escapeHtml(`${priceYear}${landMeta?.fetchedAt ? ` · 조회 ${formatDate(landMeta.fetchedAt)}` : ""}`)}</small>`;
 }
 
 function formatMetric(value, suffix) {
@@ -1510,7 +1507,6 @@ function openDetail(record) {
   if (!record) return;
   const detailSheet = $("#detailSheet");
   detailSheet.scrollTop = 0;
-  const sourceMeta = ensureSourceMeta(record);
   state.selectedId = record.id;
   $("#detailType").textContent = record.typeLabel;
   $("#detailType").classList.toggle("forest", record.type === "forest");
@@ -1526,7 +1522,6 @@ function openDetail(record) {
     ["위도", Number(record.lat).toFixed(6)]
   ];
   $("#landFacts").innerHTML = facts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
-  setCardMeta("#parcelIdMeta", sourceMeta.parcel, "VWorld 공간정보 오픈플랫폼");
   renderDetailHighlight(record);
   renderLandRegisterSection(record);
   void loadLandRegisterDetails(record);
@@ -1554,7 +1549,6 @@ function setDetailTab(tab, focus = true) {
     button.tabIndex = active ? 0 : -1;
   });
   $$('[data-detail-panel]').forEach((panel) => { panel.hidden = panel.dataset.detailPanel !== tab; });
-  $("#detailSheet").scrollTo({top: 0, behavior: "auto"});
   if (focus) nextButton.focus({preventScroll: true});
 }
 
