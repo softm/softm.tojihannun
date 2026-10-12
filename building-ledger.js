@@ -67,7 +67,7 @@ function toRegistryPnu(pnu) {
 
 function getLotNumbers(pnu) {
   return {
-    main: String(Number(pnu.slice(11, 15)) || 0),
+    main: pnu.slice(11, 15),
     sub: pnu.slice(15, 19)
   };
 }
