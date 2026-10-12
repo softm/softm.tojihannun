@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261012.19" />
+    <link rel="stylesheet" href="./styles.css?v=20261012.20" />
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -132,6 +132,10 @@
         <div class="detail-top">
           <span class="status-pill" id="detailType">토지대장</span>
           <div class="detail-actions">
+            <button class="detail-report-action" type="button" id="openExport" aria-label="토지정보 보고서 열기">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4V20H7Z"/><path d="M14 3.5V8h4M10 12h5M10 15.5h5"/></svg>
+              <span>보고서</span>
+            </button>
             <button type="button" id="detailFavorite" aria-label="관심 토지에 추가">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg>
             </button>
@@ -304,7 +308,6 @@
           </div>
         </section>
         <div class="detail-buttons">
-          <button class="button secondary" type="button" id="openExport">보고서 다운로드</button>
           <a class="button primary" href="https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000026&HighCtgCD=A09005" target="_blank" rel="noopener noreferrer">토지대장 열람·발급</a>
         </div>
         <div class="demo-notice detail-notice-bottom"><span>i</span> 국토교통부 공개정보를 별도 발급 없이 조회합니다. 소유자 개인정보는 제외되며, 법적 증명이 필요하면 정부24 토지대장 열람·발급을 이용해 주세요.</div>

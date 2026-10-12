@@ -157,15 +157,18 @@ button { color: inherit; }
 .detail-actions { display: flex; gap: 5px; }
 .detail-actions button { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 12px; background: #f4f7f5; cursor: pointer; }
 .detail-actions svg { width: 20px; fill: none; stroke: #566b64; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.detail-actions .detail-report-action { display: inline-flex; width: auto; gap: 6px; padding: 0 11px; background: #e8f4ee; color: var(--green-dark); font-size: 11px; font-weight: 800; }
+.detail-actions .detail-report-action:hover, .detail-actions .detail-report-action:focus-visible { outline: 0; background: #d9eee4; }
+.detail-actions .detail-report-action svg { width: 17px; stroke: currentColor; }
 #detailFavorite.active svg { fill: #f5b943; stroke: #dc9e21; }
 .detail-title-row { display: flex; align-items: flex-start; gap: 10px; }
 .detail-title-row h2 { min-width: 0; flex: 1; }
 .detail-sheet h2 { margin: 13px 0 5px; font-size: clamp(20px, 5vw, 27px); letter-spacing: -.045em; }
 .detail-road { margin: 0 0 10px; color: var(--ink-soft); font-size: 13px; }
-.directions-actions { display: flex; flex-wrap: wrap; gap: 7px; }
-.directions-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 35px; padding: 0 10px; border: 1px solid #d9e4df; border-radius: 10px; background: #fff; color: #425e55; font-size: 11px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.directions-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.directions-actions button { display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 34px; gap: 5px; padding: 0 7px; border: 1px solid #d9e4df; border-radius: 10px; background: #fff; color: #425e55; font-size: 11px; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .directions-actions button:hover, .directions-actions button:focus-visible { border-color: var(--green); outline: 0; background: #f0f8f4; }
-.directions-actions span { display: grid; place-items: center; width: 19px; height: 19px; border-radius: 6px; background: var(--green); color: #fff; font-size: 10px; font-weight: 900; }
+.directions-actions span { display: grid; place-items: center; flex: 0 0 18px; width: 18px; height: 18px; border-radius: 6px; background: var(--green); color: #fff; font-size: 9px; font-weight: 900; }
 #openGoogleDirections span { background: #3976d7; }
 #openKakaoDirections span { background: #fee500; color: #191919; }
 .demo-notice { display: flex; gap: 9px; align-items: flex-start; padding: 10px 12px; border-radius: 11px; background: #fff8e8; color: #705d2e; font-size: 11px; line-height: 1.55; }
@@ -331,7 +334,7 @@ button { color: inherit; }
 .service-copy small { margin-top: 3px; color: #718079; font-size: 10px; line-height: 1.45; }
 .service-arrow { color: var(--service-color); font-size: 15px; font-weight: 800; }
 .related-service-link--wide { grid-column: 1 / -1; }
-.detail-buttons { display: grid; grid-template-columns: .8fr 1.2fr; gap: 9px; margin-top: 14px; }
+.detail-buttons { display: grid; grid-template-columns: 1fr; gap: 9px; margin-top: 14px; }
 .button { display: grid; place-items: center; min-height: 50px; padding: 0 16px; border: 1px solid var(--green); border-radius: 14px; font-size: 14px; font-weight: 800; text-decoration: none; cursor: pointer; }
 .button.secondary { background: #fff; color: var(--green); }
 .button.primary { background: var(--green); color: #fff; }
@@ -437,7 +440,7 @@ button { color: inherit; }
   .detail-sheet { width: 100%; border-radius: 26px 26px 0 0; }
   .detail-tabs { margin-left: -22px; margin-right: -22px; padding-left: 16px; padding-right: 16px; }
   .detail-tabs button { flex: 0 0 auto; }
-  .directions-actions button { flex: 1 1 100px; justify-content: center; gap: 4px; padding: 0 7px; font-size: 10px; }
+  .directions-actions button { gap: 4px; min-height: 32px; padding: 0 5px; font-size: 10px; }
   .field-status-options { gap: 4px; }
   .field-status span { min-height: 39px; padding: 4px; font-size: 8px; }
   .export-dialog { padding: 22px 18px; }
@@ -471,7 +474,8 @@ button { color: inherit; }
   .detail-section-heading strong { font-size: 18px; }
   .detail-highlight dt { font-size: 12px; }
   .detail-highlight dd { font-size: 17px; }
-  .directions-actions button { min-height: 39px; font-size: 13px; }
+  .detail-actions .detail-report-action { padding: 0 13px; font-size: 12px; }
+  .directions-actions button { min-height: 36px; font-size: 12px; }
   .land-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .card-meta span { font-size: 10px; }
   .card-meta strong { font-size: 12px; }
