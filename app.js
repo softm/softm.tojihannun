@@ -542,7 +542,7 @@ async function performSearch(query) {
   const value = query.trim();
   if (value.length < 2) {
     showToast("주소나 지번을 두 글자 이상 입력해 주세요.");
-    return;
+    return false;
   }
   setSearchLoading(true);
   try {
@@ -550,10 +550,12 @@ async function performSearch(query) {
     state.searchResults = results.filter((item) => Number.isFinite(item.lon) && Number.isFinite(item.lat));
     renderSuggestions(state.searchResults);
     if (!state.searchResults.length) showToast("검색 결과가 없어요. 주소·지번·건물명을 다시 확인해 주세요.");
+    return state.searchResults.length > 0;
   } catch (error) {
     console.error("VWorld search failed", error);
     renderSuggestions([]);
     showToast("검색에 실패했어요. 인증키와 네트워크를 확인해 주세요.");
+    return false;
   } finally {
     setSearchLoading(false);
   }
@@ -1972,9 +1974,10 @@ function finishMainSheetDrag(event, cancelled = false) {
   if (suppressSheetHandleClick) requestAnimationFrame(() => { suppressSheetHandleClick = false; });
 }
 
-$("#searchForm").addEventListener("submit", (event) => {
+$("#searchForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  performSearch($("#searchInput").value);
+  const hasResults = await performSearch($("#searchInput").value);
+  if (hasResults && window.matchMedia("(max-width: 720px)").matches) mainSheetCollapse(true);
 });
 
 $("#searchInput").addEventListener("input", () => {
