@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261012.18" />
+    <link rel="stylesheet" href="./styles.css?v=20261012.19" />
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -159,24 +159,27 @@
             <span aria-hidden="true">K</span> 카카오 길찾기
           </button>
         </div>
-        <section class="detail-highlight" aria-labelledby="detailHighlightTitle">
-          <div class="detail-section-heading">
-            <strong id="detailHighlightTitle">핵심 정보</strong>
-          </div>
-          <dl id="detailHighlight"></dl>
-          <div class="parcel-identity" aria-labelledby="parcelIdTitle">
-            <strong class="parcel-identity-title" id="parcelIdTitle">필지 식별정보</strong>
-            <dl class="land-facts" id="landFacts"></dl>
-          </div>
-        </section>
         <nav class="detail-tabs" role="tablist" aria-label="필지 상세정보">
-          <button class="active" type="button" role="tab" id="detailTabRegister" aria-selected="true" aria-controls="detailPanelRegister" tabindex="0" data-detail-tab="register">토지대장</button>
+          <button class="active" type="button" role="tab" id="detailTabBasic" aria-selected="true" aria-controls="detailPanelBasic" tabindex="0" data-detail-tab="basic">기본</button>
+          <button type="button" role="tab" id="detailTabRegister" aria-selected="false" aria-controls="detailPanelRegister" tabindex="-1" data-detail-tab="register">토지대장</button>
           <button type="button" role="tab" id="detailTabUse" aria-selected="false" aria-controls="detailPanelUse" tabindex="-1" data-detail-tab="use">토지이용</button>
           <button type="button" role="tab" id="detailTabBuilding" aria-selected="false" aria-controls="detailPanelBuilding" tabindex="-1" data-detail-tab="building">건축물</button>
           <button type="button" role="tab" id="detailTabField" aria-selected="false" aria-controls="detailPanelField" tabindex="-1" data-detail-tab="field">현장기록</button>
           <button type="button" role="tab" id="detailTabLinks" aria-selected="false" aria-controls="detailPanelLinks" tabindex="-1" data-detail-tab="links">공식연결</button>
         </nav>
-        <section class="detail-tab-panel building-card land-register-card" id="detailPanelRegister" role="tabpanel" aria-labelledby="detailTabRegister" data-detail-panel="register">
+        <section class="detail-tab-panel detail-basic-panel" id="detailPanelBasic" role="tabpanel" aria-labelledby="detailTabBasic" data-detail-panel="basic">
+          <section class="detail-highlight" aria-labelledby="detailHighlightTitle">
+            <div class="detail-section-heading">
+              <strong id="detailHighlightTitle">핵심 정보</strong>
+            </div>
+            <dl id="detailHighlight"></dl>
+            <div class="parcel-identity" aria-labelledby="parcelIdTitle">
+              <strong class="parcel-identity-title" id="parcelIdTitle">필지 식별정보</strong>
+              <dl class="land-facts" id="landFacts"></dl>
+            </div>
+          </section>
+        </section>
+        <section class="detail-tab-panel building-card land-register-card" id="detailPanelRegister" role="tabpanel" aria-labelledby="detailTabRegister" data-detail-panel="register" hidden>
           <div class="building-card-head">
             <div>
               <span>토지·임야대장 공개정보</span>
@@ -373,6 +376,6 @@
     <script src="https://cdn.jsdelivr.net/npm/docx@9.10.0/dist/index.iife.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.0/dist/pptxgen.bundle.js"></script>
     <script src="./report-export.js?v=20261012.4"></script>
-    <script src="./app.js?v=20261012.18"></script>
+    <script src="./app.js?v=20261012.19"></script>
   </body>
 </html>

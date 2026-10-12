@@ -37,7 +37,7 @@ const FIELD_STATUSES = [
 
 const state = {
   mapMode: "normal",
-  detailTab: "register",
+  detailTab: "basic",
   filter: "all",
   view: "map",
   searchMode: "all",
@@ -1694,7 +1694,7 @@ function openDetail(record) {
   updateDetailFavorite(record.id);
   detailSheet.classList.add("open");
   detailSheet.setAttribute("aria-hidden", "false");
-  setDetailTab("register", false);
+  setDetailTab("basic", false);
   $("#mapStatus").textContent = record.address || "선택한 필지";
   render();
 }

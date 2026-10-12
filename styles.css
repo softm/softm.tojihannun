@@ -179,6 +179,7 @@ button { color: inherit; }
 .detail-tab-panel { padding-top: 14px; }
 .detail-tab-panel[hidden] { display: none; }
 .detail-tab-panel.building-card, .detail-tab-panel.related-services { margin-top: 14px; padding-top: 0; }
+.detail-basic-panel .detail-highlight { margin-top: 0; }
 .detail-section-heading > * { display: block; }
 .detail-section-heading span { color: #71827c; font-size: 10px; font-weight: 700; }
 .detail-section-heading strong { margin-top: 2px; color: var(--ink); font-size: 15px; }
