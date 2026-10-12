@@ -1827,9 +1827,59 @@ async function copyToClipboard(text) {
   }
 }
 
+const mainSheetElement = $("#mainSheet");
+const sheetDragHandle = $("#sheetDragHandle");
+let sheetDragState = null;
+let suppressSheetHandleClick = false;
+
 function mainSheetCollapse(collapsed) {
-  $("#mainSheet").classList.toggle("collapsed", collapsed);
+  mainSheetElement.classList.toggle("collapsed", collapsed);
+  mainSheetElement.classList.remove("dragging");
+  mainSheetElement.style.removeProperty("--sheet-drag-offset");
   $("#sheetToggle").setAttribute("aria-expanded", String(!collapsed));
+  $("#sheetToggle").setAttribute("aria-label", collapsed ? "검색 패널 펼치기" : "검색 패널 접기");
+  sheetDragHandle.setAttribute("aria-expanded", String(!collapsed));
+}
+
+function startMainSheetDrag(event) {
+  if (!event.isPrimary || event.button !== 0) return;
+  const collapsed = mainSheetElement.classList.contains("collapsed");
+  const maxOffset = Math.max(0, mainSheetElement.offsetHeight - 88);
+  sheetDragState = {
+    pointerId: event.pointerId,
+    startY: event.clientY,
+    startOffset: collapsed ? maxOffset : 0,
+    currentOffset: collapsed ? maxOffset : 0,
+    maxOffset,
+    collapsed
+  };
+  suppressSheetHandleClick = false;
+  mainSheetElement.classList.add("dragging");
+  sheetDragHandle.setPointerCapture(event.pointerId);
+  event.preventDefault();
+}
+
+function moveMainSheetDrag(event) {
+  if (!sheetDragState || event.pointerId !== sheetDragState.pointerId) return;
+  const delta = event.clientY - sheetDragState.startY;
+  sheetDragState.currentOffset = Math.min(sheetDragState.maxOffset, Math.max(0, sheetDragState.startOffset + delta));
+  mainSheetElement.style.setProperty("--sheet-drag-offset", `${sheetDragState.currentOffset}px`);
+  suppressSheetHandleClick ||= Math.abs(delta) > 6;
+  event.preventDefault();
+}
+
+function finishMainSheetDrag(event, cancelled = false) {
+  if (!sheetDragState || event.pointerId !== sheetDragState.pointerId) return;
+  const drag = sheetDragState;
+  const delta = event.clientY - drag.startY;
+  let collapsed = drag.collapsed;
+  if (!cancelled) {
+    collapsed = Math.abs(delta) > 50 ? delta > 0 : drag.currentOffset > drag.maxOffset / 2;
+  }
+  if (sheetDragHandle.hasPointerCapture(event.pointerId)) sheetDragHandle.releasePointerCapture(event.pointerId);
+  sheetDragState = null;
+  mainSheetCollapse(collapsed);
+  if (suppressSheetHandleClick) requestAnimationFrame(() => { suppressSheetHandleClick = false; });
 }
 
 $("#searchForm").addEventListener("submit", (event) => {
@@ -1874,6 +1924,22 @@ $$(".view-switch button").forEach((button) => button.addEventListener("click", (
 }));
 
 $("#sheetToggle").addEventListener("click", () => mainSheetCollapse(!$("#mainSheet").classList.contains("collapsed")));
+sheetDragHandle.addEventListener("pointerdown", startMainSheetDrag);
+sheetDragHandle.addEventListener("pointermove", moveMainSheetDrag);
+sheetDragHandle.addEventListener("pointerup", (event) => finishMainSheetDrag(event));
+sheetDragHandle.addEventListener("pointercancel", (event) => finishMainSheetDrag(event, true));
+sheetDragHandle.addEventListener("click", () => {
+  if (suppressSheetHandleClick) {
+    suppressSheetHandleClick = false;
+    return;
+  }
+  mainSheetCollapse(!mainSheetElement.classList.contains("collapsed"));
+});
+sheetDragHandle.addEventListener("keydown", (event) => {
+  if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+  event.preventDefault();
+  mainSheetCollapse(event.key === "ArrowDown" || event.key === "End");
+});
 $("#zoomIn").addEventListener("click", () => map?.getView().animate({zoom: Math.min(19, map.getView().getZoom() + 1), duration: 220}));
 $("#zoomOut").addEventListener("click", () => map?.getView().animate({zoom: Math.max(6, map.getView().getZoom() - 1), duration: 220}));
 
