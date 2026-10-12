@@ -318,7 +318,9 @@ function updateLocationState() {
 
 function renderDocument() {
   const documentInfo = DOCUMENTS[activeDocument];
-  document.querySelector("#viewerTitle").textContent = documentInfo.label;
+  document.querySelector("#viewerTitle").textContent = "대장 통합 보기";
+  document.querySelector("#viewerAddress").textContent = `${documentInfo.label} · ${parcelAddress || "선택 필지"}`;
+  document.title = `${documentInfo.label} | 대장 통합 보기 | 토지한눈`;
   buildingPicker.hidden = !documentInfo.requiresBuilding;
   document.querySelectorAll("[data-document]").forEach((tab) => {
     const selected = tab.dataset.document === activeDocument;
@@ -358,7 +360,6 @@ function selectDocument(documentId, focusTab = false) {
 
 document.querySelector("#parcelAddress").textContent = parcelAddress || "주소 미제공";
 document.querySelector("#parcelPnu").textContent = /^\d{19}$/.test(pnuCode) ? `PNU ${pnuCode}` : "PNU 미제공";
-document.querySelector("#viewerAddress").textContent = parcelAddress || "선택 필지의 공식 열람 화면입니다.";
 document.querySelector('[data-document="district-plan"]').hidden = !districtPlanAvailable;
 
 populateBuildingSelector();

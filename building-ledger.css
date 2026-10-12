@@ -11,7 +11,7 @@
 
 * { box-sizing: border-box; }
 html, body { min-width: 320px; height: 100%; margin: 0; }
-body { display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+body { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 button, select { font: inherit; }
 button { cursor: pointer; }
 [hidden] { display: none !important; }
@@ -19,6 +19,7 @@ button { cursor: pointer; }
 .viewer-header {
   position: relative;
   z-index: 5;
+  min-width: 0;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, .98);
   box-shadow: 0 8px 28px rgba(20, 61, 50, .06);
@@ -98,7 +99,7 @@ button { cursor: pointer; }
 .building-picker > span { color: #526b63; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .building-picker select { width: 100%; min-width: 0; min-height: 42px; padding: 0 38px 0 12px; border: 1px solid #b8ccc4; border-radius: 10px; background: #fff; color: #173d33; font-size: 13px; font-weight: 750; }
 
-.viewer-tab-scroller { overflow-x: auto; padding: 0 18px; scrollbar-width: thin; }
+.viewer-tab-scroller { min-width: 0; max-width: 100%; overflow-x: auto; padding: 0 18px; scrollbar-width: thin; }
 .viewer-tabs { display: flex; width: max-content; min-width: 100%; gap: 5px; }
 .viewer-tabs button {
   min-height: 47px;
@@ -118,7 +119,7 @@ button { cursor: pointer; }
 .building-card button:focus-visible,
 .building-picker select:focus-visible { outline: 3px solid rgba(8, 121, 91, .22); outline-offset: 2px; }
 
-.viewer-main { position: relative; min-height: 0; padding: 12px; overflow: hidden; }
+.viewer-main { position: relative; min-width: 0; min-height: 0; padding: 12px; overflow: hidden; }
 #ledgerFrame { width: 100%; height: 100%; border: 1px solid #ccdcd5; border-radius: 14px; background: #fff; }
 
 .viewer-status {

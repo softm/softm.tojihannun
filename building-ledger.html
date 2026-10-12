@@ -4,16 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <title>공부서류 통합조회 | 토지한눈</title>
-    <link rel="stylesheet" href="./building-ledger.css?v=2" />
+    <title>대장 통합 보기 | 토지한눈</title>
+    <link rel="stylesheet" href="./building-ledger.css?v=3" />
   </head>
   <body>
     <header class="viewer-header">
       <div class="viewer-topbar">
         <a class="viewer-brand" href="./" aria-label="토지한눈으로 돌아가기"><span>▣</span> 토지한눈</a>
         <div class="viewer-heading">
-          <strong id="viewerTitle">공부서류 통합조회</strong>
-          <span id="viewerAddress">선택 필지의 공식 열람 화면입니다.</span>
+          <strong id="viewerTitle">대장 통합 보기</strong>
+          <span id="viewerAddress">선택 필지의 공식 대장을 한 곳에서 확인합니다.</span>
         </div>
         <div class="viewer-actions">
           <button id="externalLink" type="button">공식 사이트 새 창</button>
@@ -34,7 +34,7 @@
       </div>
 
       <div class="viewer-tab-scroller">
-        <div class="viewer-tabs" id="documentTabs" role="tablist" aria-label="공부서류 선택">
+        <div class="viewer-tabs" id="documentTabs" role="tablist" aria-label="조회할 대장 선택">
           <button type="button" role="tab" data-document="building" aria-selected="true">건축물대장</button>
           <button type="button" role="tab" data-document="land-register" aria-selected="false">토지대장</button>
           <button type="button" role="tab" data-document="land-use" aria-selected="false">토지이용계획확인원</button>
@@ -47,7 +47,7 @@
 
     <main class="viewer-main">
       <div class="viewer-status" id="viewerStatus" role="status" aria-live="polite">공식 문서를 불러오고 있어요.</div>
-      <iframe id="ledgerFrame" name="ledgerFrame" title="공식 공부서류 미리보기" loading="eager"></iframe>
+      <iframe id="ledgerFrame" name="ledgerFrame" title="공식 대장 미리보기" loading="eager"></iframe>
 
       <section class="viewer-overview" id="buildingOverview" hidden aria-labelledby="overviewTitle">
         <div class="overview-heading">
@@ -65,6 +65,6 @@
       </section>
     </main>
 
-    <script src="./building-ledger.js?v=3"></script>
+    <script src="./building-ledger.js?v=4"></script>
   </body>
 </html>

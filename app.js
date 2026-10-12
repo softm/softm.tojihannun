@@ -680,20 +680,6 @@ async function fetchBuildingRecords(pnu) {
   })).filter((item) => item.id).sort((a, b) => Number(b.isMain) - Number(a.isMain) || b.totalArea - a.totalArea);
 }
 
-function buildBuildingLifecycleUrl(pnu, buildingIdentifier) {
-  const normalizedPnu = String(pnu || "").replace(/\D/g, "");
-  const normalizedBuildingId = String(buildingIdentifier || "").replace(/\D/g, "");
-  if (normalizedPnu.length !== 19 || normalizedBuildingId.length <= 5) return "";
-
-  const cadastralType = normalizedPnu.charAt(10);
-  const lifecycleType = cadastralType === "1" ? "0" : cadastralType === "2" ? "1" : cadastralType;
-  const searchPnu = `${normalizedPnu.slice(0, 10)}${lifecycleType}${normalizedPnu.slice(11)}`;
-  const bldrgstPk = `${normalizedPnu.slice(0, 5)}-${normalizedBuildingId.slice(5)}`;
-  const url = new URL("https://blcm.go.kr/lim/bldSumInfo/BldSumInfoView.do");
-  url.search = new URLSearchParams({bldrgstPk, searchPnu, searchType: "B"}).toString();
-  return url.toString();
-}
-
 function buildingDisplayName(building, index = 0) {
   const names = [building?.name, building?.dongName].map((value) => cleanText(value)).filter(Boolean);
   const uniqueNames = names.filter((value, nameIndex) => names.indexOf(value) === nameIndex);
@@ -712,7 +698,9 @@ function hasDistrictPlanInformation(record) {
   return designations.some((item) => /지구단위계획/.test(cleanText(typeof item === "string" ? item : item?.name)));
 }
 
-function openBuildingDocumentViewer(record, building, tab = "building") {
+function openBuildingDocumentViewer(record, building = null, tab = "building") {
+  const selectedBuilding = building || (Array.isArray(record.buildings) ? record.buildings[0] : null) || null;
+  const initialTab = selectedBuilding || !["building", "lifecycle"].includes(tab) ? tab : "land-register";
   const viewerKey = `tojihannun-document-viewer-v1:${record.pnu}`;
   const payload = {
     version: 1,
@@ -739,18 +727,32 @@ function openBuildingDocumentViewer(record, building, tab = "building") {
   }
   const params = new URLSearchParams({
     pnuCode: record.pnu,
-    mgmBldrgstPk: building.id,
-    regstrKindCd: building.ledgerKind || "1",
-    ledgerKindName: building.ledgerKindName || "건축물대장",
-    buildingName: building.name || "",
-    buildingDongName: building.dongName || "",
-    address: record.address || building.lotAddress || "",
+    mgmBldrgstPk: selectedBuilding?.id || "",
+    regstrKindCd: selectedBuilding?.ledgerKind || "1",
+    ledgerKindName: selectedBuilding?.ledgerKindName || "건축물대장",
+    buildingName: selectedBuilding?.name || "",
+    buildingDongName: selectedBuilding?.dongName || "",
+    address: record.address || selectedBuilding?.lotAddress || "",
     viewerKey,
-    selectedBuilding: building.id,
-    tab
+    selectedBuilding: selectedBuilding?.id || "all",
+    tab: initialTab
   });
   if (payload.hasDistrictPlan) params.set("districtPlan", "1");
   window.open(`./building-ledger.html?${params}`, "_blank", "noopener,noreferrer");
+}
+
+function integratedLedgerActionMarkup() {
+  return `<button class="building-integrated-button" id="openIntegratedLedger" type="button">
+    <span class="building-integrated-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3.5h10l4 4V20.5H5Z"/><path d="M15 3.5v4h4M8.5 11h7M8.5 14.5h7M8.5 18h4.5"/></svg></span>
+    <span class="building-integrated-copy"><strong>대장 통합 보기</strong><small>토지대장 · 토지이용계획 · 건축물대장 · 생애이력</small></span>
+    <span class="building-integrated-arrow" aria-hidden="true">›</span>
+  </button>`;
+}
+
+function bindIntegratedLedgerAction(record, building = null) {
+  $("#openIntegratedLedger")?.addEventListener("click", () => {
+    openBuildingDocumentViewer(record, building, building ? "building" : "land-register");
+  });
 }
 
 function toArray(value) {
@@ -1458,12 +1460,14 @@ function renderBuildingSection(record, selectedIndex = 0) {
   setCardMeta("#buildingMeta", ensureSourceMeta(record).building, "VWorld 건축물 공개 API");
   if (!Array.isArray(record.buildings)) {
     count.hidden = true;
-    content.innerHTML = `<p class="building-empty">건축물 정보를 확인하고 있어요.</p>`;
+    content.innerHTML = `<p class="building-empty">건축물 정보를 확인하고 있어요.</p>${integratedLedgerActionMarkup()}`;
+    bindIntegratedLedgerAction(record);
     return;
   }
   if (!record.buildings.length) {
     count.hidden = true;
-    content.innerHTML = `<p class="building-empty">${record.buildingError ? "건축물 정보를 불러오지 못했어요." : "이 필지에서 확인된 건축물 정보가 없어요."}</p>`;
+    content.innerHTML = `<p class="building-empty">${record.buildingError ? "건축물 정보를 불러오지 못했어요." : "이 필지에서 확인된 건축물 정보가 없어요."}</p>${integratedLedgerActionMarkup()}`;
+    bindIntegratedLedgerAction(record);
     return;
   }
   const index = Math.min(Math.max(Number(selectedIndex) || 0, 0), record.buildings.length - 1);
@@ -1485,16 +1489,10 @@ function renderBuildingSection(record, selectedIndex = 0) {
     ["사용승인연도", formatApprovalYear(building.approvalDate)],
     ["건물명", building.name || "미제공"]
   ];
-  const lifecycleUrl = buildBuildingLifecycleUrl(record.pnu, building.id);
   content.innerHTML = `${selector}<dl class="building-facts">${facts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>
-    <div class="building-action-row">
-      <button class="building-ledger-button" id="openBuildingLedger" type="button">건축물대장 보기</button>
-      ${lifecycleUrl ? `<button class="building-ledger-button building-lifecycle-button" id="openBuildingLifecycle" type="button">건축물 생애이력 <span aria-hidden="true">↗</span></button>` : ""}
-    </div>
-    ${lifecycleUrl ? `<p class="building-lifecycle-note">국토교통부 건축물 생애이력 관리시스템에서 일반정보·점검이력·실거래·에너지 정보를 확인합니다.</p>` : ""}`;
+    ${integratedLedgerActionMarkup()}`;
   $("#buildingSelector")?.addEventListener("change", (event) => renderBuildingSection(record, Number(event.target.value)));
-  $("#openBuildingLedger").addEventListener("click", () => openBuildingDocumentViewer(record, building, "building"));
-  $("#openBuildingLifecycle")?.addEventListener("click", () => openBuildingDocumentViewer(record, building, "lifecycle"));
+  bindIntegratedLedgerAction(record, building);
 }
 
 async function loadBuildingDetails(record) {
