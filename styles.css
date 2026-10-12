@@ -349,9 +349,11 @@ button { color: inherit; }
 .export-dialog h2 { margin: 13px 36px 4px 0; font-size: 22px; letter-spacing: -.04em; }
 .export-address { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.55; }
 .export-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; margin-top: 18px; }
-.export-viewer { min-width: 0; max-height: calc(92dvh - 145px); overflow: auto; padding: 16px; border: 1px solid #dce5e1; border-radius: 16px; background: #e8eeeb; }
+.export-viewer { min-width: 0; max-height: calc(92dvh - 145px); overflow-x: hidden; overflow-y: auto; padding: 16px; border: 1px solid #dce5e1; border-radius: 16px; background: #e8eeeb; }
+.export-preview { min-width: 0; }
 .export-preview > p { margin: 80px 0; color: #60726b; text-align: center; font-size: 13px; }
-.export-preview .download-report { position: relative; z-index: auto; left: auto; top: auto; width: 100%; min-height: 980px; padding: 44px 48px; box-shadow: 0 8px 30px rgba(20,48,39,.12); }
+.export-preview-stage { position: relative; margin: 0 auto; }
+.export-preview .download-report { position: absolute; z-index: auto; left: 0; top: 0; width: 794px; min-height: 980px; padding: 44px 48px; transform: scale(var(--report-preview-scale, 1)); transform-origin: left top; box-shadow: 0 8px 30px rgba(20,48,39,.12); }
 .export-sidebar { position: sticky; top: 0; min-width: 0; }
 .export-sidebar-title { display: block; color: #294b40; font-size: 13px; }
 .export-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 10px; }
@@ -435,7 +437,7 @@ button { color: inherit; }
   .export-dialog { padding: 22px 18px; }
   .export-layout { grid-template-columns: 1fr; }
   .export-viewer { max-height: 48dvh; padding: 9px; }
-  .export-preview .download-report { min-width: 680px; min-height: 900px; padding: 36px 42px; }
+  .export-preview .download-report { min-height: 900px; padding: 36px 42px; }
   .export-sidebar { position: static; }
   .export-grid { gap: 7px; }
   .export-grid button { grid-template-columns: 46px 1fr; min-height: 66px; padding: 8px; }

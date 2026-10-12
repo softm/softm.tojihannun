@@ -2,6 +2,7 @@
   "use strict";
 
   const REPORT_WIDTH = 794;
+  const previewLayouts = new WeakMap();
   const COLORS = {
     ink: "16241F",
     soft: "687A73",
@@ -77,7 +78,46 @@
   function renderPreview(model, target) {
     const element = typeof target === "string" ? document.querySelector(target) : target;
     if (!element) return;
-    element.innerHTML = reportHtml(model);
+    previewLayouts.get(element)?.destroy();
+    element.innerHTML = `<div class="export-preview-stage">${reportHtml(model)}</div>`;
+
+    const stage = element.querySelector(".export-preview-stage");
+    const report = stage?.querySelector(".download-report");
+    if (!stage || !report) return;
+
+    let animationFrame = 0;
+    const fitPreview = () => {
+      animationFrame = 0;
+      const availableWidth = element.clientWidth;
+      if (!availableWidth) return;
+      const scale = Math.min(1, availableWidth / REPORT_WIDTH);
+      report.style.setProperty("--report-preview-scale", String(scale));
+      stage.style.width = `${Math.ceil(REPORT_WIDTH * scale)}px`;
+      stage.style.height = `${Math.ceil(report.offsetHeight * scale)}px`;
+    };
+    const scheduleFit = () => {
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      animationFrame = requestAnimationFrame(fitPreview);
+    };
+    const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(scheduleFit) : null;
+    resizeObserver?.observe(element);
+    resizeObserver?.observe(report);
+    report.querySelectorAll("img").forEach((image) => {
+      if (!image.complete) {
+        image.addEventListener("load", scheduleFit, {once: true});
+        image.addEventListener("error", scheduleFit, {once: true});
+      }
+    });
+    window.addEventListener("resize", scheduleFit);
+    document.fonts?.ready.then(scheduleFit).catch(() => {});
+    previewLayouts.set(element, {
+      destroy() {
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+        resizeObserver?.disconnect();
+        window.removeEventListener("resize", scheduleFit);
+      }
+    });
+    scheduleFit();
   }
 
   function saveBlob(blob, name) {
