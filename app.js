@@ -63,6 +63,7 @@ let cadastralSource;
 let mapErrorCount = 0;
 let toastTimer;
 let locatingUser = false;
+let sharedParcelOpened = false;
 
 const markerSource = new VectorSource();
 const selectionSource = new VectorSource();
@@ -188,6 +189,7 @@ function initMap() {
   setMapMode(state.mapMode, false);
   restoreFavorites();
   render();
+  void openSharedParcelFromUrl();
 
 }
 
@@ -595,6 +597,38 @@ async function selectSearchResult(result) {
   mainSheetCollapse(true);
   map.getView().animate({center: fromLonLat([result.lon, result.lat]), zoom: 18, duration: 550});
   $("#mapStatus").textContent = result.category === "place" ? `${result.title} · ${result.address}` : result.address;
+  await inspectParcel([result.lon, result.lat], result);
+}
+
+function sharedParcelResultFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("share") !== "parcel") return null;
+  const lon = Number(params.get("lon"));
+  const lat = Number(params.get("lat"));
+  if (!Number.isFinite(lon) || !Number.isFinite(lat) || Math.abs(lon) > 180 || Math.abs(lat) > 90) return null;
+  const address = cleanText(params.get("address") || "공유된 필지");
+  return {
+    category: "parcel",
+    address,
+    parcel: address,
+    road: cleanText(params.get("road") || ""),
+    pnu: String(params.get("pnu") || "").replace(/\D/g, "").slice(0, 19),
+    lon,
+    lat
+  };
+}
+
+async function openSharedParcelFromUrl() {
+  if (!map || sharedParcelOpened) return;
+  const result = sharedParcelResultFromUrl();
+  if (!result) return;
+  sharedParcelOpened = true;
+  $("#searchInput").value = result.address;
+  setMapMode("cadastral", false);
+  mainSheetCollapse(true);
+  map.getView().setCenter(fromLonLat([result.lon, result.lat]));
+  map.getView().setZoom(18);
+  $("#mapStatus").textContent = result.address;
   await inspectParcel([result.lon, result.lat], result);
 }
 
@@ -1919,6 +1953,38 @@ async function copyToClipboard(text) {
   }
 }
 
+function buildParcelShareUrl(record) {
+  if (!record || !Number.isFinite(Number(record.lon)) || !Number.isFinite(Number(record.lat))) return "";
+  const url = new URL(window.location.pathname, window.location.origin);
+  url.searchParams.set("share", "parcel");
+  url.searchParams.set("lat", Number(record.lat).toFixed(7));
+  url.searchParams.set("lon", Number(record.lon).toFixed(7));
+  if (record.pnu) url.searchParams.set("pnu", record.pnu);
+  if (record.address) url.searchParams.set("address", record.address);
+  if (record.road) url.searchParams.set("road", record.road);
+  return url.toString();
+}
+
+async function shareParcel(record) {
+  const url = buildParcelShareUrl(record);
+  if (!url) return showToast("공유할 필지 위치가 없습니다.");
+  const data = {
+    title: `${record.address || "선택한 필지"} | 토지한눈`,
+    text: "토지 위치와 공개정보를 확인해 보세요.",
+    url
+  };
+  try {
+    if (typeof navigator.share === "function" && (!navigator.canShare || navigator.canShare(data))) {
+      await navigator.share(data);
+      return;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+  }
+  const copied = await copyToClipboard(url);
+  showToast(copied ? "공유 링크를 복사했어요." : "공유 링크를 복사하지 못했어요.");
+}
+
 const mainSheetElement = $("#mainSheet");
 const sheetDragHandle = $("#sheetDragHandle");
 let sheetDragState = null;
@@ -2109,6 +2175,16 @@ $("#copyParcelAddress").addEventListener("click", async () => {
   if (!address) return showToast("복사할 주소가 없습니다.");
   const copied = await copyToClipboard(address);
   showToast(copied ? "선택한 지번 주소를 복사했어요." : "주소를 복사하지 못했어요.");
+});
+
+$("#openBasicIntegratedLedger").addEventListener("click", () => {
+  const record = state.records.find((item) => item.id === state.selectedId);
+  if (record) openBuildingDocumentViewer(record, null, "land-register");
+});
+
+$("#shareParcel").addEventListener("click", () => {
+  const record = state.records.find((item) => item.id === state.selectedId);
+  if (record) void shareParcel(record);
 });
 
 $("#toggleDirections").addEventListener("click", () => {
