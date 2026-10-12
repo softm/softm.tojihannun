@@ -167,9 +167,12 @@ button { color: inherit; }
 .detail-title-row h2 { min-width: 0; flex: 1; }
 .detail-sheet h2 { margin: 13px 0 5px; font-size: clamp(20px, 5vw, 27px); letter-spacing: -.045em; }
 .detail-road { margin: 0 0 10px; color: var(--ink-soft); font-size: 13px; }
-.directions-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
-.directions-actions button { display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 34px; gap: 5px; padding: 0 7px; border: 1px solid #d9e4df; border-radius: 10px; background: #fff; color: #425e55; font-size: 11px; font-weight: 800; white-space: nowrap; cursor: pointer; }
-.directions-actions button:hover, .directions-actions button:focus-visible { border-color: var(--green); outline: 0; background: #f0f8f4; }
+.directions-actions { display: inline-grid; grid-template-columns: auto repeat(3, auto); gap: 0; max-width: 100%; overflow: hidden; border: 1px solid #cfddd7; border-radius: 11px; background: #fff; box-shadow: 0 3px 10px rgba(27,74,60,.07); }
+.directions-group-label { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 10px; border-right: 1px solid #cfddd7; background: #e8f4ee; color: var(--green-dark); font-size: 10px; font-weight: 900; white-space: nowrap; }
+.directions-actions button { display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 34px; gap: 5px; padding: 0 9px; border: 0; border-right: 1px solid #e0e8e4; border-radius: 0; background: transparent; color: #425e55; font-size: 11px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.directions-actions button:last-child { border-right: 0; }
+.directions-actions button:hover { background: #f0f8f4; }
+.directions-actions button:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--green); outline-offset: -2px; background: #f0f8f4; }
 .directions-actions span { display: grid; place-items: center; flex: 0 0 18px; width: 18px; height: 18px; border-radius: 6px; background: var(--green); color: #fff; font-size: 9px; font-weight: 900; }
 #openGoogleDirections span { background: #3976d7; }
 #openKakaoDirections span { background: #fee500; color: #191919; }
@@ -442,7 +445,8 @@ button { color: inherit; }
   .detail-sheet { width: 100%; border-radius: 26px 26px 0 0; }
   .detail-tabs { margin-left: -22px; margin-right: -22px; padding-left: 16px; padding-right: 16px; }
   .detail-tabs button { flex: 0 0 auto; }
-  .directions-actions button { gap: 4px; min-height: 32px; padding: 0 5px; font-size: 10px; }
+  .directions-group-label { min-height: 32px; padding: 0 8px; font-size: 9px; }
+  .directions-actions button { gap: 4px; min-height: 32px; padding: 0 7px; font-size: 10px; }
   .field-status-options { gap: 4px; }
   .field-status span { min-height: 39px; padding: 4px; font-size: 8px; }
   .export-dialog { padding: 22px 18px; }

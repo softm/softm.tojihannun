@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261013.1" />
+    <link rel="stylesheet" href="./styles.css?v=20261013.2" />
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -152,15 +152,16 @@
           </button>
         </div>
         <p class="detail-road" id="detailRoad">VWorld 검색 결과</p>
-        <div class="directions-actions" aria-label="외부 지도 길찾기">
+        <div class="directions-actions" role="group" aria-label="외부 지도 길찾기">
+          <strong class="directions-group-label">길찾기</strong>
           <button type="button" id="openNaverDirections">
-            <span aria-hidden="true">N</span> 네이버 길찾기
+            <span aria-hidden="true">N</span> 네이버
           </button>
           <button type="button" id="openGoogleDirections">
-            <span aria-hidden="true">G</span> 구글 길찾기
+            <span aria-hidden="true">G</span> 구글
           </button>
           <button type="button" id="openKakaoDirections">
-            <span aria-hidden="true">K</span> 카카오 길찾기
+            <span aria-hidden="true">K</span> 카카오
           </button>
         </div>
         <nav class="detail-tabs" role="tablist" aria-label="필지 상세정보">
