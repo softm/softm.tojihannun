@@ -660,8 +660,13 @@ async function fetchBuildingRecords(pnu) {
   const fields = Array.isArray(root.field) ? root.field : root.field ? [root.field] : [];
   return fields.map((item) => ({
     id: String(item.buldIdntfcNo || ""),
-    ledgerKind: String(item.agbldgSeCode || ""),
-    name: cleanText(item.buldNm || item.buldDongNm || ""),
+    ledgerKind: String(item.buldKndCode || item.agbldgSeCode || ""),
+    ledgerKindName: cleanText(item.buldKndCodeNm || "건축물대장"),
+    buildingTypeCode: String(item.agbldgSeCode || ""),
+    buildingTypeName: cleanText(item.agbldgSeCodeNm || ""),
+    name: cleanText(item.buldNm || ""),
+    dongName: cleanText(item.buldDongNm || ""),
+    lotAddress: cleanText([item.ldCodeNm, item.mnnmSlno].filter(Boolean).join(" ")),
     use: cleanText(item.mainPrposCodeNm || item.detailPrposCodeNm || ""),
     groundFloors: Number(item.groundFloorCo || 0),
     undergroundFloors: Number(item.undgrndFloorCo || 0),
@@ -687,6 +692,65 @@ function buildBuildingLifecycleUrl(pnu, buildingIdentifier) {
   const url = new URL("https://blcm.go.kr/lim/bldSumInfo/BldSumInfoView.do");
   url.search = new URLSearchParams({bldrgstPk, searchPnu, searchType: "B"}).toString();
   return url.toString();
+}
+
+function buildingDisplayName(building, index = 0) {
+  const names = [building?.name, building?.dongName].map((value) => cleanText(value)).filter(Boolean);
+  const uniqueNames = names.filter((value, nameIndex) => names.indexOf(value) === nameIndex);
+  return uniqueNames.join(" ") || `건축물 ${index + 1}`;
+}
+
+function hasDistrictPlanInformation(record) {
+  if (!String(record?.pnu || "").startsWith("11")) return false;
+  const eum = record?.eumLandUse || {};
+  const designations = [
+    ...(eum.nationalPlan || []),
+    ...(eum.otherLaws || []),
+    ...(eum.decree || []),
+    ...(eum.zones || [])
+  ];
+  return designations.some((item) => /지구단위계획/.test(cleanText(typeof item === "string" ? item : item?.name)));
+}
+
+function openBuildingDocumentViewer(record, building, tab = "building") {
+  const viewerKey = `tojihannun-document-viewer-v1:${record.pnu}`;
+  const payload = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    pnu: record.pnu,
+    address: record.address || "",
+    hasDistrictPlan: hasDistrictPlanInformation(record),
+    buildings: (record.buildings || []).map((item) => ({
+      id: item.id,
+      ledgerKind: item.ledgerKind,
+      ledgerKindName: item.ledgerKindName,
+      buildingTypeName: item.buildingTypeName,
+      name: item.name,
+      dongName: item.dongName,
+      lotAddress: item.lotAddress,
+      use: item.use,
+      isMain: item.isMain
+    }))
+  };
+  try {
+    localStorage.setItem(viewerKey, JSON.stringify(payload));
+  } catch {
+    // 저장 공간이 차단된 경우에도 현재 건축물은 URL 매개변수로 조회한다.
+  }
+  const params = new URLSearchParams({
+    pnuCode: record.pnu,
+    mgmBldrgstPk: building.id,
+    regstrKindCd: building.ledgerKind || "1",
+    ledgerKindName: building.ledgerKindName || "건축물대장",
+    buildingName: building.name || "",
+    buildingDongName: building.dongName || "",
+    address: record.address || building.lotAddress || "",
+    viewerKey,
+    selectedBuilding: building.id,
+    tab
+  });
+  if (payload.hasDistrictPlan) params.set("districtPlan", "1");
+  window.open(`./building-ledger.html?${params}`, "_blank", "noopener,noreferrer");
 }
 
 function toArray(value) {
@@ -1408,7 +1472,7 @@ function renderBuildingSection(record, selectedIndex = 0) {
   count.textContent = `${record.buildings.length}개 동`;
   const selector = record.buildings.length > 1 ? `
     <select class="building-selector" id="buildingSelector" aria-label="건축물 선택">
-      ${record.buildings.map((item, itemIndex) => `<option value="${itemIndex}"${itemIndex === index ? " selected" : ""}>${escapeHtml(item.name || `건축물 ${itemIndex + 1}`)}${item.isMain ? " · 주건축물" : ""}</option>`).join("")}
+      ${record.buildings.map((item, itemIndex) => `<option value="${itemIndex}"${itemIndex === index ? " selected" : ""}>${escapeHtml(buildingDisplayName(item, itemIndex))}${item.ledgerKindName ? ` · ${escapeHtml(item.ledgerKindName)}` : ""}${item.isMain ? " · 주건축물" : ""}</option>`).join("")}
     </select>` : "";
   const floors = [building.groundFloors ? `지상 ${building.groundFloors}층` : "", building.undergroundFloors ? `지하 ${building.undergroundFloors}층` : ""].filter(Boolean).join(" · ") || "-";
   const facts = [
@@ -1425,18 +1489,12 @@ function renderBuildingSection(record, selectedIndex = 0) {
   content.innerHTML = `${selector}<dl class="building-facts">${facts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>
     <div class="building-action-row">
       <button class="building-ledger-button" id="openBuildingLedger" type="button">건축물대장 보기</button>
-      ${lifecycleUrl ? `<a class="building-ledger-button building-lifecycle-button" href="${escapeHtml(lifecycleUrl)}" target="_blank" rel="noopener noreferrer">건축물 생애이력 <span aria-hidden="true">↗</span></a>` : ""}
+      ${lifecycleUrl ? `<button class="building-ledger-button building-lifecycle-button" id="openBuildingLifecycle" type="button">건축물 생애이력 <span aria-hidden="true">↗</span></button>` : ""}
     </div>
     ${lifecycleUrl ? `<p class="building-lifecycle-note">국토교통부 건축물 생애이력 관리시스템에서 일반정보·점검이력·실거래·에너지 정보를 확인합니다.</p>` : ""}`;
   $("#buildingSelector")?.addEventListener("change", (event) => renderBuildingSection(record, Number(event.target.value)));
-  $("#openBuildingLedger").addEventListener("click", () => {
-    const params = new URLSearchParams({
-      mgmBldrgstPk: building.id,
-      regstrKindCd: building.ledgerKind || "1",
-      pnuCode: record.pnu
-    });
-    window.open(`./building-ledger.html?${params}`, "_blank", "noopener,noreferrer");
-  });
+  $("#openBuildingLedger").addEventListener("click", () => openBuildingDocumentViewer(record, building, "building"));
+  $("#openBuildingLifecycle")?.addEventListener("click", () => openBuildingDocumentViewer(record, building, "lifecycle"));
 }
 
 async function loadBuildingDetails(record) {

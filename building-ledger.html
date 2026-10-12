@@ -4,30 +4,67 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <title>건축물대장 원문 | 토지한눈</title>
-    <link rel="stylesheet" href="./building-ledger.css" />
+    <title>공부서류 통합조회 | 토지한눈</title>
+    <link rel="stylesheet" href="./building-ledger.css?v=2" />
   </head>
   <body>
     <header class="viewer-header">
-      <a class="viewer-brand" href="./" aria-label="토지한눈으로 돌아가기"><span>▣</span> 토지한눈</a>
-      <nav class="viewer-tabs" aria-label="대장 보기">
-        <a href="./">지도</a>
-        <span aria-current="page">건축물대장</span>
-      </nav>
-      <div class="viewer-actions">
-        <a id="externalLink" href="#" target="_blank" rel="noopener noreferrer">새 창으로 열기</a>
-        <button id="closeViewer" type="button">닫기</button>
+      <div class="viewer-topbar">
+        <a class="viewer-brand" href="./" aria-label="토지한눈으로 돌아가기"><span>▣</span> 토지한눈</a>
+        <div class="viewer-heading">
+          <strong id="viewerTitle">공부서류 통합조회</strong>
+          <span id="viewerAddress">선택 필지의 공식 열람 화면입니다.</span>
+        </div>
+        <div class="viewer-actions">
+          <button id="externalLink" type="button">공식 사이트 새 창</button>
+          <button id="closeViewer" type="button">닫기</button>
+        </div>
+      </div>
+
+      <div class="viewer-context">
+        <div class="viewer-parcel">
+          <span>조회 필지</span>
+          <strong id="parcelAddress">주소 확인 중</strong>
+          <code id="parcelPnu"></code>
+        </div>
+        <label class="building-picker" id="buildingPicker">
+          <span>건축물 선택</span>
+          <select id="buildingSelector" aria-label="조회할 건축물 선택"></select>
+        </label>
+      </div>
+
+      <div class="viewer-tab-scroller">
+        <div class="viewer-tabs" id="documentTabs" role="tablist" aria-label="공부서류 선택">
+          <button type="button" role="tab" data-document="building" aria-selected="true">건축물대장</button>
+          <button type="button" role="tab" data-document="land-register" aria-selected="false">토지대장</button>
+          <button type="button" role="tab" data-document="land-use" aria-selected="false">토지이용계획확인원</button>
+          <button type="button" role="tab" data-document="eum" aria-selected="false">토지이음</button>
+          <button type="button" role="tab" data-document="district-plan" aria-selected="false" hidden>지구단위계획</button>
+          <button type="button" role="tab" data-document="lifecycle" aria-selected="false">건축물 생애이력</button>
+        </div>
       </div>
     </header>
+
     <main class="viewer-main">
-      <div class="viewer-status" id="viewerStatus" role="status">국토교통부 건축물대장을 불러오고 있어요.</div>
-      <iframe id="ledgerFrame" title="국토교통부 건축물대장 미리보기" loading="eager"></iframe>
+      <div class="viewer-status" id="viewerStatus" role="status" aria-live="polite">공식 문서를 불러오고 있어요.</div>
+      <iframe id="ledgerFrame" name="ledgerFrame" title="공식 공부서류 미리보기" loading="eager"></iframe>
+
+      <section class="viewer-overview" id="buildingOverview" hidden aria-labelledby="overviewTitle">
+        <div class="overview-heading">
+          <span>전체 목록</span>
+          <h1 id="overviewTitle">건축물을 선택해 주세요</h1>
+          <p id="overviewDescription">VWorld에서 확인된 건축물별 공식 대장을 열 수 있습니다.</p>
+        </div>
+        <div class="building-list" id="buildingList"></div>
+      </section>
+
       <section class="viewer-error" id="viewerError" hidden>
-        <strong>건축물대장을 표시할 수 없습니다.</strong>
-        <p>주소가 올바르지 않거나 외부 사이트 연결이 제한되었을 수 있습니다.</p>
-        <a id="errorExternalLink" href="#" target="_blank" rel="noopener noreferrer">국토교통부 페이지에서 열기</a>
+        <strong id="viewerErrorTitle">공식 문서를 표시할 수 없습니다.</strong>
+        <p id="viewerErrorMessage">조회에 필요한 필지 또는 건축물 정보가 없습니다.</p>
+        <button id="errorExternalLink" type="button">공식 사이트에서 열기</button>
       </section>
     </main>
-    <script src="./building-ledger.js"></script>
+
+    <script src="./building-ledger.js?v=2"></script>
   </body>
 </html>
