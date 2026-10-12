@@ -62,6 +62,7 @@ let hybridSource;
 let cadastralSource;
 let mapErrorCount = 0;
 let toastTimer;
+let locatingUser = false;
 
 const markerSource = new VectorSource();
 const selectionSource = new VectorSource();
@@ -1945,10 +1946,46 @@ $("#zoomOut").addEventListener("click", () => map?.getView().animate({zoom: Math
 
 $("#locateButton").addEventListener("click", () => {
   if (!navigator.geolocation) return showToast("현재 위치를 사용할 수 없는 환경입니다.");
-  navigator.geolocation.getCurrentPosition(({coords}) => {
-    map.getView().animate({center: fromLonLat([coords.longitude, coords.latitude]), zoom: 17, duration: 500});
-    showToast("현재 위치로 이동했어요.");
-  }, () => showToast("위치 권한을 허용하면 내 주변을 찾을 수 있어요."), {enableHighAccuracy: true, timeout: 8000});
+  if (locatingUser) return;
+  const button = $("#locateButton");
+  const finish = () => {
+    locatingUser = false;
+    button.disabled = false;
+    button.classList.remove("locating");
+    button.setAttribute("aria-busy", "false");
+    button.setAttribute("aria-label", "현재 위치의 필지 조회");
+  };
+  locatingUser = true;
+  button.disabled = true;
+  button.classList.add("locating");
+  button.setAttribute("aria-busy", "true");
+  button.setAttribute("aria-label", "현재 위치 확인 중");
+  showToast("현재 위치를 확인하고 있어요.");
+  navigator.geolocation.getCurrentPosition(async ({coords}) => {
+    const lonLat = [coords.longitude, coords.latitude];
+    const accuracy = Math.round(Number(coords.accuracy) || 0);
+    try {
+      setMapMode("cadastral", false);
+      mainSheetCollapse(true);
+      map.getView().animate({center: fromLonLat(lonLat), zoom: 18, duration: 500});
+      $("#mapStatus").textContent = accuracy ? `현재 위치 ±${accuracy}m · 필지 조회 중` : "현재 위치의 필지 조회 중";
+      showToast("현재 위치의 필지 정보를 확인하고 있어요.");
+      await inspectParcel(lonLat, null);
+    } catch (error) {
+      console.error("Current location parcel lookup failed", error);
+      showToast("현재 위치의 필지를 조회하지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      finish();
+    }
+  }, (error) => {
+    const messages = {
+      1: "위치 권한을 허용하면 현재 필지를 조회할 수 있어요.",
+      2: "현재 위치를 확인할 수 없어요. GPS와 네트워크를 확인해 주세요.",
+      3: "현재 위치 확인 시간이 초과됐어요. 다시 시도해 주세요."
+    };
+    showToast(messages[error?.code] || "현재 위치를 확인하지 못했어요.");
+    finish();
+  }, {enableHighAccuracy: true, maximumAge: 30000, timeout: 15000});
 });
 
 $("#favoritesButton").addEventListener("click", () => {

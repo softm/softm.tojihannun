@@ -73,6 +73,9 @@ button { color: inherit; }
 .map-controls { position: fixed; z-index: 8; top: 155px; right: 20px; display: grid; gap: 9px; }
 .map-controls button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #dbe4df; background: #fff; font-size: 22px; cursor: pointer; }
 .map-controls svg { width: 22px; fill: none; stroke: var(--green); stroke-width: 1.8; }
+.map-controls button:disabled { cursor: progress; opacity: .78; }
+#locateButton.locating svg { animation: locate-pulse .9s ease-in-out infinite alternate; }
+@keyframes locate-pulse { to { opacity: .35; transform: scale(.78); } }
 .map-controls > button { border-radius: 14px; box-shadow: 0 7px 22px rgba(25,60,49,.14); }
 .zoom-controls { overflow: hidden; border-radius: 14px; box-shadow: 0 7px 22px rgba(25,60,49,.14); }
 .zoom-controls button { border: 0; border-bottom: 1px solid #e3e9e5; }
