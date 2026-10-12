@@ -1796,6 +1796,7 @@ function openDetail(record) {
   renderBuildingSection(record);
   void loadBuildingDetails(record);
   renderFieldRecord(record);
+  window.TojihannunMarketData?.setParcel(record);
   updateDetailFavorite(record.id);
   detailSheet.classList.add("open");
   detailSheet.setAttribute("aria-hidden", "false");
@@ -1815,6 +1816,7 @@ function setDetailTab(tab, focus = true) {
     button.tabIndex = active ? 0 : -1;
   });
   $$('[data-detail-panel]').forEach((panel) => { panel.hidden = panel.dataset.detailPanel !== tab; });
+  window.TojihannunMarketData?.activate(tab);
   if (focus) nextButton.focus({preventScroll: true});
 }
 

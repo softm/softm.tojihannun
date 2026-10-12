@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
     <link rel="stylesheet" href="./styles.css?v=20261013.6" />
+    <link rel="stylesheet" href="./market-data.css?v=20261013.1" />
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -178,6 +179,8 @@
           <button type="button" role="tab" id="detailTabRegister" aria-selected="false" aria-controls="detailPanelRegister" tabindex="-1" data-detail-tab="register">토지대장</button>
           <button type="button" role="tab" id="detailTabUse" aria-selected="false" aria-controls="detailPanelUse" tabindex="-1" data-detail-tab="use">토지이용</button>
           <button type="button" role="tab" id="detailTabBuilding" aria-selected="false" aria-controls="detailPanelBuilding" tabindex="-1" data-detail-tab="building">건축물</button>
+          <button type="button" role="tab" id="detailTabTransactions" aria-selected="false" aria-controls="detailPanelTransactions" tabindex="-1" data-detail-tab="transactions">실거래</button>
+          <button type="button" role="tab" id="detailTabAuctions" aria-selected="false" aria-controls="detailPanelAuctions" tabindex="-1" data-detail-tab="auctions">경매·공매</button>
           <button type="button" role="tab" id="detailTabField" aria-selected="false" aria-controls="detailPanelField" tabindex="-1" data-detail-tab="field">현장기록</button>
           <button type="button" role="tab" id="detailTabLinks" aria-selected="false" aria-controls="detailPanelLinks" tabindex="-1" data-detail-tab="links">공식연결</button>
         </nav>
@@ -238,6 +241,90 @@
             <p class="building-empty">건축물 정보를 확인하고 있어요.</p>
           </div>
           <div class="card-meta card-meta-inset" id="buildingMeta"></div>
+        </section>
+        <section class="detail-tab-panel market-panel" id="detailPanelTransactions" role="tabpanel" aria-labelledby="detailTabTransactions" data-detail-panel="transactions" hidden>
+          <div class="market-panel-head">
+            <div>
+              <span>국토교통부 공개정보</span>
+              <strong>토지 매매 실거래</strong>
+              <small id="transactionAreaLabel">선택 필지 주변 거래를 확인합니다.</small>
+            </div>
+            <div class="market-panel-controls">
+              <label for="transactionRange">조회기간</label>
+              <select id="transactionRange">
+                <option value="12">최근 12개월</option>
+                <option value="24">최근 24개월</option>
+                <option value="36">최근 36개월</option>
+              </select>
+              <button type="button" id="refreshTransactions" aria-label="실거래 다시 조회">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.2 9A7 7 0 0 0 6.4 6.4L4 9m16 6-2.4 2.6A7 7 0 0 1 5.8 15"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="market-key-slot" data-public-key-slot="transactions"></div>
+          <div class="market-status" id="transactionStatus" role="status" aria-live="polite"></div>
+          <div class="market-stats" id="transactionStats"></div>
+          <section class="market-chart-card" id="transactionChartCard" aria-labelledby="transactionChartTitle" hidden>
+            <div class="market-section-head">
+              <div><span>월별 흐름</span><strong id="transactionChartTitle">중위 거래단가</strong></div>
+              <small>만원/㎡</small>
+            </div>
+            <div class="market-chart" id="transactionChart"></div>
+          </section>
+          <section class="market-list-section" id="transactionListSection" aria-labelledby="transactionListTitle" hidden>
+            <div class="market-section-head">
+              <div><span>최근 신고 순</span><strong id="transactionListTitle">거래 목록</strong></div>
+              <small id="transactionListCount"></small>
+            </div>
+            <div class="transaction-list" id="transactionList"></div>
+          </section>
+          <p class="market-disclaimer">공개 API에서 지번 일부가 비공개될 수 있어 동일 법정동 거래를 함께 보여줍니다. ‘선택 필지 일치’ 표시가 없는 거래는 해당 필지 거래로 단정할 수 없습니다.</p>
+          <div class="market-source">
+            <span>출처</span>
+            <strong>국토교통부 실거래가 공개시스템 · 공공데이터포털</strong>
+            <a href="https://rt.molit.go.kr/" target="_blank" rel="noopener noreferrer">공식 시스템 열기 ↗</a>
+          </div>
+        </section>
+        <section class="detail-tab-panel market-panel" id="detailPanelAuctions" role="tabpanel" aria-labelledby="detailTabAuctions" data-detail-panel="auctions" hidden>
+          <div class="market-panel-head">
+            <div>
+              <span>공식 경매·공매 정보</span>
+              <strong>선택 필지 주변 진행 물건</strong>
+              <small id="auctionAreaLabel">온비드와 법원경매를 함께 확인합니다.</small>
+            </div>
+            <button class="market-refresh-button" type="button" id="refreshAuctions">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.2 9A7 7 0 0 0 6.4 6.4L4 9m16 6-2.4 2.6A7 7 0 0 1 5.8 15"/></svg>
+              <span>다시 조회</span>
+            </button>
+          </div>
+          <div class="auction-official-actions" aria-label="공식 경매·공매 사이트">
+            <button type="button" id="openOnbidSearch">
+              <span class="official-action-icon onbid" aria-hidden="true">O</span>
+              <span><b>온비드 공식 조회</b><small>주소 복사 후 지도검색</small></span>
+              <em aria-hidden="true">↗</em>
+            </button>
+            <button type="button" id="openCourtAuction">
+              <span class="official-action-icon court" aria-hidden="true">법</span>
+              <span><b>법원경매 공식 조회</b><small>주소 복사 후 물건검색</small></span>
+              <em aria-hidden="true">↗</em>
+            </button>
+          </div>
+          <div class="market-key-slot" data-public-key-slot="auctions"></div>
+          <div class="market-status" id="auctionStatus" role="status" aria-live="polite"></div>
+          <div class="market-stats auction-stats" id="auctionStats"></div>
+          <section class="market-list-section" id="auctionListSection" aria-labelledby="auctionListTitle" hidden>
+            <div class="market-section-head">
+              <div><span>입찰 중·입찰 예정</span><strong id="auctionListTitle">온비드 공매 목록</strong></div>
+              <small id="auctionListCount"></small>
+            </div>
+            <div class="auction-list" id="auctionList"></div>
+          </section>
+          <p class="market-disclaimer">온비드 공개 API는 읍면동 단위로 검색합니다. PNU가 같은 물건은 ‘선택 필지 일치’로 구분하며, 입찰 전 공고문과 권리관계를 공식 사이트에서 다시 확인해야 합니다.</p>
+          <div class="market-source">
+            <span>출처</span>
+            <strong>한국자산관리공사 온비드 · 대한민국 법원경매정보</strong>
+            <small id="auctionFetchedAt">공식 사이트는 실시간 정보가 우선합니다.</small>
+          </div>
         </section>
         <section class="detail-tab-panel field-record-card" id="detailPanelField" role="tabpanel" aria-labelledby="detailTabField" data-detail-panel="field" hidden>
           <div class="field-record-head">
@@ -393,6 +480,7 @@
     <script src="https://cdn.jsdelivr.net/npm/docx@9.10.0/dist/index.iife.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.0/dist/pptxgen.bundle.js"></script>
     <script src="./report-export.js?v=20261012.4"></script>
-    <script src="./app.js?v=20261013.5"></script>
+    <script src="./market-data.js?v=20261013.1"></script>
+    <script src="./app.js?v=20261013.6"></script>
   </body>
 </html>
