@@ -1720,10 +1720,23 @@ function openKakaoDirections(record) {
   window.open(`https://map.kakao.com/link/to/${name},${record.lat},${record.lon}`, "_blank", "noopener,noreferrer");
 }
 
+function setDirectionsMenuOpen(open, restoreFocus = false) {
+  const menu = $("#directionsMenu");
+  const toggle = $("#toggleDirections");
+  const providers = $("#directionsProviders");
+  if (!menu || !toggle || !providers) return;
+  menu.classList.toggle("open", open);
+  toggle.setAttribute("aria-expanded", String(open));
+  providers.setAttribute("aria-hidden", String(!open));
+  providers.toggleAttribute("inert", !open);
+  if (!open && restoreFocus) toggle.focus({preventScroll: true});
+}
+
 function openDetail(record) {
   if (!record) return;
   const detailSheet = $("#detailSheet");
   detailSheet.scrollTop = 0;
+  setDirectionsMenuOpen(false);
   state.selectedId = record.id;
   $("#detailType").textContent = record.typeLabel;
   $("#detailType").classList.toggle("forest", record.type === "forest");
@@ -1770,6 +1783,7 @@ function setDetailTab(tab, focus = true) {
 }
 
 function closeDetail() {
+  setDirectionsMenuOpen(false);
   $("#detailSheet").classList.remove("open");
   $("#detailSheet").setAttribute("aria-hidden", "true");
 }
@@ -2094,17 +2108,28 @@ $("#copyParcelAddress").addEventListener("click", async () => {
   showToast(copied ? "선택한 지번 주소를 복사했어요." : "주소를 복사하지 못했어요.");
 });
 
+$("#toggleDirections").addEventListener("click", () => {
+  setDirectionsMenuOpen(!$("#directionsMenu").classList.contains("open"));
+});
+
+document.addEventListener("click", (event) => {
+  if (!$("#directionsMenu").contains(event.target)) setDirectionsMenuOpen(false);
+});
+
 $("#openNaverDirections").addEventListener("click", () => {
+  setDirectionsMenuOpen(false, true);
   const record = state.records.find((item) => item.id === state.selectedId);
   openNaverDirections(record);
 });
 
 $("#openGoogleDirections").addEventListener("click", () => {
+  setDirectionsMenuOpen(false, true);
   const record = state.records.find((item) => item.id === state.selectedId);
   openGoogleDirections(record);
 });
 
 $("#openKakaoDirections").addEventListener("click", () => {
+  setDirectionsMenuOpen(false, true);
   const record = state.records.find((item) => item.id === state.selectedId);
   openKakaoDirections(record);
 });
@@ -2230,6 +2255,10 @@ $("#brandButton").addEventListener("click", () => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || document.querySelector("dialog[open]")) return;
+  if ($("#directionsMenu").classList.contains("open")) {
+    setDirectionsMenuOpen(false, true);
+    return;
+  }
   if ($("#detailSheet").classList.contains("open")) closeDetail();
 });
 
