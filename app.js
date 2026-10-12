@@ -675,6 +675,20 @@ async function fetchBuildingRecords(pnu) {
   })).filter((item) => item.id).sort((a, b) => Number(b.isMain) - Number(a.isMain) || b.totalArea - a.totalArea);
 }
 
+function buildBuildingLifecycleUrl(pnu, buildingIdentifier) {
+  const normalizedPnu = String(pnu || "").replace(/\D/g, "");
+  const normalizedBuildingId = String(buildingIdentifier || "").replace(/\D/g, "");
+  if (normalizedPnu.length !== 19 || normalizedBuildingId.length <= 5) return "";
+
+  const cadastralType = normalizedPnu.charAt(10);
+  const lifecycleType = cadastralType === "1" ? "0" : cadastralType === "2" ? "1" : cadastralType;
+  const searchPnu = `${normalizedPnu.slice(0, 10)}${lifecycleType}${normalizedPnu.slice(11)}`;
+  const bldrgstPk = `${normalizedPnu.slice(0, 5)}-${normalizedBuildingId.slice(5)}`;
+  const url = new URL("https://blcm.go.kr/lim/bldSumInfo/BldSumInfoView.do");
+  url.search = new URLSearchParams({bldrgstPk, searchPnu, searchType: "B"}).toString();
+  return url.toString();
+}
+
 function toArray(value) {
   if (Array.isArray(value)) return value;
   return value ? [value] : [];
@@ -1407,8 +1421,13 @@ function renderBuildingSection(record, selectedIndex = 0) {
     ["사용승인연도", formatApprovalYear(building.approvalDate)],
     ["건물명", building.name || "미제공"]
   ];
+  const lifecycleUrl = buildBuildingLifecycleUrl(record.pnu, building.id);
   content.innerHTML = `${selector}<dl class="building-facts">${facts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>
-    <button class="building-ledger-button" id="openBuildingLedger" type="button">건축물대장 보기</button>`;
+    <div class="building-action-row">
+      <button class="building-ledger-button" id="openBuildingLedger" type="button">건축물대장 보기</button>
+      ${lifecycleUrl ? `<a class="building-ledger-button building-lifecycle-button" href="${escapeHtml(lifecycleUrl)}" target="_blank" rel="noopener noreferrer">건축물 생애이력 <span aria-hidden="true">↗</span></a>` : ""}
+    </div>
+    ${lifecycleUrl ? `<p class="building-lifecycle-note">국토교통부 건축물 생애이력 관리시스템에서 일반정보·점검이력·실거래·에너지 정보를 확인합니다.</p>` : ""}`;
   $("#buildingSelector")?.addEventListener("change", (event) => renderBuildingSection(record, Number(event.target.value)));
   $("#openBuildingLedger").addEventListener("click", () => {
     const params = new URLSearchParams({
