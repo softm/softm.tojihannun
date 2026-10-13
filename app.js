@@ -2316,20 +2316,6 @@ document.addEventListener("click", (event) => {
 
 $$("[data-map-mode]").forEach((button) => button.addEventListener("click", () => setMapMode(button.dataset.mapMode)));
 
-$$(".quick-card").forEach((button) => button.addEventListener("click", () => {
-  const mode = button.dataset.mode;
-  if (mode === "map") {
-    setMapMode("cadastral");
-    mainSheetCollapse(true);
-    showToast("지적 경계 안쪽을 눌러 필지를 선택하세요.");
-  } else {
-    state.searchMode = mode;
-    $("#searchInput").placeholder = mode === "road" ? "예: 세종대로 110" : "예: 신사동 501 또는 신림동 산74";
-    $("#searchInput").focus();
-    showToast(mode === "road" ? "도로명 주소를 입력해 주세요." : "읍면동과 지번을 입력해 주세요.");
-  }
-}));
-
 $$(".filter-chip").forEach((button) => button.addEventListener("click", () => {
   state.filter = button.dataset.filter;
   $$(".filter-chip").forEach((chip) => chip.classList.toggle("active", chip === button));
