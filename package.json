@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
+    "build": "node scripts/build-pages.mjs",
     "test": "node --test scripts/*.test.mjs"
   },
   "dependencies": {

@@ -1777,6 +1777,7 @@ function setDirectionsMenuOpen(open, restoreFocus = false) {
 function openDetail(record) {
   if (!record) return;
   const detailSheet = $("#detailSheet");
+  detailSheetCollapse(false);
   detailSheet.scrollTop = 0;
   setDirectionsMenuOpen(false);
   state.selectedId = record.id;
@@ -1829,8 +1830,10 @@ function setDetailTab(tab, focus = true) {
 
 function closeDetail() {
   setDirectionsMenuOpen(false);
-  $("#detailSheet").classList.remove("open");
-  $("#detailSheet").setAttribute("aria-hidden", "true");
+  const detailSheet = $("#detailSheet");
+  detailSheet.classList.remove("open", "collapsed", "dragging");
+  detailSheet.style.removeProperty("--detail-drag-offset");
+  detailSheet.setAttribute("aria-hidden", "true");
 }
 
 function getFilteredRecords() {
@@ -2057,8 +2060,13 @@ async function shareParcel(record) {
 
 const mainSheetElement = $("#mainSheet");
 const sheetDragHandle = $("#sheetDragHandle");
+const detailSheetElement = $("#detailSheet");
+const detailDragHandle = $("#detailDragHandle");
+const mobileDetailMedia = window.matchMedia("(max-width: 720px)");
 let sheetDragState = null;
 let suppressSheetHandleClick = false;
+let detailDragState = null;
+let suppressDetailHandleClick = false;
 
 function mainSheetCollapse(collapsed) {
   mainSheetElement.classList.toggle("collapsed", collapsed);
@@ -2108,6 +2116,61 @@ function finishMainSheetDrag(event, cancelled = false) {
   sheetDragState = null;
   mainSheetCollapse(collapsed);
   if (suppressSheetHandleClick) requestAnimationFrame(() => { suppressSheetHandleClick = false; });
+}
+
+function syncDetailHandleMode() {
+  const mobile = mobileDetailMedia.matches;
+  detailDragHandle.tabIndex = mobile ? 0 : -1;
+  detailDragHandle.setAttribute("aria-hidden", String(!mobile));
+  if (!mobile) detailSheetCollapse(false);
+}
+
+function detailSheetCollapse(collapsed) {
+  const shouldCollapse = Boolean(collapsed && mobileDetailMedia.matches);
+  detailSheetElement.classList.toggle("collapsed", shouldCollapse);
+  detailSheetElement.classList.remove("dragging");
+  detailSheetElement.style.removeProperty("--detail-drag-offset");
+  detailDragHandle.setAttribute("aria-expanded", String(!shouldCollapse));
+  detailDragHandle.setAttribute("aria-label", shouldCollapse ? "상세 팝업 펼치기" : "상세 팝업 축소");
+}
+
+function startDetailSheetDrag(event) {
+  if (!mobileDetailMedia.matches || !event.isPrimary || event.button !== 0) return;
+  const collapsed = detailSheetElement.classList.contains("collapsed");
+  const maxOffset = Math.max(0, detailSheetElement.offsetHeight - 112);
+  detailDragState = {
+    pointerId: event.pointerId,
+    startY: event.clientY,
+    startOffset: collapsed ? maxOffset : 0,
+    currentOffset: collapsed ? maxOffset : 0,
+    maxOffset,
+    collapsed
+  };
+  suppressDetailHandleClick = false;
+  detailSheetElement.classList.add("dragging");
+  detailDragHandle.setPointerCapture(event.pointerId);
+  event.preventDefault();
+}
+
+function moveDetailSheetDrag(event) {
+  if (!detailDragState || event.pointerId !== detailDragState.pointerId) return;
+  const delta = event.clientY - detailDragState.startY;
+  detailDragState.currentOffset = Math.min(detailDragState.maxOffset, Math.max(0, detailDragState.startOffset + delta));
+  detailSheetElement.style.setProperty("--detail-drag-offset", `${detailDragState.currentOffset}px`);
+  suppressDetailHandleClick ||= Math.abs(delta) > 6;
+  event.preventDefault();
+}
+
+function finishDetailSheetDrag(event, cancelled = false) {
+  if (!detailDragState || event.pointerId !== detailDragState.pointerId) return;
+  const drag = detailDragState;
+  const delta = event.clientY - drag.startY;
+  let collapsed = drag.collapsed;
+  if (!cancelled) collapsed = Math.abs(delta) > 48 ? delta > 0 : drag.currentOffset > drag.maxOffset / 2;
+  if (detailDragHandle.hasPointerCapture(event.pointerId)) detailDragHandle.releasePointerCapture(event.pointerId);
+  detailDragState = null;
+  detailSheetCollapse(collapsed);
+  if (suppressDetailHandleClick) requestAnimationFrame(() => { suppressDetailHandleClick = false; });
 }
 
 $("#searchForm").addEventListener("submit", async (event) => {
@@ -2169,6 +2232,25 @@ sheetDragHandle.addEventListener("keydown", (event) => {
   event.preventDefault();
   mainSheetCollapse(event.key === "ArrowDown" || event.key === "End");
 });
+detailDragHandle.addEventListener("pointerdown", startDetailSheetDrag);
+detailDragHandle.addEventListener("pointermove", moveDetailSheetDrag);
+detailDragHandle.addEventListener("pointerup", (event) => finishDetailSheetDrag(event));
+detailDragHandle.addEventListener("pointercancel", (event) => finishDetailSheetDrag(event, true));
+detailDragHandle.addEventListener("click", () => {
+  if (!mobileDetailMedia.matches) return;
+  if (suppressDetailHandleClick) {
+    suppressDetailHandleClick = false;
+    return;
+  }
+  detailSheetCollapse(!detailSheetElement.classList.contains("collapsed"));
+});
+detailDragHandle.addEventListener("keydown", (event) => {
+  if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key) || !mobileDetailMedia.matches) return;
+  event.preventDefault();
+  detailSheetCollapse(event.key === "ArrowDown" || event.key === "End");
+});
+mobileDetailMedia.addEventListener?.("change", syncDetailHandleMode);
+syncDetailHandleMode();
 $("#zoomIn").addEventListener("click", () => map?.getView().animate({zoom: Math.min(19, map.getView().getZoom() + 1), duration: 220}));
 $("#zoomOut").addEventListener("click", () => map?.getView().animate({zoom: Math.max(6, map.getView().getZoom() - 1), duration: 220}));
 

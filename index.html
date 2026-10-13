@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261013.8" />
-    <link rel="stylesheet" href="./market-data.css?v=20261013.1" />
+    <link rel="stylesheet" href="./styles.css?v=20261013.9" />
+    <link rel="stylesheet" href="./market-data.css?v=20261013.2" />
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -135,7 +135,7 @@
       </section>
 
       <section class="detail-sheet" id="detailSheet" aria-labelledby="detailTitle" aria-hidden="true">
-        <div class="sheet-handle" aria-hidden="true"></div>
+        <button class="sheet-handle detail-drag-handle" id="detailDragHandle" type="button" aria-label="상세 팝업 축소" aria-controls="detailSheet" aria-expanded="true"></button>
         <div class="detail-top">
           <span class="status-pill" id="detailType">토지대장</span>
           <div class="detail-actions">
@@ -494,7 +494,8 @@
     <script src="./adfit-config.js?v=20261012.1"></script>
     <script src="./adfit.js?v=20261012.1"></script>
     <script src="./report-export.js?v=20261012.4"></script>
-    <script src="./market-data.js?v=20261013.1"></script>
-    <script src="./app.js?v=20261013.7"></script>
+    <script src="./runtime-config.js"></script>
+    <script src="./market-data.js?v=20261013.2"></script>
+    <script src="./app.js?v=20261013.8"></script>
   </body>
 </html>

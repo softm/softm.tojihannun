@@ -19,7 +19,7 @@ npm start
 
 브라우저에서 `http://localhost:4173`을 엽니다.
 
-`config.local.js`의 `vworldApiKey`에 VWorld 인증키를 넣고, VWorld 콘솔에서 키의 인증 도메인을 `localhost`로 등록해야 합니다. 이 파일은 Git에서 제외되며 브라우저에 정적으로 제공되지 않습니다.
+`config.local.js`의 `vworldApiKey`에 VWorld 인증키를 넣고, VWorld 콘솔에서 키의 인증 도메인을 `localhost`로 등록해야 합니다. 실거래 조회를 사용하려면 같은 파일의 `molitApiKey`에 공공데이터포털 일반 인증키를 입력합니다. 이 파일은 Git에서 제외되며 브라우저에 정적으로 제공되지 않습니다.
 
 ## 배포
 
@@ -28,11 +28,14 @@ npm start
 ```bash
 VWORLD_API_KEY=발급받은_키
 VWORLD_DOMAIN=tojihannun.designboard.net
+MOLIT_API_KEY=공공데이터포털_일반_인증키
 ```
 
 Node.js 배포에서는 실행 명령 `npm ci && npm start`와 환경변수를 사용하며, 서버의 `/api/vworld/*` 프록시가 인증키를 대신 전달합니다.
 
 GitHub Pages 정적 배포에서는 등록 도메인 전용 VWorld 브라우저 키와 JSONP를 이용해 검색·데이터 조회를 수행합니다. 키가 다른 도메인에서 동작하지 않도록 VWorld 인증키 관리에서 `tojihannun.designboard.net`만 허용해야 합니다. 브라우저용 라이브러리는 버전을 고정한 jsDelivr CDN에서 불러옵니다.
+
+실거래 조회용 키는 저장소 Secret `MOLIT_API_KEY`에서 배포 시 `runtime-config.js`로 주입합니다. 저장소와 Actions 로그에는 키를 기록하지 않지만 정적 사이트의 브라우저 요청에서는 확인될 수 있으므로, 공공 호출용 키라는 전제로 사용량 제한과 포털 모니터링을 적용해야 합니다.
 
 ## 포함 기능
 
@@ -49,6 +52,7 @@ GitHub Pages 정적 배포에서는 등록 도메인 전용 VWorld 브라우저 
 - VWorld 건축물 요약정보 및 국토교통부 건축물대장 원문 iframe 보기
 - 토지이음·인터넷등기소·정부24·세움터·국토정보플랫폼·화성특례시청 공식 사이트 연계
 - 관심 토지 로컬 저장
+- 국토교통부 토지 매매 실거래가 통계·차트·목록 조회
 - 선택 필지 상세정보를 정돈된 보고서로 다운로드
   - PDF 인쇄용 보고서
   - DOCX 편집 가능한 문서

@@ -28,8 +28,12 @@
 
   let toastTimer = 0;
 
+  function runtimeServiceKey() {
+    return String(window.__TOJI_RUNTIME_CONFIG__?.molitApiKey || window.APP_CONFIG?.dataGoKrServiceKey || "").trim();
+  }
+
   function readStoredKey() {
-    const configured = String(window.APP_CONFIG?.dataGoKrServiceKey || "").trim();
+    const configured = runtimeServiceKey();
     if (configured) return configured;
     try {
       return String(sessionStorage.getItem(PUBLIC_DATA_KEY) || "").trim();
@@ -270,21 +274,22 @@
 
   function renderKeySlots() {
     const connected = Boolean(state.serviceKey);
+    const managed = Boolean(runtimeServiceKey());
     $$('[data-public-key-slot]').forEach((slot) => {
       const service = slot.dataset.publicKeySlot === "auctions" ? "온비드 차세대 API" : "국토교통부 실거래 API";
       slot.innerHTML = `
-        <section class="market-key-card${connected ? " connected" : ""}" aria-label="공공데이터 API 연결">
+        <section class="market-key-card${connected ? " connected" : ""}${managed ? " managed" : ""}" aria-label="공공데이터 API 연결">
           <div class="market-key-head">
             <div><span>공공데이터포털 서비스키</span><strong>${escapeHtml(service)}</strong></div>
             <span class="market-key-state">${connected ? "연결됨" : "연결 필요"}</span>
           </div>
-          <form class="market-key-form" data-public-key-form>
+          ${managed ? '<p class="market-key-managed">운영 인증키로 자동 연결되었습니다.</p>' : `<form class="market-key-form" data-public-key-form>
             <label class="sr-only" for="publicDataKey-${escapeHtml(slot.dataset.publicKeySlot)}">공공데이터포털 일반 인증키</label>
             <input id="publicDataKey-${escapeHtml(slot.dataset.publicKeySlot)}" data-public-key-input type="password" autocomplete="off" spellcheck="false" placeholder="${connected ? "새 인증키로 변경" : "일반 인증키(Encoding 또는 Decoding)"}" aria-label="공공데이터포털 일반 인증키" />
             <button type="submit">${connected ? "키 변경" : "연결"}</button>
-          </form>
-          ${connected ? '<button class="market-key-clear" type="button" data-public-key-clear>연결 해제</button>' : ""}
-          <p class="market-key-note">인증키는 소스·서버에 저장하지 않고 현재 브라우저 탭의 세션에만 보관합니다. 서비스별 활용신청이 필요합니다. <a href="https://www.data.go.kr/" target="_blank" rel="noopener noreferrer">공공데이터포털 ↗</a></p>
+          </form>`}
+          ${connected && !managed ? '<button class="market-key-clear" type="button" data-public-key-clear>연결 해제</button>' : ""}
+          <p class="market-key-note">${managed ? "인증키는 배포 설정에서 주입되며 저장소와 빌드 로그에는 기록하지 않습니다." : "입력한 인증키는 현재 브라우저 탭의 세션에만 보관합니다."} 서비스별 활용신청이 필요합니다. <a href="https://www.data.go.kr/" target="_blank" rel="noopener noreferrer">공공데이터포털 ↗</a></p>
         </section>`;
     });
 

@@ -5,6 +5,7 @@ import {fileURLToPath} from "node:url";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 4173);
+const host = process.env.HOST || "127.0.0.1";
 const eumLandUseUrl = "https://www.eum.go.kr/web/ar/lu/luLandDet.jsp";
 const allowedVWorldServices = new Set(["search", "data", "address", "wms"]);
 const allowedNedOperations = new Set([
@@ -40,8 +41,24 @@ function readLocalConfig() {
   }
   const vworldApiKey = process.env.VWORLD_API_KEY || text.match(/vworldApiKey:\s*"([^"]+)"/)?.[1] || "";
   const vworldDomain = process.env.VWORLD_DOMAIN || text.match(/vworldDomain:\s*"([^"]+)"/)?.[1] || "localhost";
+  const molitApiKey = process.env.MOLIT_API_KEY || text.match(/molitApiKey:\s*["']([^"']+)["']/)?.[1] || "";
   if (!vworldApiKey || vworldApiKey === "YOUR_VWORLD_API_KEY") throw new Error("VWorld API key is not configured");
-  return {vworldApiKey, vworldDomain};
+  return {vworldApiKey, vworldDomain, molitApiKey: molitApiKey === "YOUR_MOLIT_API_KEY" ? "" : molitApiKey};
+}
+
+function writeRuntimeConfig(response) {
+  let molitApiKey = "";
+  try {
+    molitApiKey = String(readLocalConfig().molitApiKey || "");
+  } catch {
+    // VWorld 설정 오류와 무관하게 실거래 탭이 연결 필요 상태로 동작하도록 빈 설정을 제공한다.
+  }
+  response.writeHead(200, {
+    "Content-Type": "text/javascript; charset=utf-8",
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff"
+  });
+  response.end(`globalThis.__TOJI_RUNTIME_CONFIG__ = Object.freeze(${JSON.stringify({molitApiKey})});\n`);
 }
 
 async function proxyVWorld(request, response, service, incomingUrl) {
@@ -206,6 +223,10 @@ function serveStatic(response, pathname) {
 
 const server = http.createServer(async (request, response) => {
   const incomingUrl = new URL(request.url || "/", `http://${request.headers.host || `localhost:${port}`}`);
+  if (incomingUrl.pathname === "/runtime-config.js") {
+    writeRuntimeConfig(response);
+    return;
+  }
   if (incomingUrl.pathname === "/api/eum/land-use") {
     if (request.method !== "GET" && request.method !== "HEAD") {
       response.writeHead(405, {"Allow": "GET, HEAD"});
@@ -233,6 +254,6 @@ const server = http.createServer(async (request, response) => {
   serveStatic(response, incomingUrl.pathname);
 });
 
-server.listen(port, () => {
-  console.log(`토지한눈: http://localhost:${port}`);
+server.listen(port, host, () => {
+  console.log(`토지한눈: http://${host}:${port}`);
 });
