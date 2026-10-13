@@ -276,6 +276,30 @@ button { color: inherit; }
 .land-register-card .building-card-head { background: #edf7f2; }
 .land-register-badge { white-space: nowrap; }
 .land-register-summary { margin-bottom: 5px; }
+.official-documents { margin-bottom: 14px; padding: 11px; border: 1px solid #dbe6e1; border-radius: 13px; background: linear-gradient(145deg, #fbfdfc, #f3f8f5); }
+.official-documents-heading { display: flex; align-items: end; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+.official-documents-heading div > span, .official-documents-heading div > strong { display: block; }
+.official-documents-heading div > span { color: #678078; font-size: 9px; font-weight: 750; }
+.official-documents-heading div > strong { margin-top: 2px; color: var(--ink); font-size: 13px; font-weight: 900; }
+.official-documents-heading > small { max-width: 44%; overflow: hidden; color: #70837c; font-size: 9px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.official-document-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.official-document-card { min-width: 0; padding: 9px; border: 1px solid #dfe7e3; border-radius: 11px; background: #fff; }
+.official-document-card.available { border-color: #b8d9cc; box-shadow: inset 0 2px 0 #2f8b6e; }
+.official-document-title { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.official-document-icon { display: grid; place-items: center; flex: 0 0 26px; height: 26px; border-radius: 8px; background: #e7f3ee; color: #176b54; font-size: 11px; font-weight: 900; }
+.official-document-card[data-tone="map"] .official-document-icon { background: #e8f0fb; color: #2868b2; }
+.official-document-card[data-tone="shared"] .official-document-icon { background: #fff1e7; color: #b15d26; }
+.official-document-card[data-tone="registry"] .official-document-icon { background: #eee9fb; color: #6644a2; }
+.official-document-title div { min-width: 0; }
+.official-document-title strong, .official-document-title em { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.official-document-title strong { color: var(--ink); font-size: 11px; font-weight: 900; }
+.official-document-title em { margin-top: 2px; color: #58736a; font-size: 8px; font-style: normal; font-weight: 750; }
+.official-document-card > p { min-height: 43px; margin: 7px 0; color: #687a74; font-size: 9px; line-height: 1.55; }
+.official-document-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.official-document-actions button, .official-document-actions a { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-height: 28px; margin: 0; padding: 0 8px; border: 1px solid #cbdad4; border-radius: 8px; background: #fff; color: #315f50; font: inherit; font-size: 9px; font-weight: 850; line-height: 1.2; text-decoration: none; cursor: pointer; }
+.official-document-actions a { border-color: #167559; background: #edf7f2; color: #126047; }
+.official-document-actions button:hover, .official-document-actions a:hover { border-color: #126b50; background: #e4f3ec; }
+.official-documents-note { margin: 9px 0 0; padding-top: 8px; border-top: 1px dashed #d4dfda; color: #6d7f78; font-size: 8px; line-height: 1.5; }
 .land-value-note { margin: 2px 0 12px; padding: 8px 9px; border-radius: 8px; background: #f5f7f6; color: #6b7b75; font-size: 9px; line-height: 1.5; }
 .land-register-details { border-top: 1px solid #e4ebe7; }
 .land-register-details details { border-bottom: 1px solid #e4ebe7; }
@@ -546,6 +570,14 @@ button { color: inherit; }
   .building-integrated-copy small { font-size: 11px; }
   .building-facts dt { font-size: 12px; }
   .building-facts dd { font-size: 14px; }
+  .official-documents-heading div > span { font-size: 11px; }
+  .official-documents-heading div > strong { font-size: 16px; }
+  .official-documents-heading > small { font-size: 11px; }
+  .official-document-title strong { font-size: 13px; }
+  .official-document-title em { font-size: 10px; }
+  .official-document-card > p { min-height: 48px; font-size: 11px; }
+  .official-document-actions button, .official-document-actions a { min-height: 31px; font-size: 11px; }
+  .official-documents-note { font-size: 10px; }
   .land-value-note { font-size: 11px; }
   .land-register-details summary { font-size: 14px; }
   .land-use-tags span { font-size: 12px; }

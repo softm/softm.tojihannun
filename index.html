@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261013.11" />
+    <link rel="stylesheet" href="./styles.css?v=20261013.12" />
     <link rel="stylesheet" href="./market-data.css?v=20261013.3" />
   </head>
   <body>
@@ -192,7 +192,7 @@
         </div>
         <nav class="detail-tabs" role="tablist" aria-label="필지 상세정보">
           <button class="active" type="button" role="tab" id="detailTabBasic" aria-selected="true" aria-controls="detailPanelBasic" tabindex="0" data-detail-tab="basic">기본</button>
-          <button type="button" role="tab" id="detailTabRegister" aria-selected="false" aria-controls="detailPanelRegister" tabindex="-1" data-detail-tab="register">토지대장</button>
+          <button type="button" role="tab" id="detailTabRegister" aria-selected="false" aria-controls="detailPanelRegister" tabindex="-1" data-detail-tab="register">대장·등기</button>
           <button type="button" role="tab" id="detailTabUse" aria-selected="false" aria-controls="detailPanelUse" tabindex="-1" data-detail-tab="use">토지이용</button>
           <button type="button" role="tab" id="detailTabBuilding" aria-selected="false" aria-controls="detailPanelBuilding" tabindex="-1" data-detail-tab="building">건축물</button>
           <button type="button" role="tab" id="detailTabTransactions" aria-selected="false" aria-controls="detailPanelTransactions" tabindex="-1" data-detail-tab="transactions">실거래</button>
@@ -212,8 +212,8 @@
         <section class="detail-tab-panel building-card land-register-card" id="detailPanelRegister" role="tabpanel" aria-labelledby="detailTabRegister" data-detail-panel="register" hidden>
           <div class="building-card-head">
             <div>
-              <span>토지·임야대장 공개정보</span>
-              <strong id="landRegisterCardTitle">토지대장 정보</strong>
+              <span>공개정보 조회 · 공식 원문 연결</span>
+              <strong id="landRegisterCardTitle">토지·지적·등기 서류</strong>
             </div>
             <span class="building-count land-register-badge" id="landRegisterBadge">조회 중</span>
           </div>
@@ -494,6 +494,6 @@
     <script src="./report-export.js?v=20261013.5"></script>
     <script src="./runtime-config.js"></script>
     <script src="./market-data.js?v=20261013.4"></script>
-    <script src="./app.js?v=20261013.10"></script>
+    <script src="./app.js?v=20261013.11"></script>
   </body>
 </html>

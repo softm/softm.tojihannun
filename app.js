@@ -21,6 +21,9 @@ const API_BASE = "/api/vworld";
 const VWORLD_BROWSER_KEY = "BC222DE5-514C-4E8A-A143-73DD322834D1";
 const USE_VWORLD_JSONP = window.location.hostname === "tojihannun.designboard.net" || window.location.hostname.endsWith(".github.io");
 const EUM_DETAIL_URL = "https://www.eum.go.kr/web/ar/lu/luLandDet.jsp";
+const GOV_LAND_REGISTER_URL = "https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000026&HighCtgCD=A09005";
+const GOV_CADASTRAL_MAP_URL = "https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000027&HighCtgCD=A09005&tp_seq=0";
+const IROS_URL = "https://www.iros.go.kr/";
 const FAVORITES_KEY = "tojihannun-vworld-favorites-v1";
 const RECENT_PARCELS_KEY = "tojihannun-recent-parcels-v1";
 const MAX_RECENT_PARCELS = 50;
@@ -1207,6 +1210,83 @@ function formatEstimatedValue(price, area) {
   return amount > 0 ? `${new Intl.NumberFormat("ko-KR", {maximumFractionDigits: 0}).format(amount)}원` : "-";
 }
 
+function renderOfficialDocumentAccess(record, landRegister = null) {
+  const ownerships = landRegister?.ownerships?.length
+    ? landRegister.ownerships
+    : landRegister?.ownership
+      ? [landRegister.ownership]
+      : [];
+  const hasLandData = Boolean(landRegister?.availableSources);
+  const canShowBoundary = Boolean(record?.pnu && Number.isFinite(record?.lon) && Number.isFinite(record?.lat));
+  const cards = [
+    {
+      tone: "land",
+      mark: "대",
+      title: "토지대장",
+      status: hasLandData ? "공개정보 조회 완료" : "공식 열람·발급 제공",
+      available: hasLandData,
+      description: hasLandData
+        ? "지목·면적·공시지가·토지특성·이동 이력을 아래에서 확인할 수 있습니다."
+        : "공개 API 정보가 없거나 조회에 실패했습니다. 정부24에서 원문을 확인해 주세요.",
+      localAction: hasLandData ? `<button type="button" data-document-action="land">내용 보기</button>` : "",
+      officialUrl: GOV_LAND_REGISTER_URL,
+      officialLabel: "정부24 원문"
+    },
+    {
+      tone: "map",
+      mark: "지",
+      title: "지적도 등본",
+      status: canShowBoundary ? "연속지적도 경계 표시 가능" : "공식 열람·발급 제공",
+      available: canShowBoundary,
+      description: canShowBoundary
+        ? "앱 지도에서 VWorld 연속지적도 경계를 확인할 수 있습니다. 공식 등본과 측량 성과를 대신하지 않습니다."
+        : "이 필지의 경계를 앱에서 표시할 수 없어 정부24 공식 민원을 연결합니다.",
+      localAction: canShowBoundary ? `<button type="button" data-document-action="cadastral">지도에서 보기</button>` : "",
+      officialUrl: GOV_CADASTRAL_MAP_URL,
+      officialLabel: "등본 열람·발급"
+    },
+    {
+      tone: "shared",
+      mark: "공",
+      title: "공유지연명부",
+      status: ownerships.length ? `개인정보 제외 ${ownerships.length}건` : "공식 열람·발급 제공",
+      available: Boolean(ownerships.length),
+      description: ownerships.length
+        ? "공개 API가 제공하는 소유구분·거주지 구분·공유인 수·변동 정보만 아래에 표시합니다."
+        : "성명·주소·등록번호·지분 등 원문 정보는 공개 API로 제공되지 않습니다.",
+      localAction: ownerships.length ? `<button type="button" data-document-action="ownership">공개정보 보기</button>` : "",
+      officialUrl: GOV_LAND_REGISTER_URL,
+      officialLabel: "정부24 확인"
+    },
+    {
+      tone: "registry",
+      mark: "등",
+      title: "등기사항전부증명서",
+      status: "공식 사이트에서 열람·발급",
+      available: false,
+      description: "소유권·근저당권 등 등기 원문은 공개 API로 가져오지 않으며 인터넷등기소에서 확인합니다.",
+      localAction: `<button type="button" data-document-action="copy-address">주소 복사</button>`,
+      officialUrl: IROS_URL,
+      officialLabel: "인터넷등기소"
+    }
+  ];
+  return `
+    <section class="official-documents" aria-labelledby="officialDocumentsTitle">
+      <div class="official-documents-heading">
+        <div><span>필지별 공부서류</span><strong id="officialDocumentsTitle">조회 가능한 내용과 공식 원문</strong></div>
+        <small>조회 필지 · ${escapeHtml(record?.number || record?.pnu || "지번 미제공")}</small>
+      </div>
+      <div class="official-document-grid">
+        ${cards.map((card) => `<article class="official-document-card ${card.available ? "available" : "linked"}" data-tone="${card.tone}">
+          <div class="official-document-title"><span class="official-document-icon" aria-hidden="true">${card.mark}</span><div><strong>${card.title}</strong><em>${escapeHtml(card.status)}</em></div></div>
+          <p>${escapeHtml(card.description)}</p>
+          <div class="official-document-actions">${card.localAction}<a href="${card.officialUrl}" target="_blank" rel="noopener noreferrer" aria-label="${card.title} ${card.officialLabel}, 새 창">${card.officialLabel}<span aria-hidden="true">↗</span></a></div>
+        </article>`).join("")}
+      </div>
+      <p class="official-documents-note">화면 정보는 참고용입니다. 법적 증명, 소유자 개인정보 및 등기 권리관계는 공식 원문을 열람·발급해 확인하세요.</p>
+    </section>`;
+}
+
 function buildReportModel(record) {
   const land = record.landRegister || {};
   const eum = record.eumLandUse || {};
@@ -1362,10 +1442,10 @@ function renderLandRegisterSection(record) {
   const badge = $("#landRegisterBadge");
   const meta = ensureSourceMeta(record).landRegister;
   setCardMeta("#landRegisterMeta", meta, "국토교통부 국가공간정보센터 공개 API");
-  $("#landRegisterCardTitle").textContent = `${record.typeLabel || "토지대장"} 정보`;
+  $("#landRegisterCardTitle").textContent = "토지·지적·등기 서류";
   if (!record.landRegister) {
     badge.textContent = record.landRegisterError ? "조회 실패" : "조회 중";
-    content.innerHTML = `<p class="building-empty">${record.landRegisterError ? "토지대장 공개정보를 불러오지 못했어요." : "토지대장 공개정보를 확인하고 있어요."}</p>`;
+    content.innerHTML = `${renderOfficialDocumentAccess(record)}<p class="building-empty">${record.landRegisterError ? "토지대장 공개정보를 불러오지 못했어요. 공식 원문 링크를 이용해 주세요." : "토지대장 공개정보를 확인하고 있어요."}</p>`;
     return;
   }
 
@@ -1373,7 +1453,7 @@ function renderLandRegisterSection(record) {
   const ownerships = record.landRegister.ownerships?.length ? record.landRegister.ownerships : ownership ? [ownership] : [];
   if (!availableSources) {
     badge.textContent = "정보 없음";
-    content.innerHTML = `<p class="building-empty">이 필지에서 공개 API로 확인된 대장 정보가 없어요.</p>`;
+    content.innerHTML = `${renderOfficialDocumentAccess(record, record.landRegister)}<p class="building-empty">이 필지에서 공개 API로 확인된 대장 정보가 없어요. 위 공식 원문 링크를 이용해 주세요.</p>`;
     return;
   }
   badge.textContent = partial ? "일부 조회" : "조회 완료";
@@ -1420,6 +1500,7 @@ function renderLandRegisterSection(record) {
   }).join("")}</div><p class="land-register-note">공개 API는 소유자 성명·주소·등록번호·지분 등 개인정보를 제공하지 않습니다.</p></details>` : "";
 
   content.innerHTML = `
+    ${renderOfficialDocumentAccess(record, record.landRegister)}
     <dl class="building-facts land-register-summary">${summaryFacts.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>
     <p class="land-value-note">면적×공시지가 단순 계산 참고값은 실거래가·매매가격·감정가가 아닙니다.</p>
     <div class="land-register-details">
@@ -1428,6 +1509,25 @@ function renderLandRegisterSection(record) {
       ${ownershipDetails}
       ${movementDetails}
     </div>`;
+}
+
+async function showCadastralDocument(record) {
+  if (!record) return;
+  setMapMode("cadastral");
+  let rawFeature = parcelFeatureCache.get(record.id) || null;
+  if (!rawFeature) {
+    showToast("필지 경계를 불러오고 있어요.");
+    try {
+      const parcelFeature = await fetchParcelFeature([record.lon, record.lat]);
+      rawFeature = parcelFeature?.feature || null;
+      if (rawFeature) parcelFeatureCache.set(record.id, rawFeature);
+    } catch (error) {
+      console.error("Cadastral boundary lookup failed", error);
+    }
+  }
+  showSelectedParcel(record, rawFeature);
+  if (window.matchMedia("(max-width: 720px)").matches) detailSheetCollapse(true);
+  showToast(rawFeature ? "지도에 선택 필지의 연속지적도 경계를 표시했어요." : "지적 경계를 불러오지 못했어요. 정부24 공식 등본을 확인해 주세요.");
 }
 
 async function loadLandRegisterDetails(record) {
@@ -2351,6 +2451,28 @@ $("#copyParcelAddress").addEventListener("click", async () => {
   if (!address) return showToast("복사할 주소가 없습니다.");
   const copied = await copyToClipboard(address);
   showToast(copied ? "선택한 지번 주소를 복사했어요." : "주소를 복사하지 못했어요.");
+});
+
+$("#landRegisterContent").addEventListener("click", async (event) => {
+  const actionButton = event.target.closest("[data-document-action]");
+  if (!actionButton) return;
+  const record = state.records.find((item) => item.id === state.selectedId);
+  if (!record) return;
+  const action = actionButton.dataset.documentAction;
+  if (action === "cadastral") {
+    await showCadastralDocument(record);
+    return;
+  }
+  if (action === "copy-address") {
+    const copied = await copyToClipboard(record.address || record.road || record.pnu || "");
+    showToast(copied ? "등기소 검색용 주소를 복사했어요." : "복사할 주소가 없습니다.");
+    return;
+  }
+  const target = action === "ownership"
+    ? $("#landRegisterContent .ownership-list")?.closest("details")
+    : $("#landRegisterContent .land-register-summary");
+  if (target?.tagName === "DETAILS") target.open = true;
+  target?.scrollIntoView({behavior: "smooth", block: "nearest"});
 });
 
 $("#openBasicIntegratedLedger").addEventListener("click", () => {
