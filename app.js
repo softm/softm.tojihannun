@@ -1806,6 +1806,7 @@ function openDetail(record) {
   updateDetailFavorite(record.id);
   detailSheet.classList.add("open");
   detailSheet.setAttribute("aria-hidden", "false");
+  window.TojihannunAds?.showParcelDetail(); // SOFTM-ADFIT-DETAIL 날짜:20261012 : 상세를 실제로 연 뒤에만 상세 광고를 요청
   setDetailTab("basic", false);
   $("#mapStatus").textContent = record.address || "선택한 필지";
   render();
@@ -2410,5 +2411,6 @@ document.addEventListener("keydown", (event) => {
   if ($("#detailSheet").classList.contains("open")) closeDetail();
 });
 
+window.TojihannunAds?.init(); // SOFTM-ADFIT-INIT 날짜:20261012 : 광고 설정 검증 후 화면 진입 지면만 지연 요청
 if (document.readyState === "complete") initMap();
 else window.addEventListener("load", initMap, {once: true});

@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261013.6" />
+    <link rel="stylesheet" href="./styles.css?v=20261013.7" />
     <link rel="stylesheet" href="./market-data.css?v=20261013.1" />
   </head>
   <body>
@@ -106,6 +106,12 @@
           </button>
         </div>
 
+        <!-- SOFTM-ADFIT-PLACEMENTS START 날짜:20261012 : 검색 흐름을 가리지 않는 패널 본문에 전용 AdFit 지면을 배치 -->
+        <aside class="adfit-zone" id="searchPanelAd" aria-label="광고" hidden>
+          <span class="adfit-label">광고</span>
+          <div class="adfit-host" data-adfit-host></div>
+        </aside>
+        <!-- SOFTM-ADFIT-PLACEMENTS END -->
 
         <div class="filter-row" aria-label="토지 필터">
           <button class="filter-chip active" type="button" data-filter="all">전체</button>
@@ -412,6 +418,12 @@
           </div>
         </section>
         <div class="demo-notice detail-notice-bottom"><span>i</span> 국토교통부 공개정보를 별도 발급 없이 조회합니다. 소유자 개인정보는 제외되며, 법적 증명이 필요하면 정부24 토지대장 열람·발급을 이용해 주세요.</div>
+        <!-- SOFTM-ADFIT-PLACEMENTS START 날짜:20261012 : 필지 조회를 마친 이용자에게만 별도 상세 광고를 요청 -->
+        <aside class="adfit-zone adfit-zone-detail" id="parcelDetailAd" aria-label="광고" hidden>
+          <span class="adfit-label">광고</span>
+          <div class="adfit-host" data-adfit-host></div>
+        </aside>
+        <!-- SOFTM-ADFIT-PLACEMENTS END -->
       </section>
 
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -479,6 +491,8 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/docx@9.10.0/dist/index.iife.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.0/dist/pptxgen.bundle.js"></script>
+    <script src="./adfit-config.js?v=20261012.1"></script>
+    <script src="./adfit.js?v=20261012.1"></script>
     <script src="./report-export.js?v=20261012.4"></script>
     <script src="./market-data.js?v=20261013.1"></script>
     <script src="./app.js?v=20261013.7"></script>
