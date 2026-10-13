@@ -108,117 +108,6 @@
   padding: 0 10px;
 }
 
-.market-key-card {
-  margin-top: 10px;
-  padding: 12px;
-  border: 1px solid #d6e1dc;
-  border-radius: 14px;
-  background: #f7faf8;
-}
-
-.market-key-card.connected {
-  border-color: #b8d9cb;
-  background: #edf8f3;
-}
-
-.market-key-card.managed { padding-block: 11px; }
-.market-key-managed { margin: 8px 0 0; color: #336b58; font-size: 11px; font-weight: 800; }
-
-.market-key-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.market-key-head > div span,
-.market-key-head > div strong {
-  display: block;
-}
-
-.market-key-head > div span {
-  color: #71827c;
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.market-key-head > div strong {
-  margin-top: 2px;
-  font-size: 12px;
-}
-
-.market-key-state {
-  flex: 0 0 auto;
-  padding: 4px 7px;
-  border-radius: 999px;
-  background: #fff0de;
-  color: #a45112;
-  font-size: 9px;
-  font-weight: 900;
-}
-
-.market-key-card.connected .market-key-state {
-  background: #d9f0e6;
-  color: #126047;
-}
-
-.market-key-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
-  margin-top: 9px;
-}
-
-.market-key-form input {
-  min-width: 0;
-  min-height: 38px;
-  padding: 0 10px;
-  border: 1px solid #cbd9d3;
-  border-radius: 9px;
-  background: #fff;
-  color: #233d35;
-  font: inherit;
-  font-size: 11px;
-}
-
-.market-key-form input:focus {
-  border-color: #248066;
-  outline: 3px solid rgb(36 128 102 / 13%);
-}
-
-.market-key-form button,
-.market-key-clear {
-  min-height: 38px;
-  padding: 0 11px;
-  border: 0;
-  border-radius: 9px;
-  background: #176b54;
-  color: #fff;
-  font: inherit;
-  font-size: 10px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.market-key-clear {
-  margin-top: 8px;
-  border: 1px solid #c3d8cf;
-  background: #fff;
-  color: #47655b;
-}
-
-.market-key-note {
-  margin: 8px 0 0;
-  color: #6c7c76;
-  font-size: 9px;
-  line-height: 1.5;
-}
-
-.market-key-note a {
-  color: #176b54;
-  font-weight: 800;
-}
-
 .market-status {
   display: flex;
   align-items: center;
@@ -604,13 +493,6 @@
   .market-panel-controls select,
   .market-panel-controls button,
   .market-refresh-button { min-height: 38px; font-size: 12px; }
-  .market-key-head > div span { font-size: 11px; }
-  .market-key-head > div strong { font-size: 14px; }
-  .market-key-state { font-size: 10px; }
-  .market-key-form input { min-height: 42px; font-size: 13px; }
-  .market-key-form button,
-  .market-key-clear { min-height: 42px; font-size: 12px; }
-  .market-key-note,
   .market-status { font-size: 11px; }
   .market-stat span { font-size: 11px; }
   .market-stat strong { font-size: 19px; }
@@ -641,7 +523,6 @@
   .market-panel-controls label { text-align: left; }
   .market-refresh-button span { display: none; }
   .market-refresh-button { width: 36px; padding: 0; }
-  .market-key-form { grid-template-columns: 1fr; }
   .auction-official-actions { grid-template-columns: 1fr; }
 }
 

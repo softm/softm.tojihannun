@@ -1,7 +1,6 @@
 (() => {
   "use strict";
 
-  const PUBLIC_DATA_KEY = "tojihannun-public-data-service-key-v1";
   const RTMS_ENDPOINT = "https://apis.data.go.kr/1613000/RTMSDataSvcLandTrade/getRTMSDataSvcLandTrade";
   const ONBID_ENDPOINT = "https://apis.data.go.kr/B010003/OnbidRlstListSrvc2/getRlstCltrList2";
   const ONBID_SEARCH_URL = "https://www.onbid.co.kr/op/cltrpbancinf/cltr/cltrmapsrch/CltrMapSrchController/mvmnCltrMapSrchClg.do";
@@ -13,7 +12,7 @@
   const state = {
     parcel: null,
     activeTab: "basic",
-    serviceKey: readStoredKey(),
+    serviceKey: runtimeServiceKey(),
     rtmsCache: new Map(),
     transactionController: null,
     auctionController: null,
@@ -30,26 +29,6 @@
 
   function runtimeServiceKey() {
     return String(window.__TOJI_RUNTIME_CONFIG__?.molitApiKey || window.APP_CONFIG?.dataGoKrServiceKey || "").trim();
-  }
-
-  function readStoredKey() {
-    const configured = runtimeServiceKey();
-    if (configured) return configured;
-    try {
-      return String(sessionStorage.getItem(PUBLIC_DATA_KEY) || "").trim();
-    } catch {
-      return "";
-    }
-  }
-
-  function storeKey(key) {
-    state.serviceKey = String(key || "").trim();
-    try {
-      if (state.serviceKey) sessionStorage.setItem(PUBLIC_DATA_KEY, state.serviceKey);
-      else sessionStorage.removeItem(PUBLIC_DATA_KEY);
-    } catch {
-      // 저장 공간이 차단되어도 현재 페이지에서는 메모리의 키를 사용한다.
-    }
   }
 
   function escapeHtml(value) {
@@ -240,7 +219,7 @@
     const code = String(error?.code || "");
     const message = String(error?.message || "");
     if (["20", "30", "31"].includes(code) || /SERVICE_KEY|등록되지 않은|인증키|ACCESS_DENIED/i.test(message)) {
-      return `${serviceLabel} 활용신청이 승인된 공공데이터포털 인증키인지 확인해 주세요.`;
+      return `${serviceLabel} 정보를 현재 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.`;
     }
     if (["22", "23"].includes(code) || /LIMITED_NUMBER|트래픽/i.test(message)) {
       return "공공데이터 API 호출 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.";
@@ -272,60 +251,6 @@
     return {kind: "xml", xml};
   }
 
-  function renderKeySlots() {
-    const connected = Boolean(state.serviceKey);
-    const managed = Boolean(runtimeServiceKey());
-    $$('[data-public-key-slot]').forEach((slot) => {
-      const service = slot.dataset.publicKeySlot === "auctions" ? "온비드 차세대 API" : "국토교통부 실거래 API";
-      slot.innerHTML = `
-        <section class="market-key-card${connected ? " connected" : ""}${managed ? " managed" : ""}" aria-label="공공데이터 API 연결">
-          <div class="market-key-head">
-            <div><span>공공데이터포털 서비스키</span><strong>${escapeHtml(service)}</strong></div>
-            <span class="market-key-state">${connected ? "연결됨" : "연결 필요"}</span>
-          </div>
-          ${managed ? '<p class="market-key-managed">운영 인증키로 자동 연결되었습니다.</p>' : `<form class="market-key-form" data-public-key-form>
-            <label class="sr-only" for="publicDataKey-${escapeHtml(slot.dataset.publicKeySlot)}">공공데이터포털 일반 인증키</label>
-            <input id="publicDataKey-${escapeHtml(slot.dataset.publicKeySlot)}" data-public-key-input type="password" autocomplete="off" spellcheck="false" placeholder="${connected ? "새 인증키로 변경" : "일반 인증키(Encoding 또는 Decoding)"}" aria-label="공공데이터포털 일반 인증키" />
-            <button type="submit">${connected ? "키 변경" : "연결"}</button>
-          </form>`}
-          ${connected && !managed ? '<button class="market-key-clear" type="button" data-public-key-clear>연결 해제</button>' : ""}
-          <p class="market-key-note">${managed ? "인증키는 배포 설정에서 주입되며 저장소와 빌드 로그에는 기록하지 않습니다." : "입력한 인증키는 현재 브라우저 탭의 세션에만 보관합니다."} 서비스별 활용신청이 필요합니다. <a href="https://www.data.go.kr/" target="_blank" rel="noopener noreferrer">공공데이터포털 ↗</a></p>
-        </section>`;
-    });
-
-    $$('[data-public-key-form]').forEach((form) => form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const input = $("[data-public-key-input]", form);
-      const key = String(input?.value || "").trim();
-      if (!key) {
-        showToast("공공데이터포털 일반 인증키를 입력해 주세요.");
-        input?.focus();
-        return;
-      }
-      storeKey(key);
-      state.rtmsCache.clear();
-      state.transactionCacheKey = "";
-      state.auctionCacheKey = "";
-      renderKeySlots();
-      showToast("공공데이터 API 인증키를 현재 세션에 연결했어요.");
-      if (state.activeTab === "transactions") void loadTransactions(true);
-      if (state.activeTab === "auctions") void loadAuctions(true);
-    }));
-
-    $$('[data-public-key-clear]').forEach((button) => button.addEventListener("click", () => {
-      storeKey("");
-      state.rtmsCache.clear();
-      state.transactionCacheKey = "";
-      state.auctionCacheKey = "";
-      state.transactionController?.abort();
-      state.auctionController?.abort();
-      renderKeySlots();
-      resetTransactionView();
-      resetAuctionView();
-      showToast("공공데이터 API 연결을 해제했어요.");
-    }));
-  }
-
   function resetTransactionView() {
     const area = parseParcelArea(state.parcel);
     if ($("#transactionAreaLabel")) {
@@ -336,7 +261,7 @@
     $("#transactionChartCard").hidden = true;
     $("#transactionList").innerHTML = "";
     $("#transactionListSection").hidden = true;
-    setStatus("#transactionStatus", state.serviceKey ? "실거래 탭을 열면 최근 거래를 조회합니다." : "공공데이터포털 인증키를 연결하면 실거래 통계·차트·목록을 조회합니다.");
+    setStatus("#transactionStatus", state.serviceKey ? "실거래 탭을 열면 최근 거래를 조회합니다." : "현재 실거래 조회 서비스를 이용할 수 없습니다.");
   }
 
   function resetAuctionView() {
@@ -348,7 +273,7 @@
     $("#auctionList").innerHTML = "";
     $("#auctionListSection").hidden = true;
     $("#auctionFetchedAt").textContent = "공식 사이트는 실시간 정보가 우선합니다.";
-    setStatus("#auctionStatus", state.serviceKey ? "경매·공매 탭을 열면 온비드 진행 물건을 조회합니다." : "공식 조회 버튼은 바로 사용할 수 있습니다. 인증키를 연결하면 온비드 진행 물건을 화면에서 조회합니다.");
+    setStatus("#auctionStatus", state.serviceKey ? "경매·공매 탭을 열면 온비드 진행 물건을 조회합니다." : "공식 조회 버튼은 바로 사용할 수 있으며, 온비드 목록 조회는 현재 이용할 수 없습니다.");
   }
 
   async function fetchRtmsMonth(lawdCode, month, signal) {
@@ -511,7 +436,7 @@
     const parcel = state.parcel;
     if (!parcel || state.activeTab !== "transactions") return;
     if (!state.serviceKey) {
-      setStatus("#transactionStatus", "공공데이터포털 인증키를 연결하면 실거래 통계·차트·목록을 조회합니다.");
+      setStatus("#transactionStatus", "현재 실거래 조회 서비스를 이용할 수 없습니다.");
       return;
     }
     const area = parseParcelArea(parcel);
@@ -641,7 +566,7 @@
     const parcel = state.parcel;
     if (!parcel || state.activeTab !== "auctions") return;
     if (!state.serviceKey) {
-      setStatus("#auctionStatus", "공식 조회 버튼은 바로 사용할 수 있습니다. 인증키를 연결하면 온비드 진행 물건을 화면에서 조회합니다.");
+      setStatus("#auctionStatus", "공식 조회 버튼은 바로 사용할 수 있으며, 온비드 목록 조회는 현재 이용할 수 없습니다.");
       return;
     }
     const area = parseParcelArea(parcel);
@@ -697,7 +622,6 @@
     state.auctionCacheKey = "";
     state.transactionItems = [];
     state.auctionItems = [];
-    renderKeySlots();
     resetTransactionView();
     resetAuctionView();
   }
@@ -717,7 +641,6 @@
     $("#refreshAuctions")?.addEventListener("click", () => void loadAuctions(true));
     $("#openOnbidSearch")?.addEventListener("click", () => openOfficialSite(ONBID_SEARCH_URL, "온비드"));
     $("#openCourtAuction")?.addEventListener("click", () => openOfficialSite(COURT_AUCTION_URL, "법원경매"));
-    renderKeySlots();
     resetTransactionView();
     resetAuctionView();
   }
