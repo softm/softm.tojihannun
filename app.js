@@ -1808,7 +1808,7 @@ function openDetail(record) {
   detailSheet.classList.add("open");
   detailSheet.setAttribute("aria-hidden", "false");
   window.TojihannunAds?.showParcelDetail(); // SOFTM-ADFIT-DETAIL 날짜:20261012 : 상세를 실제로 연 뒤에만 상세 광고를 요청
-  setDetailTab("basic", false);
+  setDetailTab(state.detailTab, false);
   $("#mapStatus").textContent = record.address || "선택한 필지";
   render();
 }
@@ -1828,12 +1828,13 @@ function setDetailTab(tab, focus = true) {
   if (focus) nextButton.focus({preventScroll: true});
 }
 
-function closeDetail() {
+function closeDetail({resetTab = false} = {}) {
   setDirectionsMenuOpen(false);
   const detailSheet = $("#detailSheet");
   detailSheet.classList.remove("open", "collapsed", "dragging");
   detailSheet.style.removeProperty("--detail-drag-offset");
   detailSheet.setAttribute("aria-hidden", "true");
+  if (resetTab) setDetailTab("basic", false);
 }
 
 function getFilteredRecords() {
@@ -2307,7 +2308,7 @@ $("#favoritesButton").addEventListener("click", () => {
 });
 
 $("#detailFavorite").addEventListener("click", () => toggleFavorite());
-$("#detailClose").addEventListener("click", closeDetail);
+$("#detailClose").addEventListener("click", () => closeDetail({resetTab: true}));
 
 $$('[data-detail-tab]').forEach((button) => {
   button.addEventListener("click", () => setDetailTab(button.dataset.detailTab));
