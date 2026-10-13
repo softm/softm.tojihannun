@@ -38,3 +38,20 @@ test("공유지연명부 화면 정보는 개인정보 제외 범위를 명확�
   assert.match(app, /소유구분·거주지 구분·공유인 수·변동 정보/);
   assert.match(app, /성명·주소·등록번호·지분 등 원문 정보는 공개 API로 제공되지 않습니다/);
 });
+
+test("앱 도움말은 독립 서비스 면책과 정부 정보 공식 출처 링크를 제공한다", () => {
+  const html = read("index.html");
+  const css = read("styles.css");
+
+  assert.match(html, /토지한눈은 정부기관 공식 앱이 아닙니다/);
+  assert.match(html, /정부·지자체·공공기관을 대표하거나 제휴·승인받은 서비스가 아니며/);
+  assert.match(html, /id="helpSourcesTitle">정부 정보 공식 출처/);
+  assert.match(html, /https:\/\/www\.vworld\.kr\//);
+  assert.match(html, /https:\/\/www\.eum\.go\.kr\//);
+  assert.match(html, /https:\/\/rt\.molit\.go\.kr\//);
+  assert.match(html, /CappBizCD=13100000026/);
+  assert.match(html, /https:\/\/www\.iros\.go\.kr\//);
+  assert.match(html, /https:\/\/www\.onbid\.co\.kr\//);
+  assert.match(css, /\.government-disclaimer/);
+  assert.match(css, /\.help-sources/);
+});
