@@ -213,13 +213,15 @@ button { color: inherit; }
 .detail-section-heading span { color: #71827c; font-size: 10px; font-weight: 700; }
 .detail-section-heading strong { margin-top: 2px; color: var(--ink); font-size: 15px; }
 .detail-highlight { margin-top: 12px; padding: 10px; border: 1px solid #cfe0d8; border-top: 4px solid var(--green); border-radius: 17px; background: linear-gradient(145deg, #f7fbf9, #fff 60%); box-shadow: 0 8px 24px rgba(21,72,56,.08); }
-.detail-ledger-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 10px 0 2px; overflow: hidden; border: 1px solid #c8d9d2; border-radius: 11px; background: #fff; box-shadow: 0 5px 14px rgba(23,107,84,.08); }
-.detail-ledger-action { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 39px; padding: 0 8px; border: 0; background: #fff; color: #315c4e; font: inherit; font-size: 11px; font-weight: 850; line-height: 1.25; text-align: center; text-decoration: none; cursor: pointer; }
-.detail-ledger-action + .detail-ledger-action { border-left: 1px solid #c8d9d2; }
-.detail-ledger-action.primary { background: var(--green); color: #fff; }
-.detail-ledger-action:hover { background: #edf7f2; }
-.detail-ledger-action.primary:hover { background: #125f49; }
-.detail-ledger-action:focus-visible { position: relative; z-index: 1; outline: 3px solid rgb(31 111 83 / 24%); outline-offset: -3px; }
+.detail-ledger-actions { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; }
+.detail-ledger-action { display: flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 39px; padding: 0 10px; border: 1px solid #c8d9d2; border-radius: 11px; background: #fff; color: #315c4e; box-shadow: 0 3px 10px rgba(23,107,84,.07); font: inherit; font-size: 11px; font-weight: 850; line-height: 1.25; text-align: center; text-decoration: none; cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease; }
+.detail-ledger-action.primary { flex-grow: 1.06; border-color: var(--green); background: var(--green); color: #fff; box-shadow: 0 5px 14px rgba(23,107,84,.2); }
+.detail-ledger-action::after { flex: 0 0 auto; font-size: 14px; font-weight: 900; line-height: 1; }
+.detail-ledger-action.primary::after { content: "›"; }
+.detail-ledger-action:not(.primary)::after { content: "↗"; font-size: 11px; }
+.detail-ledger-action:hover { border-color: #93b9aa; background: #edf7f2; transform: translateY(-1px); }
+.detail-ledger-action.primary:hover { border-color: #125f49; background: #125f49; box-shadow: 0 7px 17px rgba(23,107,84,.24); }
+.detail-ledger-action:focus-visible { position: relative; z-index: 1; outline: 3px solid rgb(31 111 83 / 24%); outline-offset: 2px; }
 .detail-ledger-action svg { flex: 0 0 16px; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .detail-ledger-action span { min-width: 0; }
 .detail-highlight dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin: 0; }
