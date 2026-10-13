@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261013.7" />
+    <link rel="stylesheet" href="./styles.css?v=20261013.8" />
     <link rel="stylesheet" href="./market-data.css?v=20261013.1" />
   </head>
   <body>
@@ -180,6 +180,16 @@
           </div>
         </div>
         <p class="detail-road" id="detailRoad">VWorld 검색 결과</p>
+        <div class="detail-ledger-actions" aria-label="대장 바로가기">
+          <button class="detail-ledger-action primary" id="openBasicIntegratedLedger" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.5h10l4 4V20.5H5Z"/><path d="M15 3.5v4h4M8.5 11h7M8.5 14.5h7M8.5 18h4.5"/></svg>
+            <span>대장 통합 보기</span>
+          </button>
+          <a class="detail-ledger-action" href="https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000026&amp;HighCtgCD=A09005" target="_blank" rel="noopener noreferrer" aria-label="토지대장 열람·발급, 새 창">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6Z"/><path d="M15 3v5h4M9 12h7M9 16h7"/></svg>
+            <span>토지대장 열람·발급</span>
+          </a>
+        </div>
         <nav class="detail-tabs" role="tablist" aria-label="필지 상세정보">
           <button class="active" type="button" role="tab" id="detailTabBasic" aria-selected="true" aria-controls="detailPanelBasic" tabindex="0" data-detail-tab="basic">기본</button>
           <button type="button" role="tab" id="detailTabRegister" aria-selected="false" aria-controls="detailPanelRegister" tabindex="-1" data-detail-tab="register">토지대장</button>
@@ -192,16 +202,6 @@
         </nav>
         <section class="detail-tab-panel detail-basic-panel" id="detailPanelBasic" role="tabpanel" aria-labelledby="detailTabBasic" data-detail-panel="basic">
           <section class="detail-highlight" aria-label="핵심 및 필지 정보">
-            <div class="detail-basic-actions" aria-label="대장 바로가기">
-              <button class="detail-basic-action primary" id="openBasicIntegratedLedger" type="button">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.5h10l4 4V20.5H5Z"/><path d="M15 3.5v4h4M8.5 11h7M8.5 14.5h7M8.5 18h4.5"/></svg>
-                <span>대장 통합 보기</span>
-              </button>
-              <a class="detail-basic-action" href="https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000026&amp;HighCtgCD=A09005" target="_blank" rel="noopener noreferrer" aria-label="토지대장 열람·발급, 새 창">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6Z"/><path d="M15 3v5h4M9 12h7M9 16h7"/></svg>
-                <span>토지대장 열람·발급</span>
-              </a>
-            </div>
             <dl id="detailHighlight"></dl>
             <div class="parcel-identity" aria-labelledby="parcelIdTitle">
               <strong class="parcel-identity-title" id="parcelIdTitle">필지 식별정보</strong>
