@@ -16,6 +16,15 @@ test("모바일 상세 팝업 핸들이 드래그·키보드 축소 확장에 �
   assert.match(app, /detailDragHandle\.addEventListener\("keydown"/);
 });
 
+test("상세 탭은 직접 닫을 때만 기본 탭으로 초기화된다", () => {
+  const app = read("app.js");
+
+  assert.match(app, /function openDetail\([\s\S]*?setDetailTab\(state\.detailTab, false\)/);
+  assert.match(app, /function closeDetail\(\{resetTab = false\} = \{\}\)[\s\S]*?if \(resetTab\) setDetailTab\("basic", false\)/);
+  assert.match(app, /#detailClose[\s\S]*?closeDetail\(\{resetTab: true\}\)/);
+  assert.match(app, /#brandButton[\s\S]*?closeDetail\(\);/);
+});
+
 test("실거래 API 키는 런타임 설정을 우선하고 Pages 빌드에서 생성된다", () => {
   const html = read("index.html");
   const market = read("market-data.js");
