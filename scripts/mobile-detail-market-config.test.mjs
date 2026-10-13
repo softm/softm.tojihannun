@@ -36,3 +36,14 @@ test("실거래 API 키는 런타임 설정을 우선하고 Pages 빌드에서 �
   assert.match(build, /process\.env\.MOLIT_API_KEY/);
   assert.match(workflow, /MOLIT_API_KEY: \$\{\{ secrets\.MOLIT_API_KEY \}\}/);
 });
+
+test("공공데이터 인증키 운영 정보는 사용자 화면에 노출하지 않는다", () => {
+  const html = read("index.html");
+  const market = read("market-data.js");
+
+  assert.doesNotMatch(html, /data-public-key-slot/);
+  assert.doesNotMatch(market, /운영 인증키로 자동 연결되었습니다/);
+  assert.doesNotMatch(market, /인증키는 배포 설정에서 주입/);
+  assert.doesNotMatch(market, /data-public-key-form|data-public-key-clear/);
+  assert.match(market, /현재 실거래 조회 서비스를 이용할 수 없습니다/);
+});
