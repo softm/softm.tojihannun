@@ -47,3 +47,11 @@ test("공공데이터 인증키 운영 정보는 사용자 화면에 노출하�
   assert.doesNotMatch(market, /data-public-key-form|data-public-key-clear/);
   assert.match(market, /현재 실거래 조회 서비스를 이용할 수 없습니다/);
 });
+
+test("대장 바로가기는 탭형 분할 버튼이 아닌 독립 액션으로 표시한다", () => {
+  const css = read("styles.css");
+
+  assert.match(css, /\.detail-ledger-actions \{[^}]*display: flex;[^}]*gap: 8px;/);
+  assert.match(css, /\.detail-ledger-action \{[^}]*border: 1px solid #c8d9d2;[^}]*border-radius: 11px;/);
+  assert.doesNotMatch(css, /\.detail-ledger-action \+ \.detail-ledger-action/);
+});
