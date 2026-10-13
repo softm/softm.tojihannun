@@ -9,14 +9,20 @@ const buildingPicker = document.querySelector("#buildingPicker");
 const buildingSelector = document.querySelector("#buildingSelector");
 const externalButton = document.querySelector("#externalLink");
 const errorExternalButton = document.querySelector("#errorExternalLink");
+const GOV_LAND_REGISTER_URL = "https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000026&HighCtgCD=A09005";
+const GOV_CADASTRAL_MAP_URL = "https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000027&HighCtgCD=A09005&tp_seq=0";
+const IROS_URL = "https://www.iros.go.kr/";
 
 const DOCUMENTS = {
   building: {label: "건축물대장", requiresBuilding: true},
   "land-register": {label: "토지대장"},
   "land-use": {label: "토지이용계획확인원"},
   eum: {label: "토지이음"},
-  "district-plan": {label: "지구단위계획"},
-  lifecycle: {label: "건축물 생애이력", requiresBuilding: true}
+  lifecycle: {label: "건축물 생애이력", requiresBuilding: true},
+  cadastral: {label: "지적도 등본"},
+  registry: {label: "등기사항전부증명서"},
+  ownership: {label: "공유지연명부"},
+  "district-plan": {label: "지구단위계획"}
 };
 
 function readViewerPayload() {
@@ -220,6 +226,36 @@ function requestFor(documentId) {
     return url ? {method: "GET", url, status: "건축물 생애이력을 불러오고 있어요.", title: `${buildingName(building)} 건축물 생애이력`} : null;
   }
 
+  if (documentId === "cadastral") {
+    return {
+      method: "GET",
+      url: GOV_CADASTRAL_MAP_URL,
+      title: "지적도 등본",
+      linkOnly: true,
+      message: "지적도·임야도 등본은 정부24 공식 민원에서 열람·발급할 수 있습니다. 앱 지도의 연속지적도는 참고용이며 공식 등본을 대신하지 않습니다."
+    };
+  }
+
+  if (documentId === "registry") {
+    return {
+      method: "GET",
+      url: IROS_URL,
+      title: "등기사항전부증명서",
+      linkOnly: true,
+      message: "소유권·근저당권 등 권리관계는 인터넷등기소에서 등기사항전부증명서를 열람·발급해 확인할 수 있습니다."
+    };
+  }
+
+  if (documentId === "ownership") {
+    return {
+      method: "GET",
+      url: GOV_LAND_REGISTER_URL,
+      title: "공유지연명부",
+      linkOnly: true,
+      message: "공유자 성명·주소·등록번호·지분 등 원문 정보는 공개 API로 제공되지 않습니다. 정부24 공식 민원에서 열람·발급해 확인해 주세요."
+    };
+  }
+
   return null;
 }
 
@@ -346,6 +382,10 @@ function renderDocument() {
       isBuildingDocument ? "건축물을 선택할 수 없습니다." : "공식 문서를 표시할 수 없습니다.",
       isBuildingDocument ? "건축물 관리번호가 제공되지 않아 개별 문서를 열 수 없습니다." : "조회에 필요한 정보가 부족합니다."
     );
+    return;
+  }
+  if (request.linkOnly) {
+    showError(request.title, request.message, request);
     return;
   }
   loadRequest(request);
