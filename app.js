@@ -1210,6 +1210,7 @@ function formatEstimatedValue(price, area) {
 function buildReportModel(record) {
   const land = record.landRegister || {};
   const eum = record.eumLandUse || {};
+  const sourceMeta = ensureSourceMeta(record);
   const base = land.base;
   const characteristic = land.characteristic;
   const price = land.price;
@@ -1226,6 +1227,7 @@ function buildReportModel(record) {
     ["지번", base?.mnnmSlno || record.number || "-"],
     ["대장 구분", registerType || "-"],
     ["PNU", record.pnu || "-"],
+    ["데이터 레이어", record.dataset || "주소 검색 결과"],
     ["좌표", `${Number(record.lon).toFixed(6)}, ${Number(record.lat).toFixed(6)}`]
   ];
   const landRows = [
@@ -1238,6 +1240,7 @@ function buildReportModel(record) {
     ["지형 높이", characteristic?.tpgrphHgCodeNm || "-"],
     ["지형 형상", characteristic?.tpgrphFrmCodeNm || "-"],
     ["도로 접면", characteristic?.roadSideCodeNm || "-"],
+    ["토지특성 기준연도", characteristic?.stdrYear ? `${characteristic.stdrYear}년` : "-"],
     ["개별공시지가", formatLandPrice(price)],
     ["공시지가 기준연도", price?.stdrYear ? `${price.stdrYear}년` : "-"],
     ["면적×공시지가 단순 계산 참고값", formatEstimatedValue(price, area)],
@@ -1302,14 +1305,19 @@ function buildReportModel(record) {
       title: `건축물 정보 ${index + 1}${building.isMain ? " 주건축물" : ""}`,
       kind: "keyValue",
       rows: [
+        ["건축물 식별번호", building.id || "-"],
+        ["대장 종류", [building.ledgerKindName, building.buildingTypeName].filter(Boolean).join(" · ") || "-"],
         ["건물명", building.name || "미제공"],
+        ["동명", building.dongName || "미제공"],
+        ["대지 위치", building.lotAddress || record.address || "-"],
         ["주용도", building.use || "-"],
         ["층수", floors],
         ["건축면적", formatMetric(building.buildingArea, "㎡")],
         ["연면적", formatMetric(building.totalArea, "㎡")],
         ["건폐율", formatMetric(building.buildingCoverage, "%")],
         ["용적률", formatMetric(building.floorAreaRatio, "%")],
-        ["사용승인연도", formatApprovalYear(building.approvalDate)]
+        ["사용승인연도", formatApprovalYear(building.approvalDate)],
+        ["정보 기준일", formatDate(building.lastUpdated)]
       ]
     });
   });
@@ -1317,6 +1325,21 @@ function buildReportModel(record) {
   if (!Array.isArray(record.buildings) || !record.buildings.length) {
     sections.push({title: "건축물 정보", kind: "keyValue", rows: []});
   }
+
+  const marketSections = window.TojihannunMarketData?.getReportSections?.() || [];
+  sections.push(...marketSections);
+  sections.push({
+    title: "정보 출처 및 데이터 기준",
+    kind: "keyValue",
+    rows: [
+      ["필지 식별·경계", sourceMetaText(sourceMeta.parcel, "VWorld 공간정보 오픈플랫폼")],
+      ["토지대장", sourceMetaText(sourceMeta.landRegister, "국토교통부 국가공간정보센터 공개 API")],
+      ["토지이용계획", sourceMetaText(sourceMeta.eumLandUse, "토지이음")],
+      ["건축물", sourceMetaText(sourceMeta.building, "VWorld 건축물 공개 API")],
+      ["실거래", "국토교통부 실거래가 공개시스템 · 보고서 생성 시 조회"],
+      ["경매·공매", "온비드 차세대 공개 API · 보고서 생성 시 조회"]
+    ]
+  });
 
   const generatedAt = new Intl.DateTimeFormat("ko-KR", {
     year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false
@@ -1329,8 +1352,8 @@ function buildReportModel(record) {
     pnu: record.pnu || "미제공",
     generatedAt,
     sections,
-    source: `VWorld 공간정보 오픈플랫폼 · 국토교통부 국가공간정보센터 공개 API${eum.zones?.length ? " · 토지이음 토지이용계획 열람" : ""}`,
-    notice: "이 보고서는 공개 API 조회정보를 정리한 참고자료이며 법적 증명 효력이 없습니다. 필지 경계와 면적은 측량 성과와 다를 수 있고, 면적×공시지가 단순 계산 참고값은 실거래가·매매가격·감정가가 아닙니다. 소유자 성명, 주소, 등록번호, 지분 등 개인정보는 포함하지 않습니다."
+    source: `VWorld 공간정보 오픈플랫폼 · 국토교통부 국가공간정보센터 공개 API${eum.zones?.length ? " · 토지이음 토지이용계획 열람" : ""} · 국토교통부 실거래가 공개시스템 · 온비드`,
+    notice: "이 보고서는 공개 API 조회정보를 정리한 참고자료이며 법적 증명 효력이 없습니다. 필지 경계와 면적은 측량 성과와 다를 수 있고, 면적×공시지가 단순 계산 참고값은 실거래가·매매가격·감정가가 아닙니다. 실거래와 경매·공매 정보는 신고·공고 변경에 따라 달라질 수 있으므로 공식 시스템에서 다시 확인해야 합니다. 소유자 성명, 주소, 등록번호, 지분 등 개인정보는 포함하지 않습니다."
   };
 }
 
@@ -2415,6 +2438,11 @@ $("#openExport").addEventListener("click", async () => {
   $("#exportPreview").innerHTML = "<p>필지 주변 지도와 보고서를 준비하고 있어요.</p>";
   setExportBusy(true);
   exportDialog.showModal();
+  try {
+    await window.TojihannunMarketData?.prepareReportData?.();
+  } catch (error) {
+    console.warn("Market data report preparation failed", error);
+  }
   const model = buildReportModel(record);
   try {
     model.mapImage = await captureParcelMapImage(record);

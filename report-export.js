@@ -149,9 +149,10 @@
             image.addEventListener("error", resolve, {once: true});
           })));
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const scale = Math.min(2, 30000 / Math.max(report.scrollHeight, 1));
       return await window.html2canvas(report, {
         backgroundColor: "#ffffff",
-        scale: 2,
+        scale,
         useCORS: true,
         logging: false,
         width: REPORT_WIDTH,

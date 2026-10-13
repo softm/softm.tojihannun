@@ -22,7 +22,9 @@
     auctionCacheKey: "",
     transactionItems: [],
     transactionShowAll: false,
-    auctionItems: []
+    auctionItems: [],
+    transactionMeta: {status: "idle", scope: "", requestedMonths: 0, failedMonths: 0, fetchedAt: "", error: ""},
+    auctionMeta: {status: "idle", area: "", totalCount: 0, fetchedAt: "", error: ""}
   };
 
   let toastTimer = 0;
@@ -406,6 +408,14 @@
   function renderTransactions(items, scope, failedMonths, requestedMonths) {
     state.transactionItems = items;
     state.transactionShowAll = false;
+    state.transactionMeta = {
+      status: "success",
+      scope: scope || "선택 지역",
+      requestedMonths,
+      failedMonths,
+      fetchedAt: new Date().toISOString(),
+      error: ""
+    };
     if (!items.length) {
       renderMarketStats("#transactionStats", [
         {label: "공개 거래", value: "0건", note: "선택 기간·범위"},
@@ -432,15 +442,17 @@
     setStatus("#transactionStatus", `${scope}의 최근 ${requestedMonths}개월 공개 거래를 조회했습니다${partial}.`, failedMonths ? "" : "success");
   }
 
-  async function loadTransactions(force = false) {
+  async function loadTransactions(force = false, allowInactive = false) {
     const parcel = state.parcel;
-    if (!parcel || state.activeTab !== "transactions") return;
+    if (!parcel || (!allowInactive && state.activeTab !== "transactions")) return;
     if (!state.serviceKey) {
+      state.transactionMeta = {...state.transactionMeta, status: "unavailable", error: "현재 실거래 조회 서비스를 이용할 수 없습니다."};
       setStatus("#transactionStatus", "현재 실거래 조회 서비스를 이용할 수 없습니다.");
       return;
     }
     const area = parseParcelArea(parcel);
     if (!area.lawdCode) {
+      state.transactionMeta = {...state.transactionMeta, status: "error", error: "실거래 조회에 필요한 시군구 코드(PNU)를 확인할 수 없습니다."};
       setStatus("#transactionStatus", "실거래 조회에 필요한 시군구 코드(PNU)를 확인할 수 없습니다.", "error");
       return;
     }
@@ -451,6 +463,7 @@
     const controller = new AbortController();
     state.transactionController = controller;
     const requestId = ++state.transactionRequest;
+    state.transactionMeta = {...state.transactionMeta, status: "loading", requestedMonths: range, error: ""};
     $("#transactionStats").innerHTML = "";
     $("#transactionChartCard").hidden = true;
     $("#transactionListSection").hidden = true;
@@ -467,7 +480,9 @@
     } catch (error) {
       if (error?.name === "AbortError") return;
       console.error("RTMS land trade lookup failed", {message: error?.message, code: error?.code});
-      setStatus("#transactionStatus", apiErrorMessage(error, "국토교통부 토지 실거래 API"), "error");
+      const message = apiErrorMessage(error, "국토교통부 토지 실거래 API");
+      state.transactionMeta = {...state.transactionMeta, status: "error", fetchedAt: new Date().toISOString(), error: message};
+      setStatus("#transactionStatus", message, "error");
     }
   }
 
@@ -543,6 +558,13 @@
 
   function renderAuctions(items, totalCount, area) {
     state.auctionItems = items;
+    state.auctionMeta = {
+      status: "success",
+      area: [area.sido, area.sgg, area.emd].filter(Boolean).join(" "),
+      totalCount: Number(totalCount || items.length),
+      fetchedAt: new Date().toISOString(),
+      error: ""
+    };
     const exact = items.filter((item) => item.exact).length;
     const appraisals = items.map((item) => item.appraisal).filter((value) => value > 0);
     const nearest = items.map((item) => item.end).filter(Boolean).sort()[0];
@@ -562,15 +584,17 @@
     $("#auctionFetchedAt").textContent = `온비드 API 조회 ${new Date().toLocaleString("ko-KR", {year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"})}`;
   }
 
-  async function loadAuctions(force = false) {
+  async function loadAuctions(force = false, allowInactive = false) {
     const parcel = state.parcel;
-    if (!parcel || state.activeTab !== "auctions") return;
+    if (!parcel || (!allowInactive && state.activeTab !== "auctions")) return;
     if (!state.serviceKey) {
+      state.auctionMeta = {...state.auctionMeta, status: "unavailable", error: "온비드 목록 조회는 현재 이용할 수 없습니다."};
       setStatus("#auctionStatus", "공식 조회 버튼은 바로 사용할 수 있으며, 온비드 목록 조회는 현재 이용할 수 없습니다.");
       return;
     }
     const area = parseParcelArea(parcel);
     if (!area.sido || !area.emd) {
+      state.auctionMeta = {...state.auctionMeta, status: "error", error: "온비드 조회에 필요한 시도·읍면동을 주소에서 확인할 수 없습니다."};
       setStatus("#auctionStatus", "온비드 조회에 필요한 시도·읍면동을 주소에서 확인할 수 없습니다.", "error");
       return;
     }
@@ -580,6 +604,7 @@
     const controller = new AbortController();
     state.auctionController = controller;
     const requestId = ++state.auctionRequest;
+    state.auctionMeta = {...state.auctionMeta, status: "loading", error: ""};
     $("#auctionStats").innerHTML = "";
     $("#auctionListSection").hidden = true;
     setStatus("#auctionStatus", `${area.emd}의 온비드 부동산 공매를 불러오고 있습니다.`, "loading");
@@ -608,8 +633,101 @@
     } catch (error) {
       if (error?.name === "AbortError") return;
       console.error("Onbid auction lookup failed", {message: error?.message, code: error?.code});
-      setStatus("#auctionStatus", apiErrorMessage(error, "온비드 차세대 부동산 물건목록 API"), "error");
+      const message = apiErrorMessage(error, "온비드 차세대 부동산 물건목록 API");
+      state.auctionMeta = {...state.auctionMeta, status: "error", fetchedAt: new Date().toISOString(), error: message};
+      setStatus("#auctionStatus", message, "error");
     }
+  }
+
+  function reportStatus(status, error) {
+    if (status === "success") return "조회 완료";
+    if (status === "loading") return "조회 중";
+    if (status === "error") return error || "조회 실패";
+    if (status === "unavailable") return error || "조회 서비스 이용 불가";
+    return "조회하지 않음";
+  }
+
+  function getReportSections() {
+    const transactionItems = state.transactionItems || [];
+    const transactionMeta = state.transactionMeta || {};
+    const exactTransactions = transactionItems.filter((item) => item.exact).length;
+    const transactionSections = [{
+      title: "토지 실거래 조회 요약",
+      kind: "keyValue",
+      rows: [
+        ["조회 상태", reportStatus(transactionMeta.status, transactionMeta.error)],
+        ["조회 범위", transactionMeta.scope || "-"],
+        ["조회 기간", transactionMeta.requestedMonths ? `최근 ${transactionMeta.requestedMonths}개월` : "-"],
+        ["공개 거래", `${formatNumber(transactionItems.length)}건`],
+        ["선택 필지 일치", `${formatNumber(exactTransactions)}건`],
+        ["중위 거래금액", transactionItems.length ? formatDealAmount(median(transactionItems.map((item) => item.amount))) : "미제공"],
+        ["중위 거래단가", transactionItems.length ? `${formatNumber(median(transactionItems.map((item) => item.unitPrice)), 1)}만원/㎡` : "미제공"],
+        ["일부 응답 실패", transactionMeta.failedMonths ? `${transactionMeta.failedMonths}개월` : "없음"],
+        ["조회 시각", transactionMeta.fetchedAt ? new Date(transactionMeta.fetchedAt).toLocaleString("ko-KR") : "-"]
+      ]
+    }];
+    if (transactionItems.length) {
+      transactionSections.push({
+        title: `토지 실거래 목록 전체 ${formatNumber(transactionItems.length)}건`,
+        kind: "table",
+        headers: ["계약일", "소재지·지번", "필지", "지목", "용도지역", "면적", "거래금액", "단가", "거래유형"],
+        rows: transactionItems.map((item) => [
+          item.date || "-",
+          [item.umdNm, item.jibun].filter(Boolean).join(" ") || "-",
+          item.exact ? "선택 필지 일치" : "주변 거래",
+          item.jimok || "-",
+          item.landUse || "-",
+          item.area ? `${formatNumber(item.area, 2)}㎡` : "-",
+          formatDealAmount(item.amount),
+          item.unitPrice ? `${formatNumber(item.unitPrice, 1)}만원/㎡` : "-",
+          item.dealType || "-"
+        ])
+      });
+    }
+
+    const auctionItems = state.auctionItems || [];
+    const auctionMeta = state.auctionMeta || {};
+    const exactAuctions = auctionItems.filter((item) => item.exact).length;
+    const appraisals = auctionItems.map((item) => item.appraisal).filter((value) => value > 0);
+    const auctionSections = [{
+      title: "경매·공매 조회 요약",
+      kind: "keyValue",
+      rows: [
+        ["조회 상태", reportStatus(auctionMeta.status, auctionMeta.error)],
+        ["조회 지역", auctionMeta.area || "-"],
+        ["주변 진행 물건", `${formatNumber(auctionMeta.totalCount || auctionItems.length)}건`],
+        ["보고서 수록 물건", `${formatNumber(auctionItems.length)}건`],
+        ["선택 필지 일치", `${formatNumber(exactAuctions)}건`],
+        ["중위 감정가", appraisals.length ? formatWon(median(appraisals)) : "미제공"],
+        ["조회 시각", auctionMeta.fetchedAt ? new Date(auctionMeta.fetchedAt).toLocaleString("ko-KR") : "-"]
+      ]
+    }];
+    if (auctionItems.length) {
+      auctionSections.push({
+        title: `온비드 공매 목록 전체 ${formatNumber(auctionItems.length)}건`,
+        kind: "table",
+        headers: ["물건명", "소재지", "필지", "구분·상태", "감정가", "최저입찰가", "면적", "유찰", "입찰기간", "관리번호", "PNU"],
+        rows: auctionItems.map((item) => [
+          item.onbidCltrNm || "물건명 미제공",
+          [item.lctnSdnm, item.lctnSggnm, item.lctnEmdNm].filter(Boolean).join(" ") || "-",
+          item.exact ? "선택 필지 일치" : "주변 물건",
+          [item.prptDivNm, item.dspsMthodNm, item.pbctStatNm].filter(Boolean).join(" · ") || "-",
+          formatWon(item.appraisal),
+          item.lowstBidPrcIndctCont || "미공개",
+          [item.landArea ? `토지 ${formatNumber(item.landArea, 2)}㎡` : "", item.buildingArea ? `건물 ${formatNumber(item.buildingArea, 2)}㎡` : ""].filter(Boolean).join(" · ") || "-",
+          `${formatNumber(item.failedCount)}회`,
+          [formatCompactDate(item.start, true), formatCompactDate(item.end, true)].join(" ~ "),
+          item.cltrMngNo || "-",
+          item.pnu || "-"
+        ])
+      });
+    }
+    return [...transactionSections, ...auctionSections];
+  }
+
+  async function prepareReportData() {
+    if (!state.parcel) return;
+    await Promise.all([loadTransactions(false, true), loadAuctions(false, true)]);
   }
 
   function setParcel(parcel) {
@@ -622,6 +740,8 @@
     state.auctionCacheKey = "";
     state.transactionItems = [];
     state.auctionItems = [];
+    state.transactionMeta = {status: "idle", scope: "", requestedMonths: 0, failedMonths: 0, fetchedAt: "", error: ""};
+    state.auctionMeta = {status: "idle", area: "", totalCount: 0, fetchedAt: "", error: ""};
     resetTransactionView();
     resetAuctionView();
   }
@@ -645,6 +765,6 @@
     resetAuctionView();
   }
 
-  window.TojihannunMarketData = {setParcel, activate};
+  window.TojihannunMarketData = {setParcel, activate, prepareReportData, getReportSections};
   bindEvents();
 })();
