@@ -7,6 +7,7 @@ const output = path.join(root, "dist");
 const publicFiles = [
   "index.html",
   "privacy.html",
+  "sources.html",
   "privacy.css",
   "app.js",
   "styles.css",
