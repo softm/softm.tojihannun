@@ -214,7 +214,7 @@ button { color: inherit; }
 .detail-section-heading strong { margin-top: 2px; color: var(--ink); font-size: 15px; }
 .detail-highlight { margin-top: 12px; padding: 10px; border: 1px solid #cfe0d8; border-top: 4px solid var(--green); border-radius: 17px; background: linear-gradient(145deg, #f7fbf9, #fff 60%); box-shadow: 0 8px 24px rgba(21,72,56,.08); }
 .detail-ledger-actions { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; }
-.detail-ledger-action { display: flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 39px; padding: 0 10px; border: 1px solid #c8d9d2; border-radius: 11px; background: #fff; color: #315c4e; box-shadow: 0 3px 10px rgba(23,107,84,.07); font: inherit; font-size: 11px; font-weight: 850; line-height: 1.25; text-align: center; text-decoration: none; cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease; }
+.detail-ledger-action { display: flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 34px; padding: 0 9px; border: 1px solid #c8d9d2; border-radius: 10px; background: #fff; color: #315c4e; box-shadow: 0 3px 10px rgba(23,107,84,.07); font: inherit; font-size: 11px; font-weight: 850; line-height: 1.2; text-align: center; text-decoration: none; cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease; }
 .detail-ledger-action.primary { flex-grow: 1.06; border-color: var(--green); background: var(--green); color: #fff; box-shadow: 0 5px 14px rgba(23,107,84,.2); }
 .detail-ledger-action::after { flex: 0 0 auto; font-size: 14px; font-weight: 900; line-height: 1; }
 .detail-ledger-action.primary::after { content: "›"; }
@@ -525,7 +525,7 @@ button { color: inherit; }
   .detail-tabs button { min-height: 43px; padding: 0 15px; font-size: 13px; }
   .detail-section-heading span { font-size: 12px; }
   .detail-section-heading strong { font-size: 18px; }
-  .detail-ledger-action { min-height: 42px; font-size: 13px; }
+  .detail-ledger-action { min-height: 36px; font-size: 12px; }
   .detail-highlight dt { font-size: 12px; }
   .detail-highlight dd { font-size: 17px; }
   .detail-actions .detail-report-action { min-width: 96px; padding: 0 15px; font-size: 13px; }
