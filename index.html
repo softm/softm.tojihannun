@@ -192,9 +192,9 @@
         </div>
         <nav class="detail-tabs" role="tablist" aria-label="필지 상세정보">
           <button class="active" type="button" role="tab" id="detailTabBasic" aria-selected="true" aria-controls="detailPanelBasic" tabindex="0" data-detail-tab="basic">기본</button>
-          <button type="button" role="tab" id="detailTabRegister" aria-selected="false" aria-controls="detailPanelRegister" tabindex="-1" data-detail-tab="register">대장·등기</button>
           <button type="button" role="tab" id="detailTabUse" aria-selected="false" aria-controls="detailPanelUse" tabindex="-1" data-detail-tab="use">토지이용</button>
           <button type="button" role="tab" id="detailTabBuilding" aria-selected="false" aria-controls="detailPanelBuilding" tabindex="-1" data-detail-tab="building">건축물</button>
+          <button type="button" role="tab" id="detailTabRegister" aria-selected="false" aria-controls="detailPanelRegister" tabindex="-1" data-detail-tab="register">대장·등기</button>
           <button type="button" role="tab" id="detailTabTransactions" aria-selected="false" aria-controls="detailPanelTransactions" tabindex="-1" data-detail-tab="transactions">실거래</button>
           <button type="button" role="tab" id="detailTabAuctions" aria-selected="false" aria-controls="detailPanelAuctions" tabindex="-1" data-detail-tab="auctions">경매·공매</button>
           <button type="button" role="tab" id="detailTabField" aria-selected="false" aria-controls="detailPanelField" tabindex="-1" data-detail-tab="field">현장기록</button>
@@ -252,14 +252,24 @@
           <div class="market-panel-head">
             <div>
               <span>국토교통부 공개정보</span>
-              <strong>토지 매매 실거래</strong>
+              <strong id="transactionHeading">토지 매매 실거래</strong>
               <small id="transactionAreaLabel">선택 필지 주변 거래를 확인합니다.</small>
             </div>
-            <div class="market-panel-controls">
+            <div class="market-panel-controls transaction-market-controls">
+              <label for="transactionType">거래유형</label>
               <label for="transactionRange">조회기간</label>
+              <select id="transactionType" aria-label="실거래 유형">
+                <option value="land">토지</option>
+                <option value="apartment">아파트</option>
+                <option value="officetel">오피스텔</option>
+                <option value="rowHouse">연립·다세대</option>
+                <option value="detached">단독·다가구</option>
+                <option value="commercial">상업·업무</option>
+                <option value="factory">공장·창고</option>
+              </select>
               <select id="transactionRange">
                 <option value="12">최근 12개월</option>
-                <option value="24">최근 24개월</option>
+                <option value="24" selected>최근 24개월</option>
                 <option value="36">최근 36개월</option>
               </select>
               <button type="button" id="refreshTransactions" aria-label="실거래 다시 조회">
@@ -283,7 +293,7 @@
             </div>
             <div class="transaction-list" id="transactionList"></div>
           </section>
-          <p class="market-disclaimer">공개 API에서 지번 일부가 비공개될 수 있어 동일 법정동 거래를 함께 보여줍니다. ‘선택 필지 일치’ 표시가 없는 거래는 해당 필지 거래로 단정할 수 없습니다.</p>
+          <p class="market-disclaimer">공개 지번이 일치하면 해당 필지·단지 거래를 우선 표시합니다. 일치 거래가 없으면 같은 법정동의 비교 가능한 거래를 표시하며, 토지는 대장 면적의 50~200% 범위만 비교합니다. 개인정보 보호로 지번 일부가 비공개될 수 있습니다.</p>
           <div class="market-source">
             <span>출처</span>
             <strong>국토교통부 실거래가 공개시스템 · 공공데이터포털</strong>

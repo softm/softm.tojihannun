@@ -901,6 +901,7 @@ function buildRecord([lon, lat], searchResult, parcelFeature, reverseResults) {
     pnu,
     address,
     road,
+    buildingName: searchResult?.category === "place" ? searchResult.title : "",
     number,
     type: isForest ? "forest" : "land",
     typeLabel: isForest ? "임야대장" : "토지대장",
@@ -1545,6 +1546,7 @@ async function loadLandRegisterDetails(record) {
     setSourceMeta(record, "landRegister", {asOf: "", fetchedAt: new Date().toISOString(), status: "error"});
   } finally {
     record.landRegisterLoading = false;
+    window.TojihannunMarketData?.refreshParcel(record);
     if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) {
       renderLandRegisterSection(record);
       renderDetailHighlight(record);
@@ -1676,6 +1678,7 @@ async function loadBuildingDetails(record) {
     setSourceMeta(record, "building", {asOf: "", fetchedAt: new Date().toISOString(), status: "error"});
   } finally {
     record.buildingLoading = false;
+    window.TojihannunMarketData?.refreshParcel(record);
     if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) renderBuildingSection(record);
     if (state.favorites.has(record.id)) persistFavorites();
   }

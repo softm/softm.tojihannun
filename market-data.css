@@ -66,6 +66,22 @@
   text-align: right;
 }
 
+.transaction-market-controls {
+  grid-template-columns: minmax(82px, 1.2fr) minmax(74px, 1fr) 34px;
+}
+
+.transaction-market-controls label {
+  grid-column: auto;
+  text-align: left;
+}
+
+.transaction-market-controls label[for="transactionType"] { grid-column: 1; }
+.transaction-market-controls label[for="transactionRange"] { grid-column: 2; }
+.transaction-market-controls select { min-width: 0; }
+.transaction-market-controls #transactionType { grid-column: 1; grid-row: 2; }
+.transaction-market-controls #transactionRange { grid-column: 2; grid-row: 2; }
+.transaction-market-controls #refreshTransactions { grid-column: 3; grid-row: 2; }
+
 .market-panel-controls select,
 .market-panel-controls button,
 .market-refresh-button {

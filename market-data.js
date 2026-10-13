@@ -1,7 +1,15 @@
 (() => {
   "use strict";
 
-  const RTMS_ENDPOINT = "https://apis.data.go.kr/1613000/RTMSDataSvcLandTrade/getRTMSDataSvcLandTrade";
+  const TRANSACTION_TYPES = Object.freeze({
+    land: {label: "토지", endpoint: "https://apis.data.go.kr/1613000/RTMSDataSvcLandTrade/getRTMSDataSvcLandTrade", areaKind: "거래면적"},
+    apartment: {label: "아파트", endpoint: "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade", areaKind: "전용면적"},
+    officetel: {label: "오피스텔", endpoint: "https://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade", areaKind: "전용면적"},
+    rowHouse: {label: "연립·다세대", endpoint: "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade", areaKind: "전용면적"},
+    detached: {label: "단독·다가구", endpoint: "https://apis.data.go.kr/1613000/RTMSDataSvcSHTrade/getRTMSDataSvcSHTrade", areaKind: "연면적"},
+    commercial: {label: "상업·업무", endpoint: "https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade", areaKind: "건물면적"},
+    factory: {label: "공장·창고", endpoint: "https://apis.data.go.kr/1613000/RTMSDataSvcInduTrade/getRTMSDataSvcInduTrade", areaKind: "연면적"}
+  });
   const ONBID_ENDPOINT = "https://apis.data.go.kr/B010003/OnbidRlstListSrvc2/getRlstCltrList2";
   const ONBID_SEARCH_URL = "https://www.onbid.co.kr/op/cltrpbancinf/cltr/cltrmapsrch/CltrMapSrchController/mvmnCltrMapSrchClg.do";
   const COURT_AUCTION_URL = "https://www.courtauction.go.kr/";
@@ -19,6 +27,8 @@
     transactionRequest: 0,
     auctionRequest: 0,
     transactionCacheKey: "",
+    transactionType: "land",
+    transactionTypeManuallySelected: false,
     auctionCacheKey: "",
     transactionItems: [],
     transactionShowAll: false,
@@ -128,7 +138,53 @@
     return String(value || "").replace(/\s+/g, "").trim();
   }
 
+  function selectedParcelArea(parcel = state.parcel) {
+    const register = parcel?.landRegister || {};
+    return numberValue(register.base?.lndpclAr || register.ownership?.lndpclAr || register.characteristic?.lndpclAr || 0);
+  }
+
+  function recommendTransactionType(parcel = state.parcel) {
+    const hasBuildingData = Array.isArray(parcel?.buildings);
+    const buildings = hasBuildingData ? parcel.buildings : [];
+    const description = [
+      hasBuildingData && !buildings.length ? "" : parcel?.buildingName,
+      ...buildings.flatMap((building) => [building?.name, building?.dongName, building?.use])
+    ].filter(Boolean).join(" ");
+    if (/공장|창고|제조소|산업시설/i.test(description)) return "factory";
+    if (/오피스텔/i.test(description)) return "officetel";
+    if (/연립|다세대|빌라/i.test(description)) return "rowHouse";
+    if (/단독|다가구|다중주택/i.test(description)) return "detached";
+    if (/아파트|공동주택/i.test(description)) return "apartment";
+    if (/상가|근린생활|판매시설|업무시설|타워|플라자|센터|숙박시설|위락시설/i.test(description)) return "commercial";
+    return description && !hasBuildingData ? "apartment" : "land";
+  }
+
+  function transactionArea(node, type) {
+    const exclusive = numberValue(field(node, ["excluUseAr", "excluUseArea", "전용면적"]));
+    const land = numberValue(field(node, ["dealArea", "landAr", "plottageAr", "plotAr", "대지면적", "토지면적", "거래면적"]));
+    const building = numberValue(field(node, ["totalFloorAr", "buildArea", "buildingAr", "연면적", "건물면적"]));
+    if (["apartment", "officetel", "rowHouse"].includes(type)) return exclusive || building || land;
+    if (type === "land") return land || building || exclusive;
+    return building || land || exclusive;
+  }
+
+  function applyTransactionType(type, {manual = false, reload = false} = {}) {
+    if (!TRANSACTION_TYPES[type]) return;
+    const changed = state.transactionType !== type;
+    state.transactionType = type;
+    if (manual) state.transactionTypeManuallySelected = true;
+    if ($("#transactionType")) $("#transactionType").value = type;
+    if ($("#transactionHeading")) $("#transactionHeading").textContent = `${TRANSACTION_TYPES[type].label} 매매 실거래`;
+    if ($("#transactionChartCard .market-section-head > small")) $("#transactionChartCard .market-section-head > small").textContent = "만원/㎡";
+    if (!changed) return;
+    state.transactionCacheKey = "";
+    state.transactionItems = [];
+    state.transactionMeta = {status: "idle", scope: "", requestedMonths: 0, failedMonths: 0, fetchedAt: "", error: ""};
+    if (reload && state.activeTab === "transactions") void loadTransactions(true);
+  }
+
   function field(node, names) {
+    if (!node?.getElementsByTagName) return "";
     for (const name of names) {
       const element = node.getElementsByTagName(name)[0];
       if (element?.textContent?.trim()) return element.textContent.trim();
@@ -255,15 +311,17 @@
 
   function resetTransactionView() {
     const area = parseParcelArea(state.parcel);
+    const definition = TRANSACTION_TYPES[state.transactionType] || TRANSACTION_TYPES.land;
+    applyTransactionType(state.transactionType);
     if ($("#transactionAreaLabel")) {
-      $("#transactionAreaLabel").textContent = area.emd ? `${area.sido} ${area.sgg} ${area.emd} · 선택 필지 ${state.parcel?.number || ""}`.replace(/\s+/g, " ").trim() : "선택 필지 주변 거래를 확인합니다.";
+      $("#transactionAreaLabel").textContent = area.emd ? `${area.sido} ${area.sgg} ${area.emd} · ${definition.label} 비교 · 선택 필지 ${state.parcel?.number || ""}`.replace(/\s+/g, " ").trim() : "선택 필지와 비교 가능한 거래를 확인합니다.";
     }
     $("#transactionStats").innerHTML = "";
     $("#transactionChart").innerHTML = "";
     $("#transactionChartCard").hidden = true;
     $("#transactionList").innerHTML = "";
     $("#transactionListSection").hidden = true;
-    setStatus("#transactionStatus", state.serviceKey ? "실거래 탭을 열면 최근 거래를 조회합니다." : "현재 실거래 조회 서비스를 이용할 수 없습니다.");
+    setStatus("#transactionStatus", state.serviceKey ? `${definition.label} 실거래 탭을 열면 최근 거래를 조회합니다.` : "현재 실거래 조회 서비스를 이용할 수 없습니다.");
   }
 
   function resetAuctionView() {
@@ -278,11 +336,12 @@
     setStatus("#auctionStatus", state.serviceKey ? "경매·공매 탭을 열면 온비드 진행 물건을 조회합니다." : "공식 조회 버튼은 바로 사용할 수 있으며, 온비드 목록 조회는 현재 이용할 수 없습니다.");
   }
 
-  async function fetchRtmsMonth(lawdCode, month, signal) {
-    const cacheKey = `${lawdCode}:${month}`;
-    if (state.rtmsCache.has(cacheKey)) return state.rtmsCache.get(cacheKey);
+  async function fetchRtmsPage(type, lawdCode, month, pageNo, signal) {
+    const definition = TRANSACTION_TYPES[type];
+    if (!definition) throw publicApiError("지원하지 않는 실거래 유형입니다.");
     const params = new URLSearchParams({LAWD_CD: lawdCode, DEAL_YMD: month, pageNo: "1", numOfRows: "1000"});
-    const url = appendServiceKey(`${RTMS_ENDPOINT}?${params}`, state.serviceKey);
+    params.set("pageNo", String(pageNo));
+    const url = appendServiceKey(`${definition.endpoint}?${params}`, state.serviceKey);
     const response = await fetch(url, {signal, headers: {Accept: "application/xml,text/xml,*/*"}});
     if (!response.ok) throw publicApiError(`실거래 API 응답 오류(${response.status})`, [401, 403].includes(response.status) ? "30" : String(response.status));
     const text = await response.text();
@@ -293,9 +352,11 @@
       const monthValue = field(node, ["dealMonth", "월"]);
       const day = field(node, ["dealDay", "일"]);
       const amount = numberValue(field(node, ["dealAmount", "거래금액"]));
-      const area = numberValue(field(node, ["dealArea", "거래면적", "plotAr"]));
+      const area = transactionArea(node, type);
       const cancel = field(node, ["cdealType", "해제여부"]);
+      const cancellationDate = field(node, ["cdealDay", "해제사유발생일"]);
       return {
+        type,
         date: `${year}-${String(monthValue).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
         month: `${year}${String(monthValue).padStart(2, "0")}`,
         amount,
@@ -303,29 +364,58 @@
         unitPrice: amount > 0 && area > 0 ? amount / area : 0,
         umdNm: field(node, ["umdNm", "법정동"]),
         jibun: field(node, ["jibun", "지번"]),
+        buildingName: field(node, ["aptNm", "offiNm", "mhouseNm", "houseType", "buildingNm", "아파트", "단지", "연립다세대", "주택유형", "건물명"]),
+        floor: field(node, ["floor", "층"]),
         jimok: field(node, ["jimok", "지목"]),
-        landUse: field(node, ["landUse", "용도지역"]),
+        landUse: field(node, ["landUse", "landCategory", "useArea", "지목", "용도지역"]),
         dealType: field(node, ["dealingGbn", "dealType", "거래유형"]),
-        cancel
+        cancel,
+        cancellationDate
       };
-    }).filter((item) => item.amount > 0 && item.area > 0 && !/O|Y|해제/i.test(item.cancel));
-    state.rtmsCache.set(cacheKey, items);
-    return items;
+    }).filter((item) => item.amount > 0 && item.area > 0 && !item.cancellationDate && !/^(?:O|Y|1|해제)$/i.test(item.cancel));
+    const totalCount = envelope.kind === "xml"
+      ? numberValue(field(envelope.xml, ["totalCount"]))
+      : numberValue(envelope.body?.totalCount);
+    return {items, totalCount: totalCount || items.length};
   }
 
-  function scopeTransactionItems(items, area) {
+  async function fetchRtmsMonth(type, lawdCode, month, signal) {
+    const cacheKey = `${type}:${lawdCode}:${month}`;
+    if (state.rtmsCache.has(cacheKey)) return state.rtmsCache.get(cacheKey);
+    const first = await fetchRtmsPage(type, lawdCode, month, 1, signal);
+    const pageCount = Math.max(1, Math.ceil(first.totalCount / 1000));
+    const cappedPages = Math.min(pageCount, 5);
+    const requests = [];
+    for (let pageNo = 2; pageNo <= cappedPages; pageNo += 1) requests.push(fetchRtmsPage(type, lawdCode, month, pageNo, signal));
+    const rest = requests.length ? await Promise.all(requests) : [];
+    const result = {items: [first, ...rest].flatMap((page) => page.items), truncated: pageCount > cappedPages};
+    state.rtmsCache.set(cacheKey, result);
+    return result;
+  }
+
+  function scopeTransactionItems(items, area, type) {
     const matchingArea = items.filter((item) => normalizeAreaName(item.umdNm) === normalizeAreaName(area.emd));
-    const scoped = area.emd && matchingArea.length ? matchingArea : items;
+    const regional = area.emd && matchingArea.length ? matchingArea : items;
     const seen = new Set();
+    const unique = regional.filter((item) => {
+      const key = [item.type, item.date, item.umdNm, item.jibun, item.buildingName, item.amount, item.area].join("|");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      item.exact = Boolean(area.lot && normalizeLot(item.jibun) === area.lot);
+      return true;
+    });
+    const exact = unique.filter((item) => item.exact);
+    const parcelArea = selectedParcelArea();
+    const comparable = type === "land" && parcelArea > 0
+      ? unique.filter((item) => item.area >= parcelArea * .5 && item.area <= parcelArea * 2)
+      : unique;
+    const selected = exact.length ? exact : comparable;
     return {
-      scope: area.emd && matchingArea.length ? area.emd : `${area.sido} ${area.sgg}`.trim(),
-      items: scoped.filter((item) => {
-        const key = [item.date, item.umdNm, item.jibun, item.amount, item.area].join("|");
-        if (seen.has(key)) return false;
-        seen.add(key);
-        item.exact = Boolean(area.lot && normalizeLot(item.jibun) === area.lot);
-        return true;
-      }).sort((a, b) => b.date.localeCompare(a.date))
+      scope: exact.length
+        ? `${area.emd || `${area.sido} ${area.sgg}`.trim()} ${area.lot} · 선택 필지·단지`
+        : `${area.emd || `${area.sido} ${area.sgg}`.trim()} · 비교 거래`,
+      exact: exact.length > 0,
+      items: selected.sort((a, b) => b.date.localeCompare(a.date))
     };
   }
 
@@ -379,20 +469,21 @@
 
   function renderTransactionList() {
     const items = state.transactionItems;
+    const definition = TRANSACTION_TYPES[state.transactionType] || TRANSACTION_TYPES.land;
     const limit = state.transactionShowAll ? Math.min(items.length, 200) : Math.min(items.length, 30);
     $("#transactionList").innerHTML = items.slice(0, limit).map((item) => `
       <article class="transaction-item${item.exact ? " exact" : ""}">
         <div class="market-item-head">
           <div>
             <span>${escapeHtml(item.date.replaceAll("-", "."))} 신고</span>
-            <strong>${escapeHtml([item.umdNm, item.jibun || "지번 비공개"].filter(Boolean).join(" "))}</strong>
-            <small>${escapeHtml([item.jimok, item.landUse, item.dealType].filter(Boolean).join(" · ") || "세부 항목 미제공")}</small>
+            <strong>${escapeHtml(item.buildingName || [item.umdNm, item.jibun || "지번 비공개"].filter(Boolean).join(" "))}</strong>
+            <small>${escapeHtml([item.buildingName ? [item.umdNm, item.jibun].filter(Boolean).join(" ") : "", item.jimok, item.landUse, item.floor ? `${item.floor}층` : "", item.dealType].filter(Boolean).join(" · ") || "세부 항목 미제공")}</small>
           </div>
-          <span class="market-badge${item.exact ? "" : " neutral"}">${item.exact ? "선택 필지 일치" : "동일 법정동"}</span>
+          <span class="market-badge${item.exact ? "" : " neutral"}">${item.exact ? "선택 필지·단지" : "비교 거래"}</span>
         </div>
         <dl class="market-item-facts">
           <div><dt>거래금액</dt><dd>${escapeHtml(formatDealAmount(item.amount))}</dd></div>
-          <div><dt>거래면적</dt><dd>${escapeHtml(formatNumber(item.area, 2))}㎡</dd></div>
+          <div><dt>${escapeHtml(definition.areaKind)}</dt><dd>${escapeHtml(formatNumber(item.area, 2))}㎡</dd></div>
           <div><dt>거래단가</dt><dd>${escapeHtml(formatNumber(item.unitPrice, 1))}만원/㎡</dd></div>
           <div><dt>공개 지번</dt><dd>${escapeHtml(item.jibun || "미공개")}</dd></div>
         </dl>
@@ -405,7 +496,8 @@
     $("#transactionListSection").hidden = false;
   }
 
-  function renderTransactions(items, scope, failedMonths, requestedMonths) {
+  function renderTransactions(items, scope, failedMonths, requestedMonths, {exact: exactMatch = false, truncated = false} = {}) {
+    const definition = TRANSACTION_TYPES[state.transactionType] || TRANSACTION_TYPES.land;
     state.transactionItems = items;
     state.transactionShowAll = false;
     state.transactionMeta = {
@@ -413,38 +505,45 @@
       scope: scope || "선택 지역",
       requestedMonths,
       failedMonths,
+      type: state.transactionType,
+      exact: exactMatch,
+      truncated,
       fetchedAt: new Date().toISOString(),
       error: ""
     };
     if (!items.length) {
       renderMarketStats("#transactionStats", [
-        {label: "공개 거래", value: "0건", note: "선택 기간·범위"},
+        {label: `${definition.label} 거래`, value: "0건", note: "선택 기간·범위"},
         {label: "중위 거래금액", value: "미제공", note: "조회 결과 없음"},
         {label: "중위 거래단가", value: "미제공", note: "조회 결과 없음"},
         {label: "선택 필지 일치", value: "0건", note: "공개 지번 기준"}
       ]);
       $("#transactionChartCard").hidden = true;
       $("#transactionListSection").hidden = true;
-      setStatus("#transactionStatus", `${scope || "선택 지역"}에서 최근 ${requestedMonths}개월 신고된 토지 매매를 찾지 못했습니다.`, "success");
+      setStatus("#transactionStatus", `${scope || "선택 지역"}에서 최근 ${requestedMonths}개월 신고된 ${definition.label} 매매를 찾지 못했습니다.`, "success");
       return;
     }
-    const exact = items.filter((item) => item.exact).length;
+    const exactCount = items.filter((item) => item.exact).length;
     const latest = items[0]?.date?.replaceAll("-", ".") || "미제공";
     renderMarketStats("#transactionStats", [
-      {label: "공개 거래", value: `${formatNumber(items.length)}건`, note: `${scope} · 취소 제외`},
+      {label: `${definition.label} 거래`, value: `${formatNumber(items.length)}건`, note: `${scope} · 취소 제외`},
       {label: "중위 거래금액", value: formatDealAmount(median(items.map((item) => item.amount))), note: "총액 · 매매가격"},
       {label: "중위 거래단가", value: `${formatNumber(median(items.map((item) => item.unitPrice)), 1)}만원/㎡`, note: "거래금액÷면적"},
-      {label: "선택 필지 일치", value: `${formatNumber(exact)}건`, note: `최근 신고 ${latest}`}
+      {label: exactCount ? "선택 필지·단지" : "비교 거래", value: `${formatNumber(items.length)}건`, note: `최근 신고 ${latest}`}
     ]);
     renderTransactionChart(items);
     renderTransactionList();
     const partial = failedMonths ? ` · ${failedMonths}개월 응답 실패` : "";
-    setStatus("#transactionStatus", `${scope}의 최근 ${requestedMonths}개월 공개 거래를 조회했습니다${partial}.`, failedMonths ? "" : "success");
+    const pageNotice = truncated ? " · 일부 월 최대 5페이지 표시" : "";
+    setStatus("#transactionStatus", `${scope}의 최근 ${requestedMonths}개월 ${definition.label} 공개 거래를 조회했습니다${partial}${pageNotice}.`, failedMonths ? "" : "success");
   }
 
   async function loadTransactions(force = false, allowInactive = false) {
     const parcel = state.parcel;
     if (!parcel || (!allowInactive && state.activeTab !== "transactions")) return;
+    if (!state.transactionTypeManuallySelected) applyTransactionType(recommendTransactionType(parcel));
+    const type = state.transactionType;
+    const definition = TRANSACTION_TYPES[type] || TRANSACTION_TYPES.land;
     if (!state.serviceKey) {
       state.transactionMeta = {...state.transactionMeta, status: "unavailable", error: "현재 실거래 조회 서비스를 이용할 수 없습니다."};
       setStatus("#transactionStatus", "현재 실거래 조회 서비스를 이용할 수 없습니다.");
@@ -456,8 +555,8 @@
       setStatus("#transactionStatus", "실거래 조회에 필요한 시군구 코드(PNU)를 확인할 수 없습니다.", "error");
       return;
     }
-    const range = Math.max(12, Math.min(36, Number($("#transactionRange")?.value || 12)));
-    const cacheKey = `${parcel.pnu || parcel.id}:${range}`;
+    const range = Math.max(12, Math.min(36, Number($("#transactionRange")?.value || 24)));
+    const cacheKey = `${parcel.pnu || parcel.id}:${type}:${range}:${selectedParcelArea(parcel)}`;
     if (!force && state.transactionCacheKey === cacheKey) return;
     state.transactionController?.abort();
     const controller = new AbortController();
@@ -467,20 +566,23 @@
     $("#transactionStats").innerHTML = "";
     $("#transactionChartCard").hidden = true;
     $("#transactionListSection").hidden = true;
-    setStatus("#transactionStatus", `최근 ${range}개월 토지 매매를 불러오고 있습니다.`, "loading");
+    setStatus("#transactionStatus", `최근 ${range}개월 ${definition.label} 매매를 불러오고 있습니다.`, "loading");
     try {
       const months = recentMonths(range);
-      const results = await mapConcurrent(months, 4, (month) => fetchRtmsMonth(area.lawdCode, month, controller.signal));
+      const results = await mapConcurrent(months, 4, (month) => fetchRtmsMonth(type, area.lawdCode, month, controller.signal));
       if (requestId !== state.transactionRequest || controller.signal.aborted) return;
       const successes = results.filter((result) => result.status === "fulfilled");
       if (!successes.length) throw results.find((result) => result.status === "rejected")?.reason || publicApiError("실거래를 조회하지 못했습니다.");
-      const scoped = scopeTransactionItems(successes.flatMap((result) => result.value), area);
+      const scoped = scopeTransactionItems(successes.flatMap((result) => result.value.items), area, type);
       state.transactionCacheKey = cacheKey;
-      renderTransactions(scoped.items, scoped.scope, results.length - successes.length, range);
+      renderTransactions(scoped.items, scoped.scope, results.length - successes.length, range, {
+        exact: scoped.exact,
+        truncated: successes.some((result) => result.value.truncated)
+      });
     } catch (error) {
       if (error?.name === "AbortError") return;
-      console.error("RTMS land trade lookup failed", {message: error?.message, code: error?.code});
-      const message = apiErrorMessage(error, "국토교통부 토지 실거래 API");
+      console.error("RTMS transaction lookup failed", {type, message: error?.message, code: error?.code});
+      const message = apiErrorMessage(error, `국토교통부 ${definition.label} 실거래 API`);
       state.transactionMeta = {...state.transactionMeta, status: "error", fetchedAt: new Date().toISOString(), error: message};
       setStatus("#transactionStatus", message, "error");
     }
@@ -650,33 +752,35 @@
   function getReportSections() {
     const transactionItems = state.transactionItems || [];
     const transactionMeta = state.transactionMeta || {};
+    const transactionDefinition = TRANSACTION_TYPES[transactionMeta.type || state.transactionType] || TRANSACTION_TYPES.land;
     const exactTransactions = transactionItems.filter((item) => item.exact).length;
     const transactionSections = [{
-      title: "토지 실거래 조회 요약",
+      title: `${transactionDefinition.label} 실거래 조회 요약`,
       kind: "keyValue",
       rows: [
         ["조회 상태", reportStatus(transactionMeta.status, transactionMeta.error)],
         ["조회 범위", transactionMeta.scope || "-"],
         ["조회 기간", transactionMeta.requestedMonths ? `최근 ${transactionMeta.requestedMonths}개월` : "-"],
+        ["거래 유형", transactionDefinition.label],
         ["공개 거래", `${formatNumber(transactionItems.length)}건`],
-        ["선택 필지 일치", `${formatNumber(exactTransactions)}건`],
+        ["선택 필지·단지 일치", `${formatNumber(exactTransactions)}건`],
         ["중위 거래금액", transactionItems.length ? formatDealAmount(median(transactionItems.map((item) => item.amount))) : "미제공"],
         ["중위 거래단가", transactionItems.length ? `${formatNumber(median(transactionItems.map((item) => item.unitPrice)), 1)}만원/㎡` : "미제공"],
         ["일부 응답 실패", transactionMeta.failedMonths ? `${transactionMeta.failedMonths}개월` : "없음"],
+        ["페이지 제한", transactionMeta.truncated ? "일부 월 최대 5페이지" : "없음"],
         ["조회 시각", transactionMeta.fetchedAt ? new Date(transactionMeta.fetchedAt).toLocaleString("ko-KR") : "-"]
       ]
     }];
     if (transactionItems.length) {
       transactionSections.push({
-        title: `토지 실거래 목록 전체 ${formatNumber(transactionItems.length)}건`,
+        title: `${transactionDefinition.label} 실거래 목록 전체 ${formatNumber(transactionItems.length)}건`,
         kind: "table",
-        headers: ["계약일", "소재지·지번", "필지", "지목", "용도지역", "면적", "거래금액", "단가", "거래유형"],
+        headers: ["계약일", "대상", "범위", "지목·용도", transactionDefinition.areaKind, "거래금액", "단가", "거래유형"],
         rows: transactionItems.map((item) => [
           item.date || "-",
-          [item.umdNm, item.jibun].filter(Boolean).join(" ") || "-",
-          item.exact ? "선택 필지 일치" : "주변 거래",
-          item.jimok || "-",
-          item.landUse || "-",
+          item.buildingName || [item.umdNm, item.jibun].filter(Boolean).join(" ") || "-",
+          item.exact ? "선택 필지·단지" : "비교 거래",
+          [item.jimok, item.landUse, item.floor ? `${item.floor}층` : ""].filter(Boolean).join(" · ") || "-",
           item.area ? `${formatNumber(item.area, 2)}㎡` : "-",
           formatDealAmount(item.amount),
           item.unitPrice ? `${formatNumber(item.unitPrice, 1)}만원/㎡` : "-",
@@ -737,6 +841,8 @@
     state.transactionRequest += 1;
     state.auctionRequest += 1;
     state.transactionCacheKey = "";
+    state.transactionTypeManuallySelected = false;
+    state.transactionType = recommendTransactionType(parcel);
     state.auctionCacheKey = "";
     state.transactionItems = [];
     state.auctionItems = [];
@@ -746,6 +852,15 @@
     resetAuctionView();
   }
 
+  function refreshParcel(parcel) {
+    if (!parcel || !state.parcel || parcel.id !== state.parcel.id) return;
+    state.parcel = parcel;
+    if (!state.transactionTypeManuallySelected) applyTransactionType(recommendTransactionType(parcel));
+    state.transactionCacheKey = "";
+    resetTransactionView();
+    if (state.activeTab === "transactions") void loadTransactions(true);
+  }
+
   function activate(tab) {
     state.activeTab = tab;
     if (tab === "transactions") void loadTransactions();
@@ -753,6 +868,11 @@
   }
 
   function bindEvents() {
+    $("#transactionType")?.addEventListener("change", (event) => {
+      applyTransactionType(event.target.value, {manual: true});
+      resetTransactionView();
+      if (state.activeTab === "transactions") void loadTransactions(true);
+    });
     $("#transactionRange")?.addEventListener("change", () => {
       state.transactionCacheKey = "";
       if (state.activeTab === "transactions") void loadTransactions(true);
@@ -765,6 +885,6 @@
     resetAuctionView();
   }
 
-  window.TojihannunMarketData = {setParcel, activate, prepareReportData, getReportSections};
+  window.TojihannunMarketData = {setParcel, refreshParcel, activate, prepareReportData, getReportSections};
   bindEvents();
 })();
