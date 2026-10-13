@@ -19,7 +19,10 @@ const publicFiles = [
   "adfit-config.js",
   "adfit.js",
   "CNAME",
-  "app-ads.txt"
+  "app-ads.txt",
+  "robots.txt",
+  "sitemap.xml",
+  "google3963d25075aa9810.html"
 ];
 
 fs.rmSync(output, {recursive: true, force: true});
