@@ -22,6 +22,8 @@ const VWORLD_BROWSER_KEY = "BC222DE5-514C-4E8A-A143-73DD322834D1";
 const USE_VWORLD_JSONP = window.location.hostname === "tojihannun.designboard.net" || window.location.hostname.endsWith(".github.io");
 const EUM_DETAIL_URL = "https://www.eum.go.kr/web/ar/lu/luLandDet.jsp";
 const FAVORITES_KEY = "tojihannun-vworld-favorites-v1";
+const RECENT_PARCELS_KEY = "tojihannun-recent-parcels-v1";
+const MAX_RECENT_PARCELS = 50;
 const FIELD_RECORDS_KEY = "tojihannun-field-records-v1";
 const FIELD_ITEMS = [
   ["vehicleAccess", "차량 진입"],
@@ -187,6 +189,7 @@ function initMap() {
 
   window.setTimeout(() => { $("#mapLoading").hidden = true; }, 7000);
   setMapMode(state.mapMode, false);
+  restoreRecentParcels();
   restoreFavorites();
   render();
   void openSharedParcelFromUrl();
@@ -910,9 +913,12 @@ function buildRecord([lon, lat], searchResult, parcelFeature, reverseResults) {
 
 function addOrUpdateRecord(record) {
   const existingIndex = state.records.findIndex((item) => item.id === record.id);
-  if (existingIndex >= 0) state.records.splice(existingIndex, 1, {...state.records[existingIndex], ...record});
-  else state.records.unshift(record);
+  const mergedRecord = existingIndex >= 0 ? {...state.records[existingIndex], ...record} : record;
+  if (existingIndex >= 0) state.records.splice(existingIndex, 1);
+  state.records.unshift(mergedRecord);
   state.selectedId = record.id;
+  persistRecentParcels();
+  if (state.favorites.has(record.id)) persistFavorites();
   render();
 }
 
@@ -1904,24 +1910,83 @@ function updateFavoriteCount() {
   $("#favoriteCount").classList.toggle("show", state.favorites.size > 0);
 }
 
+function storedParcelRecord(record) {
+  if (!record || typeof record !== "object") return null;
+  const lon = Number(record.lon);
+  const lat = Number(record.lat);
+  if (!Number.isFinite(lon) || !Number.isFinite(lat) || Math.abs(lon) > 180 || Math.abs(lat) > 90) return null;
+  const pnu = String(record.pnu || "").replace(/\D/g, "").slice(0, 19);
+  const fallbackId = `parcel-${lon.toFixed(7)}-${lat.toFixed(7)}`;
+  const id = pnu || cleanText(record.id || fallbackId).slice(0, 128) || fallbackId;
+  const isForest = record.type === "forest" || (pnu.length > 10 && pnu.charAt(10) === "2");
+  const fetchedAt = String(record.sourceMeta?.parcel?.fetchedAt || "");
+  return {
+    id,
+    pnu,
+    address: cleanText(record.address || "선택한 필지"),
+    road: cleanText(record.road || ""),
+    number: cleanText(record.number || ""),
+    type: isForest ? "forest" : "land",
+    typeLabel: isForest ? "임야대장" : "토지대장",
+    lon,
+    lat,
+    dataset: String(record.dataset || "").replace(/[^A-Z0-9_]/gi, "").slice(0, 64),
+    properties: {},
+    sourceMeta: {
+      parcel: {
+        source: "VWorld 공간정보 오픈플랫폼",
+        asOf: "",
+        fetchedAt,
+        status: pnu ? "success" : "missing"
+      }
+    }
+  };
+}
+
+function mergeStoredParcel(record) {
+  const stored = storedParcelRecord(record);
+  if (!stored) return null;
+  const existingIndex = state.records.findIndex((item) => item.id === stored.id);
+  if (existingIndex >= 0) state.records.splice(existingIndex, 1, {...stored, ...state.records[existingIndex]});
+  else state.records.push(stored);
+  return stored;
+}
+
+function persistRecentParcels() {
+  try {
+    const records = state.records.slice(0, MAX_RECENT_PARCELS).map(storedParcelRecord).filter(Boolean);
+    localStorage.setItem(RECENT_PARCELS_KEY, JSON.stringify({version: 1, records}));
+  } catch (error) {
+    console.warn("Recent parcel list could not be saved", error);
+  }
+}
+
+function restoreRecentParcels() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECENT_PARCELS_KEY) || "null");
+    const records = Array.isArray(parsed) ? parsed : parsed?.version === 1 && Array.isArray(parsed.records) ? parsed.records : [];
+    records.slice(0, MAX_RECENT_PARCELS).forEach(mergeStoredParcel);
+  } catch {
+    localStorage.removeItem(RECENT_PARCELS_KEY);
+  }
+}
+
 function persistFavorites() {
-  const records = state.records.filter((record) => state.favorites.has(record.id)).map(({
-    properties,
-    eumLandUse,
-    eumLandUseLoading,
-    eumLandUseError,
-    ...record
-  }) => record);
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(records));
+  const records = state.records.filter((record) => state.favorites.has(record.id)).map(storedParcelRecord).filter(Boolean);
+  try {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(records));
+  } catch (error) {
+    console.warn("Favorite parcel list could not be saved", error);
+  }
 }
 
 function restoreFavorites() {
   try {
     const records = JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
     if (!Array.isArray(records)) return;
-    records.filter((record) => record?.id && Number.isFinite(record?.lon) && Number.isFinite(record?.lat)).forEach((record) => {
-      state.records.push(record);
-      state.favorites.add(record.id);
+    records.forEach((record) => {
+      const stored = mergeStoredParcel(record);
+      if (stored) state.favorites.add(stored.id);
     });
   } catch {
     localStorage.removeItem(FAVORITES_KEY);
@@ -1959,6 +2024,7 @@ function buildParcelShareUrl(record) {
   if (!record || !Number.isFinite(Number(record.lon)) || !Number.isFinite(Number(record.lat))) return "";
   const url = new URL(window.location.pathname, window.location.origin);
   url.searchParams.set("share", "parcel");
+  url.searchParams.set("v", "1");
   url.searchParams.set("lat", Number(record.lat).toFixed(7));
   url.searchParams.set("lon", Number(record.lon).toFixed(7));
   if (record.pnu) url.searchParams.set("pnu", record.pnu);
@@ -1978,6 +2044,7 @@ async function shareParcel(record) {
   try {
     if (typeof navigator.share === "function" && (!navigator.canShare || navigator.canShare(data))) {
       await navigator.share(data);
+      showToast("필지 정보를 공유했어요.");
       return;
     }
   } catch (error) {
