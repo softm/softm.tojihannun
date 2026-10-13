@@ -37,6 +37,23 @@ test("실거래 API 키는 런타임 설정을 우선하고 Pages 빌드에서 �
   assert.match(workflow, /MOLIT_API_KEY: \$\{\{ secrets\.MOLIT_API_KEY \}\}/);
 });
 
+test("실거래는 용도별 API와 필지 우선·유사면적 비교 기준을 사용한다", () => {
+  const html = read("index.html");
+  const market = read("market-data.js");
+  const app = read("app.js");
+
+  assert.match(html, /id="transactionType"[\s\S]*?value="land"[\s\S]*?value="apartment"[\s\S]*?value="factory"/);
+  assert.match(html, /<option value="24" selected>최근 24개월<\/option>/);
+  assert.match(market, /RTMSDataSvcLandTrade[\s\S]*?RTMSDataSvcAptTrade[\s\S]*?RTMSDataSvcInduTrade/);
+  assert.match(market, /const exact = unique\.filter\(\(item\) => item\.exact\)/);
+  assert.match(market, /item\.area >= parcelArea \* \.5 && item\.area <= parcelArea \* 2/);
+  assert.match(market, /Math\.min\(pageCount, 5\)/);
+  assert.match(market, /!item\.cancellationDate/);
+  assert.match(market, /parcel\?\.buildingName/);
+  assert.match(app, /buildingName: searchResult\?\.category === "place" \? searchResult\.title : ""/);
+  assert.match(app, /TojihannunMarketData\?\.refreshParcel\(record\)/);
+});
+
 test("공공데이터 인증키 운영 정보는 사용자 화면에 노출하지 않는다", () => {
   const html = read("index.html");
   const market = read("market-data.js");

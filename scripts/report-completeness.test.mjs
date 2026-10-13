@@ -15,8 +15,8 @@ test("보고서는 상세 조회와 시장 조회 전체 섹션을 공통 모델
   assert.match(app, /title: "정보 출처 및 데이터 기준"/);
   assert.match(app, /await window\.TojihannunMarketData\?\.prepareReportData/);
 
-  assert.match(market, /title: "토지 실거래 조회 요약"/);
-  assert.match(market, /title: `토지 실거래 목록 전체/);
+  assert.match(market, /title: `\$\{transactionDefinition\.label\} 실거래 조회 요약`/);
+  assert.match(market, /title: `\$\{transactionDefinition\.label\} 실거래 목록 전체/);
   assert.match(market, /title: "경매·공매 조회 요약"/);
   assert.match(market, /title: `온비드 공매 목록 전체/);
   assert.match(market, /prepareReportData, getReportSections/);
