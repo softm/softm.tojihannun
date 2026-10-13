@@ -410,14 +410,21 @@ button { color: inherit; }
 .toast { position: fixed; z-index: 60; left: 50%; bottom: 28px; max-width: calc(100% - 32px); padding: 11px 16px; border-radius: 12px; background: #173b31; color: #fff; box-shadow: 0 8px 30px rgba(0,0,0,.2); font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transform: translate(-50%, 15px); transition: .24s; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-.info-dialog { width: min(450px, calc(100% - 32px)); padding: 28px; border: 0; border-radius: 24px; color: var(--ink); box-shadow: 0 22px 80px rgba(0,0,0,.25); }
+.info-dialog { width: min(450px, calc(100% - 32px)); max-height: 90dvh; padding: 28px; overflow: auto; border: 0; border-radius: 24px; color: var(--ink); box-shadow: 0 22px 80px rgba(0,0,0,.25); }
 .info-dialog::backdrop { background: rgba(8,31,24,.42); backdrop-filter: blur(3px); }
 .dialog-close { position: absolute; right: 15px; top: 12px; border: 0; background: transparent; color: #6e7f79; font-size: 26px; cursor: pointer; }
 .dialog-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 16px; background: var(--mint); color: var(--green); font-size: 26px; font-weight: 800; }
 .info-dialog h2 { margin: 15px 0 7px; font-size: 22px; }
 .info-dialog p { margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.65; }
+.info-dialog .government-disclaimer { margin: 11px 0; padding: 11px 12px; border: 1px solid #f0d39b; border-radius: 11px; background: #fff8e9; color: #684f1d; font-size: 11px; }
+.government-disclaimer strong { display: block; margin-bottom: 3px; color: #4c3916; font-size: 12px; }
 .info-dialog ul { margin: 15px 0 20px; padding-left: 18px; color: #536760; font-size: 12px; line-height: 1.75; }
-.privacy-link { display: block; margin: -7px 0 14px; color: var(--green); font-size: 11px; font-weight: 750; text-align: center; text-underline-offset: 3px; }
+.help-sources { margin: -5px 0 13px; padding: 11px; border-radius: 12px; background: #f2f7f4; }
+.help-sources > strong { display: block; margin-bottom: 7px; color: var(--green-dark); font-size: 12px; }
+.help-sources > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.help-sources a { min-width: 0; padding: 7px 8px; border: 1px solid #d6e3dd; border-radius: 8px; background: #fff; color: #315f50; font-size: 9px; font-weight: 750; line-height: 1.35; text-decoration: none; }
+.help-sources a:hover, .help-sources a:focus-visible { border-color: var(--green); outline: 0; background: #e9f5ef; }
+.privacy-link { display: block; margin: 0 0 14px; color: var(--green); font-size: 11px; font-weight: 750; text-align: center; text-underline-offset: 3px; }
 
 .export-dialog { width: min(1240px, calc(100% - 28px)); max-height: 92dvh; padding: 26px; overflow: auto; border: 0; border-radius: 24px; color: var(--ink); box-shadow: 0 22px 80px rgba(0,0,0,.25); }
 .export-dialog::backdrop { background: rgba(8,31,24,.46); backdrop-filter: blur(3px); }

@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261013.12" />
+    <link rel="stylesheet" href="./styles.css?v=20261013.13" />
     <link rel="stylesheet" href="./market-data.css?v=20261013.3" />
   </head>
   <body>
@@ -430,6 +430,7 @@
         <button class="dialog-close" type="button" id="dialogClose" aria-label="도움말 닫기">×</button>
         <span class="dialog-icon">⌁</span>
         <h2>토지한눈 이용 안내</h2>
+        <p class="government-disclaimer"><strong>토지한눈은 정부기관 공식 앱이 아닙니다.</strong> 정부·지자체·공공기관을 대표하거나 제휴·승인받은 서비스가 아니며, 공식 증명서를 직접 발급하지 않는 독립 정보 서비스입니다.</p>
         <p>주소나 지번을 검색하거나 일반·위성·위성+지적 지도에서 필지를 눌러 토지 정보를 살펴보세요.</p>
         <ul>
           <li>검색과 필지 경계는 VWorld 공간정보 오픈플랫폼을 이용합니다.</li>
@@ -437,7 +438,18 @@
           <li>지목·면적·소유구분 등 개인정보를 제외한 대장 정보는 화면에서 바로 조회합니다.</li>
           <li>소유자 성명 등 전체 내용과 법적 증명이 필요하면 정부24 토지대장 열람·발급을 이용해 주세요.</li>
         </ul>
-        <a class="privacy-link" href="./privacy.html" target="_blank" rel="noopener noreferrer">개인정보처리방침</a>
+        <section class="help-sources" aria-labelledby="helpSourcesTitle">
+          <strong id="helpSourcesTitle">정부 정보 공식 출처</strong>
+          <div>
+            <a href="https://www.vworld.kr/" target="_blank" rel="noopener noreferrer">VWorld 공간정보 ↗</a>
+            <a href="https://www.eum.go.kr/" target="_blank" rel="noopener noreferrer">토지이음 ↗</a>
+            <a href="https://rt.molit.go.kr/" target="_blank" rel="noopener noreferrer">국토교통부 실거래가 ↗</a>
+            <a href="https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000026&amp;HighCtgCD=A09005" target="_blank" rel="noopener noreferrer">정부24 토지대장 ↗</a>
+            <a href="https://www.iros.go.kr/" target="_blank" rel="noopener noreferrer">인터넷등기소 ↗</a>
+            <a href="https://www.onbid.co.kr/" target="_blank" rel="noopener noreferrer">온비드 ↗</a>
+          </div>
+        </section>
+        <a class="privacy-link" href="./privacy.html" target="_blank" rel="noopener noreferrer">개인정보처리방침 ↗</a>
         <button class="button primary full" type="button" id="dialogConfirm">확인했어요</button>
       </dialog>
 
