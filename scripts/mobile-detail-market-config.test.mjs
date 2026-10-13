@@ -52,6 +52,7 @@ test("대장 바로가기는 탭형 분할 버튼이 아닌 독립 액션으로 
   const css = read("styles.css");
 
   assert.match(css, /\.detail-ledger-actions \{[^}]*display: flex;[^}]*gap: 8px;/);
-  assert.match(css, /\.detail-ledger-action \{[^}]*border: 1px solid #c8d9d2;[^}]*border-radius: 11px;/);
+  assert.match(css, /\.detail-ledger-action \{[^}]*min-height: 34px;[^}]*border: 1px solid #c8d9d2;[^}]*border-radius: 10px;/);
+  assert.match(css, /@media \(min-width: 721px\)[\s\S]*?\.detail-ledger-action \{ min-height: 36px;/);
   assert.doesNotMatch(css, /\.detail-ledger-action \+ \.detail-ledger-action/);
 });
