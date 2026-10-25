@@ -4,6 +4,8 @@ window.TOJIHANNUN_AD_CONFIG = Object.freeze({
   script: "https://t1.kakaocdn.net/kas/static/ba.min.js",
   placements: Object.freeze({
     searchPanel: Object.freeze({unit: "DAN-dLSnDNaQBJXV18Kx", width: 320, height: 100}),
+    list1: Object.freeze({unit: "DAN-dLSnDNaQBJXV18Kx", width: 320, height: 100}),
+    list2: Object.freeze({unit: "DAN-dLSnDNaQBJXV18Kx", width: 320, height: 100}),
     parcelDetail: Object.freeze({unit: "DAN-JNXyM9bPPPuvtJVr", width: 320, height: 100})
   })
 });

@@ -6,6 +6,8 @@
   const appWithNativeAds = /\bAdMobNative\/\d+\b/.test(root.navigator?.userAgent || "");
   const callbackNames = Object.freeze({
     searchPanel: {failed: "tojihannunSearchPanelAdFailed", loaded: "tojihannunSearchPanelAdLoaded"},
+    list1: {failed: "tojihannunList1AdFailed", loaded: "tojihannunList1AdLoaded"},
+    list2: {failed: "tojihannunList2AdFailed", loaded: "tojihannunList2AdLoaded"},
     parcelDetail: {failed: "tojihannunParcelDetailAdFailed", loaded: "tojihannunParcelDetailAdLoaded"}
   });
 
@@ -87,6 +89,10 @@
       hide(state);
       return;
     }
+    if (placement.startsWith("list")) {
+      observe(state);
+      return;
+    }
     zone.hidden = false;
     if (immediate) root.requestAnimationFrame(() => load(state));
     else observe(state);
@@ -116,6 +122,8 @@
 
   function init() {
     register("searchPanelAd", "searchPanel");
+    register("listAd1", "list1");
+    register("listAd2", "list2");
     root.document.addEventListener("visibilitychange", () => {
       if (root.document.hidden) return;
       for (const state of states.values()) if (state.requested === false && state.failed === false) load(state);

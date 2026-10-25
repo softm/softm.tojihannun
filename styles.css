@@ -112,6 +112,7 @@ button { color: inherit; }
 .view-switch button { padding: 5px 10px; border: 0; border-radius: 8px; background: transparent; color: #697b75; font-size: 11px; font-weight: 700; cursor: pointer; }
 .view-switch button.active { background: #fff; color: var(--green); box-shadow: 0 1px 5px rgba(30,60,50,.1); }
 .land-list { display: flex; gap: 9px; overflow-x: auto; padding: 1px 1px 4px; scrollbar-width: none; }
+.land-list > div { display: contents; }
 .land-list::-webkit-scrollbar { display: none; }
 .land-list.list-view { display: grid; overflow: visible; }
 .land-card-shell { position: relative; min-width: 260px; }

@@ -1973,7 +1973,7 @@ function render() {
   const records = getFilteredRecords();
   $("#resultCount").textContent = records.length;
   $("#landList").classList.toggle("list-view", state.view === "list");
-  $("#landList").innerHTML = records.length ? records.map((record) => `
+  const cards = records.map((record) => `
     <article class="land-card-shell${state.compareIds.has(record.id) ? " compare-selected" : ""}">
       ${state.filter === "favorite" ? `<label class="compare-select"><input type="checkbox" data-compare-id="${escapeHtml(record.id)}"${state.compareIds.has(record.id) ? " checked" : ""}><span>비교</span></label>` : ""}
       <button class="land-card" type="button" data-record-id="${escapeHtml(record.id)}">
@@ -1982,7 +1982,12 @@ function render() {
         <small>${escapeHtml(record.number || "지번 확인 중")} · ${state.favorites.has(record.id) ? "★ 관심 토지" : record.pnu ? "PNU 확인됨" : "주소 검색 결과"}</small>
         <em>›</em>
       </button>
-    </article>`).join("") : `<div class="empty-result">${state.filter === "favorite" ? "아직 저장한 관심 토지가 없어요." : "주소를 검색하거나 지도에서 필지를 선택해 보세요."}</div>`;
+    </article>`);
+  $("#landList1").innerHTML = records.length ? cards.slice(0,6).join("") : `<div class="empty-result">${state.filter === "favorite" ? "아직 저장한 관심 토지가 없어요." : "주소를 검색하거나 지도에서 필지를 선택해 보세요."}</div>`;
+  $("#landList2").innerHTML = cards.slice(6,12).join("");
+  $("#landList3").innerHTML = cards.slice(12).join("");
+  $("#listAd1").hidden=records.length<=6||$("#listAd1").dataset.state==="failed";
+  $("#listAd2").hidden=records.length<=12||$("#listAd2").dataset.state==="failed";
   $$("[data-record-id]").forEach((button) => button.addEventListener("click", () => {
     const record = state.records.find((item) => item.id === button.dataset.recordId);
     if (!record) return;
