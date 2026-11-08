@@ -10,5 +10,5 @@ test("exact parcel transactions are never replaced by nearby comparables", () =>
 test("user can explicitly switch transaction scope", () => {
   assert.match(source, /transactionScopeSwitch/);
   assert.match(source, /state\.transactionView = mode/);
-  assert.match(source, /지번 비공개 거래는 일치 여부를 확인할 수 없습니다/);
+  assert.match(fs.readFileSync(new URL("../index.html", import.meta.url), "utf8"), /지번 비공개 거래는 일치 여부를 확인할 수 없습니다/);
 });

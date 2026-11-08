@@ -15,6 +15,7 @@ const publicFiles = [
   "app.js",
   "styles.css",
   "market-data.js",
+  "rtms-verified-snapshots.json",
   "market-data.css",
   "building-ledger.html",
   "building-ledger.js",
