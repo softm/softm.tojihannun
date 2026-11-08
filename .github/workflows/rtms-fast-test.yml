@@ -45,6 +45,19 @@ jobs:
               for target,data in writes.items():
                   target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
               print('Reviewed files applied:',len(writes))
+          css=Path('market-data.css')
+          text=css.read_text()
+          if 'RTMS mobile heading width' not in text:
+              text+='\n/* RTMS mobile heading width */\n@media (max-width:720px) {\n  #detailPanelTransactions .market-panel-head {display:grid;grid-template-columns:minmax(0,1fr);}\n  #detailPanelTransactions .market-panel-head > div:first-child {width:100%;}\n  #detailPanelTransactions .transaction-market-controls {width:100%;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) 34px;}\n}\n'
+              css.write_text(text)
+          test=Path('scripts/rtms.browser.mjs')
+          text=test.read_text()
+          text=text.replace("document.querySelector('#detailRoad').textContent='공식 원본 검증 · 선영빌라';", "document.querySelector('#detailRoad').textContent=p.number==='158-217대'?'공개 지번 식별 가능 여부 검증':'공식 원본 검증 · 선영빌라';")
+          anchor="    await page.locator('#transactionDisclosure').scrollIntoViewIfNeeded();"
+          if 'commercial mobile heading width' not in text:
+              assert anchor in text
+              text=text.replace(anchor,"    const headingWidth=await page.locator('#transactionHeading').evaluate(e=>e.getBoundingClientRect().width);assert.ok(headingWidth>250,'commercial mobile heading width');\n    await page.locator('#transactionHeading').scrollIntoViewIfNeeded();",1)
+          test.write_text(text)
           PY
       - run: npm ci
       - name: Unit and behavior regression tests
