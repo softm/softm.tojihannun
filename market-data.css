@@ -545,3 +545,13 @@
 @media (prefers-reduced-motion: reduce) {
   .market-status[data-tone="loading"]::before { animation-duration: 1.5s; }
 }
+
+/* RTMS short, cancellable queries and coverage */
+.transaction-paging { display: grid; gap: 8px; margin: 10px 0 16px; }
+.transaction-paging small { color: #526861; line-height: 1.65; overflow-wrap: anywhere; }
+.transaction-paging button { min-height: 42px; padding: 8px 12px; border: 1px solid #a9c9b8; border-radius: 10px; background: #f0f7f3; color: #176b54; font-weight: 700; cursor: pointer; }
+.transaction-paging button:disabled { color: #75847d; cursor: default; }
+.transaction-market-controls { min-width: 0; }
+.transaction-market-controls select { max-width: 100%; }
+.market-panel-head > div:first-child { min-width: 0; }
+@media (min-width: 721px) { #detailPanelTransactions .market-panel-head { flex-wrap: wrap; } #detailPanelTransactions .market-panel-head > div:first-child { flex: 1 1 230px; } }

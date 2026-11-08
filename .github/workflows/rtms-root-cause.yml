@@ -1,0 +1,47 @@
+name: RTMS root cause verification
+on:
+  push:
+    branches: [fix/rtms-root-cause-20261108]
+    paths: [scripts/apply-rtms-root-fix.py]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply reviewed repair
+        run: if [ -f scripts/apply-rtms-root-fix.py ]; then python3 scripts/apply-rtms-root-fix.py; fi
+      - run: npm ci
+      - run: npm test
+      - run: node --check market-data.js
+      - run: npm run build
+      - name: Isolated browser dependency
+        run: |
+          npm install --prefix /tmp/rtms-browser playwright@1.56.1
+          /tmp/rtms-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Browser regression with verified public records
+        env:
+          PLAYWRIGHT_MODULE: /tmp/rtms-browser/node_modules/playwright/index.mjs
+        run: node scripts/rtms.browser.mjs
+      - name: Commit tested source to repair branch
+        if: github.ref == 'refs/heads/fix/rtms-root-cause-20261108'
+        run: |
+          git add market-data.js market-data.css index.html scripts/build-pages.mjs scripts/full-history-default.test.mjs scripts/transaction-scope-separation.test.mjs scripts/rtms-behavior.test.mjs scripts/rtms.browser.mjs rtms-verified-snapshots.json docs/RTMS_ROOT_CAUSE_20261108.md docs/RTMS_API_VERIFICATION_20261108.json
+          git rm --ignore-unmatch scripts/rtms-repair-part*.b64 scripts/apply-rtms-root-fix.py
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: verify parcel identity and serve tested bounded RTMS queries'
+            git push origin HEAD:fix/rtms-root-cause-20261108
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rtms-browser-verified
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7

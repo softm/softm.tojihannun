@@ -44,7 +44,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
     <link rel="stylesheet" href="./styles.css?v=20261108.3" />
-    <link rel="stylesheet" href="./market-data.css?v=20261013.3" />
+    <link rel="stylesheet" href="./market-data.css?v=20261108.8" />
     <link rel="stylesheet" href="./districts.css?v=20261108.4" />
   </head>
   <body>
@@ -288,9 +288,27 @@
                 <option value="12">최근 12개월</option>
                 <option value="24">최근 24개월</option>
                 <option value="36">최근 36개월</option>
+                <option value="year-2026">2026년 전체</option>
+                <option value="year-2025">2025년 전체</option>
+                <option value="year-2024">2024년 전체</option>
+                <option value="year-2023">2023년 전체</option>
+                <option value="year-2022">2022년 전체</option>
+                <option value="year-2021">2021년 전체</option>
                 <option value="year-2020">2020년 전체</option>
                 <option value="year-2019">2019년 전체</option>
+                <option value="year-2018">2018년 전체</option>
+                <option value="year-2017">2017년 전체</option>
                 <option value="year-2016">2016년 전체</option>
+                <option value="year-2015">2015년 전체</option>
+                <option value="year-2014">2014년 전체</option>
+                <option value="year-2013">2013년 전체</option>
+                <option value="year-2012">2012년 전체</option>
+                <option value="year-2011">2011년 전체</option>
+                <option value="year-2010">2010년 전체</option>
+                <option value="year-2009">2009년 전체</option>
+                <option value="year-2008">2008년 전체</option>
+                <option value="year-2007">2007년 전체</option>
+                <option value="year-2006">2006년 전체</option>
               </select>
               <button type="button" id="refreshTransactions" aria-label="실거래 다시 조회">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.2 9A7 7 0 0 0 6.4 6.4L4 9m16 6-2.4 2.6A7 7 0 0 1 5.8 15"/></svg>
@@ -313,7 +331,7 @@
             </div>
             <div class="transaction-list" id="transactionList"></div>
           </section>
-          <p class="market-disclaimer">공개 지번이 일치하면 해당 필지·단지 거래를 우선 표시합니다. 일치 거래가 없으면 같은 법정동의 비교 가능한 거래를 표시하며, 토지는 대장 면적의 50~200% 범위만 비교합니다. 개인정보 보호로 지번 일부가 비공개될 수 있습니다.</p>
+          <p class="market-disclaimer">공개 지번이 일치하는 거래와 같은 법정동 비교 거래를 분리합니다. 전체 기간은 조회 범위이며, 미조회 기간은 별도로 표시하고 추가 조회합니다. 지번 비공개 거래는 일치 여부를 확인할 수 없습니다. 다세대 거래는 같은 지번의 여러 호실이 포함되며 동일 호실 이력으로 확정하지 않습니다.</p>
           <div class="market-source">
             <span>출처</span>
             <strong>국토교통부 실거래가 공개시스템 · 공공데이터포털</strong>
@@ -536,7 +554,7 @@
     <script src="./adfit.js?v=20261012.1"></script>
     <script src="./report-export.js?v=20261013.5"></script>
     <script src="./runtime-config.js"></script>
-    <script src="./market-data.js?v=20261108.7"></script>
+    <script src="./market-data.js?v=20261108.8"></script>
     <script src="./app.js?v=20261108.3"></script>
     <script defer src="./districts-core.js?v=20261108.1"></script>
     <script defer src="./districts.js?v=20261108.1"></script>
