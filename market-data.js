@@ -368,15 +368,24 @@
     if (!response.ok) throw publicApiError(`실거래 API 응답 오류(${response.status})`, [401, 403].includes(response.status) ? "30" : String(response.status));
     const text = await response.text();
     const envelope = parseApiEnvelope(text);
-    const nodes = envelope.kind === "xml" ? [...envelope.xml.getElementsByTagName("item")] : [];
+    const rawItems = envelope.kind === "xml" ? [...envelope.xml.getElementsByTagName("item")] : (envelope.body?.items?.item ?? envelope.body?.items ?? []);
+    const nodes = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+    const get = (node, names) => {
+      if (node?.getElementsByTagName) return field(node, names);
+      for (const name of names) {
+        const key = Object.keys(node || {}).find(key => key.toLowerCase() === name.toLowerCase());
+        if (key && node[key] != null) return String(node[key]).trim();
+      }
+      return "";
+    };
     const items = nodes.map((node) => {
-      const year = field(node, ["dealYear", "년"]);
-      const monthValue = field(node, ["dealMonth", "월"]);
-      const day = field(node, ["dealDay", "일"]);
-      const amount = numberValue(field(node, ["dealAmount", "거래금액"]));
+      const year = get(node, ["dealYear", "년"]);
+      const monthValue = get(node, ["dealMonth", "월"]);
+      const day = get(node, ["dealDay", "일"]);
+      const amount = numberValue(get(node, ["dealAmount", "거래금액"]));
       const area = transactionArea(node, type);
-      const cancel = field(node, ["cdealType", "해제여부"]);
-      const cancellationDate = field(node, ["cdealDay", "해제사유발생일"]);
+      const cancel = get(node, ["cdealType", "해제여부"]);
+      const cancellationDate = get(node, ["cdealDay", "해제사유발생일"]);
       return {
         type,
         date: `${year}-${String(monthValue).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
@@ -384,13 +393,13 @@
         amount,
         area,
         unitPrice: amount > 0 && area > 0 ? amount / area : 0,
-        umdNm: field(node, ["umdNm", "법정동"]),
-        jibun: field(node, ["jibun", "지번"]),
-        buildingName: field(node, ["aptNm", "offiNm", "mhouseNm", "houseType", "buildingNm", "아파트", "단지", "연립다세대", "주택유형", "건물명"]),
-        floor: field(node, ["floor", "층"]),
-        jimok: field(node, ["jimok", "지목"]),
-        landUse: field(node, ["landUse", "landCategory", "useArea", "지목", "용도지역"]),
-        dealType: field(node, ["dealingGbn", "dealType", "거래유형"]),
+        umdNm: get(node, ["umdNm", "법정동"]),
+        jibun: get(node, ["jibun", "지번"]),
+        buildingName: get(node, ["aptNm", "offiNm", "mhouseNm", "houseType", "buildingNm", "아파트", "단지", "연립다세대", "주택유형", "건물명"]),
+        floor: get(node, ["floor", "층"]),
+        jimok: get(node, ["jimok", "지목"]),
+        landUse: get(node, ["landUse", "landCategory", "useArea", "지목", "용도지역"]),
+        dealType: get(node, ["dealingGbn", "dealType", "거래유형"]),
         cancel,
         cancellationDate
       };
