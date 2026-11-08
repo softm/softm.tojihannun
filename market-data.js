@@ -252,7 +252,16 @@
   }
 
   function transactionMonths(value) {
-    const raw = String(value || "24");
+    const raw = String(value || "all");
+    if (raw === "all") {
+      const now = new Date();
+      const months = [];
+      for (let year = now.getFullYear(); year >= 2006; year--) {
+        const end = year === now.getFullYear() ? now.getMonth() + 1 : 12;
+        for (let month = end; month >= 1; month--) months.push(String(year) + String(month).padStart(2, "0"));
+      }
+      return months;
+    }
     if (/^year-(20[0-2][0-9])$/.test(raw)) {
       const year = Number(raw.slice(5));
       if (year > new Date().getFullYear()) return [];
@@ -532,7 +541,8 @@
       button.addEventListener("click", () => { state.transactionView = mode; renderTransactionView(); });
       control.appendChild(button);
     }
-    if (!nearby && !items.length) setStatus("#transactionStatus", `${group.periodLabel || "선택 기간"} 선택 지번의 공개 실거래 일치 내역이 없습니다. 지번 비공개 거래는 일치 여부를 확인할 수 없습니다. 거래유형·과거 연도도 확인하세요.`);
+    if (group.loading) setStatus("#transactionStatus", group.periodLabel + " · 과거 거래를 계속 조회하고 있습니다.", "loading");
+    else if (!nearby && !items.length) setStatus("#transactionStatus", group.periodLabel + " · 선택 지번의 공개 실거래 일치 내역이 없습니다. 지번 비공개 거래는 일치 여부를 확인할 수 없습니다.", group.failedMonths ? "error" : "success");
   }
 
   function renderTransactions(items, scope, failedMonths, requestedMonths, {exact: exactMatch = false, truncated = false} = {}) {
@@ -594,7 +604,7 @@
       setStatus("#transactionStatus", "실거래 조회에 필요한 시군구 코드(PNU)를 확인할 수 없습니다.", "error");
       return;
     }
-    const period = String($("#transactionRange")?.value || "24");
+    const period = String($("#transactionRange")?.value || "all");
     const months = transactionMonths(period);
     const range = months.length;
     const cacheKey = `${parcel.pnu || parcel.id}:${type}:${period}:${selectedParcelArea(parcel)}`;
@@ -607,16 +617,42 @@
     $("#transactionStats").innerHTML = "";
     $("#transactionChartCard").hidden = true;
     $("#transactionListSection").hidden = true;
-    setStatus("#transactionStatus", `${period.startsWith("year-") ? period.slice(5) + "년" : "최근 " + range + "개월"} ${definition.label} 매매를 불러오고 있습니다.`, "loading");
+    setStatus("#transactionStatus", (period === "all" ? "2006년 이후 전체" : period.startsWith("year-") ? period.slice(5) + "년" : "최근 " + range + "개월") + " " + definition.label + " 매매를 불러오고 있습니다.", "loading");
     try {
-      const results = await mapConcurrent(months, 4, (month) => fetchRtmsMonth(type, area.lawdCode, month, controller.signal));
+      const results = [];
+      for (let offset = 0; offset < months.length; offset += 12) {
+        const batch = months.slice(offset, offset + 12);
+        const fetched = await mapConcurrent(batch, 3, month => fetchRtmsMonth(type, area.lawdCode, month, controller.signal));
+        if (requestId !== state.transactionRequest || controller.signal.aborted) return;
+        results.push(...fetched);
+        const ok = results.filter(result => result.status === "fulfilled");
+        if (!ok.length) continue;
+        const scoped = scopeTransactionItems(ok.flatMap(result => result.value.items), area, type);
+        state.transactionGroups = {
+          ...scoped,
+          comparable: period === "all" ? scoped.comparable.filter(item => item.month >= recentMonths(24).at(-1)) : scoped.comparable,
+          failedMonths: results.length - ok.length,
+          requestedMonths: results.length,
+          periodLabel: period === "all" ? "2006년 이후 전체 · " + results.length + "/" + months.length + "개월 조회" : period.startsWith("year-") ? period.slice(5) + "년" : "최근 " + range + "개월",
+          truncated: ok.some(result => result.value.truncated),
+          loading: offset + batch.length < months.length
+        };
+        renderTransactionView();
+      }
       if (requestId !== state.transactionRequest || controller.signal.aborted) return;
       const successes = results.filter((result) => result.status === "fulfilled");
       if (!successes.length) throw results.find((result) => result.status === "rejected")?.reason || publicApiError("실거래를 조회하지 못했습니다.");
       const scoped = scopeTransactionItems(successes.flatMap((result) => result.value.items), area, type);
       state.transactionCacheKey = cacheKey;
-      state.transactionView = "parcel";
-      state.transactionGroups = {...scoped, failedMonths: results.length - successes.length, requestedMonths: range, periodLabel: period.startsWith("year-") ? period.slice(5) + "년" : "최근 " + range + "개월", truncated: successes.some((result) => result.value.truncated)};
+      state.transactionGroups = {
+        ...scoped,
+        comparable: period === "all" ? scoped.comparable.filter(item => item.month >= recentMonths(24).at(-1)) : scoped.comparable,
+        failedMonths: results.length - successes.length,
+        requestedMonths: range,
+        periodLabel: period === "all" ? "2006년 이후 전체" : period.startsWith("year-") ? period.slice(5) + "년" : "최근 " + range + "개월",
+        truncated: successes.some(result => result.value.truncated),
+        loading: false
+      };
       renderTransactionView();
     } catch (error) {
       if (error?.name === "AbortError") return;
