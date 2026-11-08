@@ -45,7 +45,7 @@ async function run({snapshotsEnabled=true,responseStatus=429,xml=false,commercia
     document.querySelector('#mapLoading').hidden=true;
     document.querySelector('#detailSheet').classList.add('open');document.querySelector('#detailSheet').setAttribute('aria-hidden','false');
     document.querySelector('#detailTitle').textContent=p.address;
-    document.querySelector('#detailRoad').textContent='공식 원본 검증 · 선영빌라';
+    document.querySelector('#detailRoad').textContent=p.number==='158-217대'?'공개 지번 식별 가능 여부 검증':'공식 원본 검증 · 선영빌라';
     document.querySelector('#mainSheet').style.display='none';
     document.querySelectorAll('[data-detail-panel]').forEach(e=>e.hidden=e.dataset.detailPanel!=='transactions');
     document.querySelectorAll('[data-detail-tab]').forEach(e=>e.classList.toggle('active',e.dataset.detailTab==='transactions'));
@@ -71,7 +71,8 @@ async function run({snapshotsEnabled=true,responseStatus=429,xml=false,commercia
     await page.locator('#transactionScopeSwitch').scrollIntoViewIfNeeded();
     await page.screenshot({path:'test-results/rtms-commercial-scope-desktop.png'});
     await page.setViewportSize({width:430,height:1000});
-    await page.locator('#transactionDisclosure').scrollIntoViewIfNeeded();
+    const headingWidth=await page.locator('#transactionHeading').evaluate(e=>e.getBoundingClientRect().width);assert.ok(headingWidth>250,'commercial mobile heading width');
+    await page.locator('#transactionHeading').scrollIntoViewIfNeeded();
     await page.screenshot({path:'test-results/rtms-commercial-scope-mobile.png'});
     const width=await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth);assert.ok(width,'no horizontal overflow');
     await page.selectOption('#transactionRange','3');
