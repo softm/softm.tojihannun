@@ -495,8 +495,8 @@ button { color: inherit; }
   .topbar { padding-left: 14px; padding-right: 14px; }
   .search-wrap { top: max(126px, calc(env(safe-area-inset-top) + 114px)); width: calc(100% - 24px); }
   .search-suggestions { max-height: max(96px, calc(100dvh - max(126px, calc(env(safe-area-inset-top) + 114px)) - 78px - env(safe-area-inset-bottom))); overflow-y: scroll; scrollbar-width: thin; }
-  .map-controls { top: 202px; right: 13px; }
-  .map-status { top: 202px; left: 13px; }
+  .map-controls { top: 280px; right: 13px; }
+  .map-status { top: 280px; left: 13px; max-width: calc(100% - 90px); }
   .map-attribution { display: none; }
   .sheet { width: calc(100% - 16px); max-height: 62dvh; }
   .adfit-zone { width: calc(100% + 16px); }

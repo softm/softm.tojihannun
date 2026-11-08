@@ -173,6 +173,18 @@ function initMap() {
     })
   });
 
+  // Start near the visitor without identifying or selecting a cadastral parcel.
+  // A denied/unavailable location leaves the default overview map intact.
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(({coords}) => {
+      if (!map || state.selectedId || state.searchResults.length) return;
+      const position = [Number(coords.longitude), Number(coords.latitude)];
+      if (!position.every(Number.isFinite)) return;
+      map.getView().animate({center: fromLonLat(position), zoom: 14, duration: 550});
+      $("#mapStatus").textContent = "현재 위치 주변 · 필지 미선택";
+    }, () => {}, {enableHighAccuracy: false, maximumAge: 300000, timeout: 8000});
+  }
+
   map.once("rendercomplete", () => {
     $("#mapLoading").hidden = true;
   });
