@@ -1,0 +1,46 @@
+name: Verify published RTMS repair
+on:
+  push:
+    branches: [fix/rtms-root-cause-20261108]
+    paths: [.github/workflows/rtms-live-proof.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public Pages files (no external API calls)
+        run: |
+          python3 - <<'PY'
+          import urllib.request, hashlib, json, time
+          from pathlib import Path
+          base='https://tojihannun.designboard.net/'
+          files=['index.html','market-data.js','rtms-verified-snapshots.json']
+          report=[]
+          for name in files:
+              expected=hashlib.sha256(Path(name).read_bytes()).hexdigest()
+              for attempt in range(3):
+                  try:
+                      with urllib.request.urlopen(base+name+'?v=20261108.8',timeout=15) as response:
+                          body=response.read();status=response.status
+                      actual=hashlib.sha256(body).hexdigest()
+                      assert status==200 and actual==expected, 'Published asset hash mismatch: '+name
+                      if name.endswith('.json'):
+                          value=json.loads(body); rows=value['entries'][0]['rows']
+                          assert len(rows)==3
+                          assert [row['dealAmount'] for row in rows]==['31,000','27,000','20,500']
+                      report.append({'file':name,'http':status,'sha256':actual,'matchesTestedSource':True})
+                      print(json.dumps(report[-1]));break
+                  except Exception:
+                      if attempt==2: raise
+                      time.sleep(5)
+          Path('rtms-live-proof.json').write_text(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rtms-live-proof
+          path: rtms-live-proof.json
+          retention-days: 7
