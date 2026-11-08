@@ -21,3 +21,6 @@
 .district-disclaimer{font-size:11px!important;line-height:1.7!important;color:#64776e;margin:12px 0 0}
 .district-parcel-link{font-size:11px!important;white-space:nowrap;display:inline-flex;align-items:center;padding:5px 8px;min-height:32px}
 @media(max-width:700px){.district-controls{top:198px;right:10px}.district-panel{max-height:45dvh;width:290px;max-width:calc(100vw - 20px);padding:12px}.district-toolbar button{font-size:12px;padding:7px 9px}.district-parcel-link{font-size:10px!important;padding:4px 6px}.detail-title-actions{flex-wrap:wrap}}
+
+/* Keep district tools on the map, not over the parcel detail sheet. */
+body:has(#detailSheet.open) .district-controls { display: none; }
