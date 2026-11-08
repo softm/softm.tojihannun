@@ -129,7 +129,7 @@
   }
 
   function normalizeLot(value) {
-    const match = String(value || "").replace(/번지/g, "").match(/(산)?\s*0*(\d+)(?:-0*(\d+))?/);
+    const match = String(value || "").trim().replace(/번지$/, "").match(/^(산)?\s*0*(\d+)(?:-0*(\d+))?$/);
     if (!match) return "";
     return `${match[1] ? "산" : ""}${Number(match[2])}${match[3] !== undefined ? `-${Number(match[3])}` : ""}`;
   }
@@ -395,13 +395,13 @@
 
   function scopeTransactionItems(items, area, type) {
     const matchingArea = items.filter((item) => normalizeAreaName(item.umdNm) === normalizeAreaName(area.emd));
-    const regional = area.emd && matchingArea.length ? matchingArea : items;
+    const regional = area.emd ? matchingArea : [];
     const seen = new Set();
     const unique = regional.filter((item) => {
       const key = [item.type, item.date, item.umdNm, item.jibun, item.buildingName, item.amount, item.area].join("|");
       if (seen.has(key)) return false;
       seen.add(key);
-      item.exact = Boolean(area.lot && normalizeLot(item.jibun) === area.lot);
+      item.exact = Boolean(area.emd && area.lot && normalizeAreaName(item.umdNm) === normalizeAreaName(area.emd) && normalizeLot(item.jibun) && normalizeLot(item.jibun) === area.lot);
       return true;
     });
     const exact = unique.filter((item) => item.exact);
