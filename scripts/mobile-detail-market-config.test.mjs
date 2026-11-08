@@ -43,7 +43,7 @@ test("실거래는 용도별 API와 필지 우선·유사면적 비교 기준을
   const app = read("app.js");
 
   assert.match(html, /id="transactionType"[\s\S]*?value="land"[\s\S]*?value="apartment"[\s\S]*?value="factory"/);
-  assert.match(html, /<option value="24" selected>최근 24개월<\/option>/);
+  assert.match(html, /<option value="all" selected>전체 기간 \(2006년~\)<\/option>/);
   assert.match(market, /RTMSDataSvcLandTrade[\s\S]*?RTMSDataSvcAptTrade[\s\S]*?RTMSDataSvcInduTrade/);
   assert.match(market, /const exact = unique\.filter\(\(item\) => item\.exact\)/);
   assert.match(market, /item\.area >= parcelArea \* \.5 && item\.area <= parcelArea \* 2/);
