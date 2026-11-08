@@ -9,6 +9,7 @@ const host = process.env.HOST || "127.0.0.1";
 const eumLandUseUrl = "https://www.eum.go.kr/web/ar/lu/luLandDet.jsp";
 const allowedVWorldServices = new Set(["search", "data", "address", "wms"]);
 const allowedNedOperations = new Set([
+  "getCtySpceWFS",
   "getBuildingUse",
   "ladfrlList",
   "getPossessionAttr",
@@ -103,7 +104,8 @@ async function proxyVWorldNed(request, response, operation, incomingUrl) {
   }
   try {
     const {vworldApiKey, vworldDomain} = readLocalConfig();
-    const target = new URL(`https://api.vworld.kr/ned/data/${operation}`);
+    const family = operation === "getCtySpceWFS" ? "wfs" : "data";
+    const target = new URL(`https://api.vworld.kr/ned/${family}/${operation}`);
     incomingUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
     target.searchParams.set("key", vworldApiKey);
     target.searchParams.set("domain", vworldDomain);

@@ -189,6 +189,7 @@ function initMap() {
     }
   });
   map.on("singleclick", handleMapClick);
+  window.TojiDistricts?.attach(map, {key: VWORLD_BROWSER_KEY, useJsonp: USE_VWORLD_JSONP, getParcel: () => state.records.find(item => item.id === state.selectedId)});
 
   window.setTimeout(() => { $("#mapLoading").hidden = true; }, 7000);
   setMapMode(state.mapMode, false);
@@ -223,6 +224,7 @@ function setMapMode(mode, announce = true) {
 }
 
 async function handleMapClick(event) {
+  if (window.TojiDistricts?.handleMapClick(event)) return;
   const hit = map.forEachFeatureAtPixel(event.pixel, (feature) => feature, {hitTolerance: 8});
   if (hit?.get("recordId")) {
     const record = state.records.find((item) => item.id === hit.get("recordId"));
