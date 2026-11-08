@@ -36,7 +36,6 @@ try {
     if(url.hostname==="cdn.jsdelivr.net" && /ol@/.test(url.pathname) && url.pathname.endsWith(".js")) {
       return route.fulfill({contentType:"text/javascript",body:fs.readFileSync("node_modules/ol/dist/ol.js","utf8")});
     }
-    // External tiles, fonts and advertisements are irrelevant to the overlay regression.
     return route.abort();
   });
   await page.goto(base,{waitUntil:"domcontentloaded"});
@@ -52,12 +51,18 @@ try {
   assert.equal(await page.evaluate(()=>map.getLayers().getArray().find(l=>l.get("name")==="district-boundaries").getVisible()),false);
   await page.locator('#districtToggle').click();
   await page.waitForFunction(()=>document.querySelector('[data-district-list] button'));
+  await page.screenshot({path:path.join(artifact,"districts-desktop-fixture.png")});
   await page.setViewportSize({width:390,height:844});
+  await page.waitForFunction(()=>document.querySelector('[data-district-list] button') && document.querySelector('[data-sources]')?.textContent.includes("1개 도형"));
+  await page.waitForTimeout(600);
   await page.screenshot({path:path.join(artifact,"districts-mobile-fixture.png")});
   const box=await page.locator('#districtPanel').boundingBox();assert.ok(box.x>=0 && box.x+box.width<=391);
+  const toolbar=await page.locator('.district-toolbar').boundingBox();assert.ok(toolbar.y>=190,"mobile district controls must stay below the search bar");
+  const listButton=await page.locator('[data-district-list] button').first().boundingBox();
+  if(listButton) assert.equal(await page.evaluate(({x,y})=>!!document.elementFromPoint(x,y)?.closest('.district-controls'),{x:listButton.x+10,y:listButton.y+10}),true,"district panel must remain above parcel sheet");
   fail=true; await page.evaluate(()=>window.TojiDistricts.refresh());
   await page.waitForFunction(()=>document.querySelector('[data-district-status]')?.textContent.includes("확인하지 못했습니다"));
   assert.equal(await page.locator('[data-district-list] button').count(),0);
   assert.equal(errors.filter(e=>/TojiDistrict|districts|Invalid URL|is not a function/.test(e)).length,0,JSON.stringify(errors));
-  console.log("Browser PASS: viewport polygons, details, Naver coordinates, visibility, mobile bounds, provider failures (SYNTHETIC FIXTURES)");
+  console.log("Browser PASS: viewport polygons, details, Naver coordinates, visibility, mobile bounds and stacking, provider failures (SYNTHETIC FIXTURES)");
 } finally {await browser.close();server.close();}

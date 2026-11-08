@@ -17,6 +17,8 @@ export function patchFile(name, original) {
   } else if (name === "server.mjs") {
     if (!text.includes('"getCtySpceWFS"')) insert('const allowedNedOperations = new Set([', 'const allowedNedOperations = new Set([\n  "getCtySpceWFS",');
     if (!text.includes('operation === "getCtySpceWFS" ? "wfs"')) insert('const target = new URL(`https://api.vworld.kr/ned/data/${operation}`);', 'const family = operation === "getCtySpceWFS" ? "wfs" : "data";\n    const target = new URL(`https://api.vworld.kr/ned/${family}/${operation}`);');
+  } else if (name === "districts.js") {
+    if (!text.includes("document.body.append(wrap)")) insert("wrap.append(panel); host.append(wrap);", "wrap.append(panel); document.body.append(wrap);");
   } else if (name === "scripts/build-pages.mjs") {
     if (!text.includes('"districts-core.js"')) insert('const publicFiles = [', 'const publicFiles = [\n  "districts-core.js",\n  "districts.js",\n  "districts.css",');
   }
@@ -24,7 +26,7 @@ export function patchFile(name, original) {
 }
 export function install(root) {
   const changed = [];
-  for (const name of ["index.html", "app.js", "server.mjs", "scripts/build-pages.mjs"]) {
+  for (const name of ["index.html", "app.js", "server.mjs", "scripts/build-pages.mjs", "districts.js"]) {
     const file = path.join(root, name), original = fs.readFileSync(file, "utf8"), patched = patchFile(name, original);
     if (patched !== original) {fs.writeFileSync(file, patched); changed.push(name);}
   }

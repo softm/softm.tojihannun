@@ -38,9 +38,9 @@ jobs:
       - name: Save tested integration on feature branch
         if: github.ref == 'refs/heads/feat/district-boundaries-20261108'
         run: |
-          git add index.html app.js server.mjs scripts/build-pages.mjs
+          git add index.html app.js server.mjs scripts/build-pages.mjs districts.js
           if ! git diff --cached --quiet; then
-            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat: integrate tested district overlays into map and build'
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: keep district panel above parcel sheet on mobile'
             git push origin HEAD:feat/district-boundaries-20261108
           fi
       - name: Browser screenshots (fixture data, not official boundaries)
