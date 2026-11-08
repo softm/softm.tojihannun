@@ -301,7 +301,7 @@
     if (["20", "30", "31"].includes(code) || /SERVICE_KEY|등록되지 않은|인증키|ACCESS_DENIED/i.test(message)) {
       return `${serviceLabel} 정보를 현재 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.`;
     }
-    if (["22", "23"].includes(code) || /LIMITED_NUMBER|트래픽/i.test(message)) {
+    if (code === "429" || ["22", "23"].includes(code) || /LIMITED_NUMBER|트래픽|429/i.test(message)) {
       return "공공데이터 API 호출 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.";
     }
     if (/Failed to fetch|NetworkError|Load failed|CORS/i.test(message)) {
@@ -620,9 +620,24 @@
     setStatus("#transactionStatus", (period === "all" ? "2006년 이후 전체" : period.startsWith("year-") ? period.slice(5) + "년" : "최근 " + range + "개월") + " " + definition.label + " 매매를 불러오고 있습니다.", "loading");
     try {
       const results = [];
-      for (let offset = 0; offset < months.length; offset += 12) {
-        const batch = months.slice(offset, offset + 12);
-        const fetched = await mapConcurrent(batch, 3, month => fetchRtmsMonth(type, area.lawdCode, month, controller.signal));
+      let rateLimited = false;
+      for (let offset = 0; offset < months.length; offset += 3) {
+        const batch = months.slice(offset, offset + 3);
+        const fetched = [];
+        for (const month of batch) {
+          if (controller.signal.aborted || requestId !== state.transactionRequest) return;
+          // 연속 월 조회는 호출 간 간격을 두고 순차 실행하여 급격한 요청 폭증을 피한다.
+          if (results.length || fetched.length) await new Promise(resolve => setTimeout(resolve, 1100));
+          try {
+            fetched.push({status: "fulfilled", value: await fetchRtmsMonth(type, area.lawdCode, month, controller.signal)});
+          } catch (reason) {
+            fetched.push({status: "rejected", reason});
+            if (String(reason?.code) === "429" || /429|트래픽|호출 한도/i.test(String(reason?.message))) {
+              rateLimited = true;
+              break;
+            }
+          }
+        }
         if (requestId !== state.transactionRequest || controller.signal.aborted) return;
         results.push(...fetched);
         const ok = results.filter(result => result.status === "fulfilled");
@@ -635,9 +650,13 @@
           requestedMonths: results.length,
           periodLabel: period === "all" ? "2006년 이후 전체 · " + results.length + "/" + months.length + "개월 조회" : period.startsWith("year-") ? period.slice(5) + "년" : "최근 " + range + "개월",
           truncated: ok.some(result => result.value.truncated),
-          loading: offset + batch.length < months.length
+          loading: !rateLimited && offset + batch.length < months.length
         };
         renderTransactionView();
+        if (rateLimited) {
+          setStatus("#transactionStatus", "실거래 API 호출 제한(429)으로 전체 조회를 중단했습니다. 이미 조회한 결과는 유지됩니다. 잠시 후 다시 시도하세요.", "error");
+          return;
+        }
       }
       if (requestId !== state.transactionRequest || controller.signal.aborted) return;
       const successes = results.filter((result) => result.status === "fulfilled");
