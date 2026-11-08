@@ -1,0 +1,23 @@
+.district-controls{position:absolute;right:16px;top:126px;z-index:32;font-family:inherit;font-size:13px;color:#193b34}
+.district-toolbar{display:flex;justify-content:flex-end;gap:6px}
+.district-toolbar button,.district-panel button,.district-panel a,.district-parcel-link{font:inherit;border:1px solid #cbd9d4;background:#fff;color:#193b34;border-radius:10px;padding:9px 11px;min-height:38px;cursor:pointer;text-decoration:none;line-height:1.5}
+.district-toolbar button[aria-pressed=true]{background:#163d32;color:#fff;border-color:#163d32}
+.district-toolbar button[data-error=true]{background:#7c2d12;border-color:#7c2d12}
+.district-panel{width:320px;max-width:calc(100vw - 32px);max-height:60dvh;overflow:auto;overscroll-behavior:contain;margin-top:8px;padding:14px;background:rgba(255,255,255,.98);border:1px solid #d6e0dc;border-radius:14px;box-shadow:0 8px 30px #163d3224;scrollbar-gutter:stable}
+.district-panel[hidden],.district-detail[hidden]{display:none!important}
+.district-panel h2{font-size:16px;margin:0 0 10px}.district-panel h3{font-size:15px;margin:10px 0}
+.district-panel fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px 12px}.district-panel legend{font-weight:700;margin-bottom:8px}
+.district-panel label{display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer}.district-panel input{accent-color:#176b54;min-width:16px;min-height:16px}
+.district-pick{margin:12px 0;border-top:1px solid #e2e9e6;padding-top:12px}.district-pick-mode{cursor:help}
+.district-status{font-weight:600;background:#edf5f0;border-radius:8px;padding:10px;font-size:12px;line-height:1.7}.district-status[data-error=true]{background:#fff4e5;color:#854d0e}
+.district-source-status{font-size:11px;color:#576b63;line-height:1.5}.district-source-status p{margin:4px 0}
+.district-list{display:grid;gap:7px;max-height:200px;overflow:auto;margin-top:10px}.district-list button{text-align:left;white-space:normal;border-left:4px solid #176b54;font-size:12px}
+.district-panel button:hover,.district-panel a:hover,.district-parcel-link:hover{background:#edf5f0}
+.district-controls :focus-visible,.district-parcel-link:focus-visible{outline:3px solid #2563eb;outline-offset:2px}
+.district-detail{border-top:1px solid #d6e0dc;margin-top:12px;padding-top:6px}.district-detail dl{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;font-size:12px;line-height:1.6}
+.district-detail dt{color:#607169}.district-detail dd{margin:0;overflow-wrap:anywhere}.district-detail a,.district-detail button{display:inline-block;margin:4px 5px 4px 0;font-size:12px}
+.district-detail pre{max-height:170px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;background:#f3f6f4;padding:9px}.district-detail summary{cursor:pointer;font-size:12px}
+.district-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.district-links button,.district-links a{font-size:12px}
+.district-disclaimer{font-size:11px!important;line-height:1.7!important;color:#64776e;margin:12px 0 0}
+.district-parcel-link{font-size:11px!important;white-space:nowrap;display:inline-flex;align-items:center;padding:5px 8px;min-height:32px}
+@media(max-width:700px){.district-controls{top:132px;right:10px}.district-panel{max-height:45dvh;width:290px;max-width:calc(100vw - 20px);padding:12px}.district-toolbar button{font-size:12px;padding:7px 9px}.district-parcel-link{font-size:10px!important;padding:4px 6px}.detail-title-actions{flex-wrap:wrap}}

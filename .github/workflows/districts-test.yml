@@ -4,44 +4,49 @@ on:
     branches: [feat/district-boundaries-20261108]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
+concurrency:
+  group: district-checks-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm ci
+      - name: Integrate narrowly scoped map hooks
+        run: node scripts/install-districts.mjs --write
       - name: Regression tests
         run: |
           node --test scripts/*.test.mjs
-          if [ -f districts.js ]; then node --check districts.js; fi
-      - name: Provider smoke check (diagnostic, no cached boundary redistribution)
+          node --check districts.js
+          node --check districts-core.js
+          node --check app.js
+          node --check server.mjs
+      - name: Browser test dependencies (no lockfile changes)
         run: |
-          node --input-type=module <<'JS'
-          import fs from 'node:fs';
-          const key = fs.readFileSync('app.js','utf8').match(/VWORLD_BROWSER_KEY\s*=\s*"([^"]+)"/)?.[1];
-          if (!key) throw Error('Browser API configuration missing');
-          const common = {key,domain:'tojihannun.designboard.net'};
-          const urls = [
-            ['city-wfs','https://api.vworld.kr/ned/wfs/getCtySpceWFS', {...common,typename:'dt_d029',bbox:'14117000,4500000,14124000,4510000,EPSG:3857',srsName:'EPSG:3857',maxFeatures:'2',output:'application/json'}],
-            ['planning','https://api.vworld.kr/req/data', {...common,service:'data',version:'2.0',request:'GetFeature',data:'LT_C_UPISUQ161',geomFilter:'BOX(126.84,37.46,126.88,37.50)',crs:'EPSG:4326',format:'json',size:'2'}],
-            ['renewal-data','https://api.vworld.kr/req/data', {...common,service:'data',version:'2.0',request:'GetFeature',data:'LT_C_UD602',geomFilter:'BOX(126.84,37.46,126.88,37.50)',crs:'EPSG:4326',format:'json',size:'2'}],
-            ['official-city-guide','https://www.vworld.kr/dev/v4dv_nedguide2_s002.do',{apiNum:'106'}]
-          ];
-          for (const [label, base, params] of urls) {
-            try {
-              const url = new URL(base); url.search = new URLSearchParams(params);
-              const r = await fetch(url,{headers:{Referer:'https://tojihannun.designboard.net/'},signal:AbortSignal.timeout(18000)});
-              const text = await r.text();
-              let report;
-              try {const j=JSON.parse(text); report=JSON.stringify({type:j.type,status:j.response?.status,error:j.response?.error,total:j.totalFeatures,count:j.response?.record,properties:(j.features||j.response?.result?.featureCollection?.features||[]).slice(0,2).map(f=>f.properties)});} catch { report=text.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').slice(0,2500); }
-              console.log(label,r.status,report);
-            } catch(e) {console.log(label,'UNVERIFIED',e.message);}
-          }
-          JS
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Browser regression with synthetic fixtures
+        run: node scripts/districts.browser.mjs
       - name: Build
         run: node scripts/build-pages.mjs
+      - name: Save tested integration on feature branch
+        if: github.ref == 'refs/heads/feat/district-boundaries-20261108'
+        run: |
+          git add index.html app.js server.mjs scripts/build-pages.mjs
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat: integrate tested district overlays into map and build'
+            git push origin HEAD:feat/district-boundaries-20261108
+          fi
+      - name: Browser screenshots (fixture data, not official boundaries)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: district-browser-fixtures
+          path: test-results/
+          if-no-files-found: ignore
