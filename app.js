@@ -483,7 +483,6 @@ function addressSearchQueries(query) {
   // "지양로 166번길" => accept extra spacing around the branch suffix.
   const spacedBranch = value.match(/^(.+?(?:로|길))\s+(\d+)(번길)(.*)$/);
   if (spacedBranch) add(`${spacedBranch[1]} ${spacedBranch[2]}${spacedBranch[3]}${spacedBranch[4]}`);
-  if (/\d\s+\d/.test(value)) add(value.replace(/(\d)\s+(\d)/g, "$1-$2"));
   return variants.slice(0, 4);
 }
 
