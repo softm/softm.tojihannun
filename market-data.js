@@ -154,11 +154,12 @@
     ].filter(Boolean).join(" ");
     if (/공장|창고|제조소|산업시설/i.test(description)) return "factory";
     if (/오피스텔/i.test(description)) return "officetel";
-    if (/연립|다세대|빌라/i.test(description)) return "rowHouse";
+    if (/연립|다세대|빌라|다세대주택|연립주택/i.test(description)) return "rowHouse";
     if (/단독|다가구|다중주택/i.test(description)) return "detached";
-    if (/아파트|공동주택/i.test(description)) return "apartment";
+    if (/아파트/i.test(description)) return "apartment";
+    if (/공동주택/i.test(description)) return "rowHouse"; // 공동주택만 확인된 경우 임시 권장; 유형 선택 가능
     if (/상가|근린생활|판매시설|업무시설|타워|플라자|센터|숙박시설|위락시설/i.test(description)) return "commercial";
-    return description && !hasBuildingData ? "apartment" : "land";
+    return "land"; // 건물 유형 미확인 시 아파트로 임의 추정하지 않음
   }
 
   function transactionArea(node, type) {
@@ -248,6 +249,16 @@
       const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
       return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
     });
+  }
+
+  function transactionMonths(value) {
+    const raw = String(value || "24");
+    if (/^year-(20[0-2][0-9])$/.test(raw)) {
+      const year = Number(raw.slice(5));
+      if (year > new Date().getFullYear()) return [];
+      return Array.from({length: 12}, (_, index) => String(year) + String(index + 1).padStart(2, "0"));
+    }
+    return recentMonths(Math.max(12, Math.min(36, Number(raw) || 24)));
   }
 
   async function mapConcurrent(values, limit, handler) {
@@ -521,7 +532,7 @@
       button.addEventListener("click", () => { state.transactionView = mode; renderTransactionView(); });
       control.appendChild(button);
     }
-    if (!nearby && !items.length) setStatus("#transactionStatus", "선택 필지의 공개 지번 일치 거래가 없습니다. 지번 비공개 거래는 일치 여부를 확인할 수 없습니다. 주변 거래는 별도 탭에서 확인하세요.");
+    if (!nearby && !items.length) setStatus("#transactionStatus", `${group.periodLabel || "선택 기간"} 선택 지번의 공개 실거래 일치 내역이 없습니다. 지번 비공개 거래는 일치 여부를 확인할 수 없습니다. 거래유형·과거 연도도 확인하세요.`);
   }
 
   function renderTransactions(items, scope, failedMonths, requestedMonths, {exact: exactMatch = false, truncated = false} = {}) {
@@ -583,8 +594,10 @@
       setStatus("#transactionStatus", "실거래 조회에 필요한 시군구 코드(PNU)를 확인할 수 없습니다.", "error");
       return;
     }
-    const range = Math.max(12, Math.min(36, Number($("#transactionRange")?.value || 24)));
-    const cacheKey = `${parcel.pnu || parcel.id}:${type}:${range}:${selectedParcelArea(parcel)}`;
+    const period = String($("#transactionRange")?.value || "24");
+    const months = transactionMonths(period);
+    const range = months.length;
+    const cacheKey = `${parcel.pnu || parcel.id}:${type}:${period}:${selectedParcelArea(parcel)}`;
     if (!force && state.transactionCacheKey === cacheKey) return;
     state.transactionController?.abort();
     const controller = new AbortController();
@@ -594,9 +607,8 @@
     $("#transactionStats").innerHTML = "";
     $("#transactionChartCard").hidden = true;
     $("#transactionListSection").hidden = true;
-    setStatus("#transactionStatus", `최근 ${range}개월 ${definition.label} 매매를 불러오고 있습니다.`, "loading");
+    setStatus("#transactionStatus", `${period.startsWith("year-") ? period.slice(5) + "년" : "최근 " + range + "개월"} ${definition.label} 매매를 불러오고 있습니다.`, "loading");
     try {
-      const months = recentMonths(range);
       const results = await mapConcurrent(months, 4, (month) => fetchRtmsMonth(type, area.lawdCode, month, controller.signal));
       if (requestId !== state.transactionRequest || controller.signal.aborted) return;
       const successes = results.filter((result) => result.status === "fulfilled");
@@ -604,7 +616,7 @@
       const scoped = scopeTransactionItems(successes.flatMap((result) => result.value.items), area, type);
       state.transactionCacheKey = cacheKey;
       state.transactionView = "parcel";
-      state.transactionGroups = {...scoped, failedMonths: results.length - successes.length, requestedMonths: range, truncated: successes.some((result) => result.value.truncated)};
+      state.transactionGroups = {...scoped, failedMonths: results.length - successes.length, requestedMonths: range, periodLabel: period.startsWith("year-") ? period.slice(5) + "년" : "최근 " + range + "개월", truncated: successes.some((result) => result.value.truncated)};
       renderTransactionView();
     } catch (error) {
       if (error?.name === "AbortError") return;
