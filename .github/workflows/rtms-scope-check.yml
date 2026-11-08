@@ -1,0 +1,60 @@
+name: RTMS scope diagnostic
+on:
+  push:
+    branches: [fix/rtms-fast-scope-20261108]
+    paths: [.github/workflows/rtms-scope-check.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Snapshot source
+        run: |
+          mkdir -p verification
+          git archive --format=tar HEAD > verification/source.tar
+      - name: Inspect bounded commercial responses
+        env:
+          MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os,json,time,urllib.request,urllib.parse,urllib.error,xml.etree.ElementTree as ET
+          from pathlib import Path
+          key=urllib.parse.unquote(os.environ.get('MOLIT_API_KEY','').strip())
+          report={'requests':[], 'target':{'sggCd':'41210','umdNm':'광명동','jibun':'158-217'}, 'scope':'3 specific months; not full history'}
+          for month in (['202610','202609','202608'] if key else []):
+              entry={'month':month,'service':'RTMSDataSvcNrgTrade'}
+              params=urllib.parse.urlencode({'serviceKey':key,'LAWD_CD':'41210','DEAL_YMD':month,'numOfRows':'1000','pageNo':'1'})
+              try:
+                  req=urllib.request.Request('https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade?'+params,headers={'Accept':'application/xml'})
+                  with urllib.request.urlopen(req,timeout=12) as r:
+                      entry['http']=r.status;body=r.read().decode('utf-8-sig')
+                  root=ET.fromstring(body)
+                  def txt(name):return (root.findtext('.//'+name) or '').strip()
+                  entry.update(code=txt('resultCode') or txt('returnReasonCode'),message=txt('resultMsg') or txt('returnAuthMsg'),total=txt('totalCount'))
+                  rows=[{x.tag:(x.text or '').strip() for x in item} for item in root.findall('.//item')]
+                  local=[r for r in rows if r.get('umdNm')=='광명동']
+                  entry['gwangmyeongDongCount']=len(local)
+                  entry['exactCount']=sum(r.get('jibun')=='158-217' for r in local)
+                  entry['columns']=list(rows[0]) if rows else []
+                  entry['lotDisclosure']=[{k:r.get(k,'') for k in ['jibun','buildingType','buildingUse','buildYear','sggCd','umdNm','dealYear','dealMonth','dealDay','dealAmount','buildingAr','landAr']} for r in local]
+              except urllib.error.HTTPError as e:
+                  entry['http']=e.code
+                  entry['retryAfter']=e.headers.get('Retry-After','')
+              except Exception as e:
+                  entry['errorType']=type(e).__name__
+              report['requests'].append(entry)
+              print(json.dumps(entry,ensure_ascii=False))
+              if entry.get('http')==429 or entry.get('code') in ('22','23','20','30','31'):break
+              time.sleep(2)
+          Path('verification/commercial-disclosure.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rtms-scope-source
+          path: verification/
+          retention-days: 3

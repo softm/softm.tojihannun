@@ -39,7 +39,8 @@ for (const relativePath of publicFiles) {
 }
 
 const runtimeConfig = {
-  molitApiKey: String(process.env.MOLIT_API_KEY || "").trim()
+  molitApiKey: String(process.env.MOLIT_API_KEY || "").trim(),
+  parcelHistoryEndpoint: String(process.env.PARCEL_HISTORY_ENDPOINT || "").trim()
 };
 fs.writeFileSync(
   path.join(output, "runtime-config.js"),

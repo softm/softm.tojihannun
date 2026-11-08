@@ -44,11 +44,34 @@
   let toastTimer = 0;
   let snapshotPromise;
   let nextRtmsRequestAt = 0;
+  const MONTH_CACHE_KEY = "toji-rtms-month-cache-v1";
+  const MONTH_CACHE_BYTES = 1500000;
   let rtmsCooldownUntil = 0;
   try { rtmsCooldownUntil = Number(sessionStorage.getItem("toji-rtms-cooldown") || 0); } catch {}
   const INITIAL_MONTH_LIMIT = 3;
-  const MORE_MONTH_LIMIT = 12;
+  const MORE_MONTH_LIMIT = 3; // One explicit action never starts a multi-year scan.
   const SNAPSHOT_URL = "./rtms-verified-snapshots.json?v=20261108.8";
+
+  function readMonthCache() {
+    try {
+      const entries = JSON.parse(localStorage.getItem(MONTH_CACHE_KEY) || "[]");
+      if (!Array.isArray(entries)) return;
+      for (const [key, entry] of entries.slice(-36)) {
+        if (typeof key !== "string" || !/^[A-Za-z]+:\d{5}:\d{6}$/.test(key) || !entry || entry.expiresAt <= Date.now() || !Array.isArray(entry.value?.items)) continue;
+        if (entry.value.items.length > 5000 || entry.value.items.some(item => !item || !Number.isFinite(item.amount) || !Number.isFinite(item.area) || typeof item.date !== "string")) continue;
+        state.rtmsCache.set(key, entry);
+      }
+    } catch { /* Private mode, old cache and quota failures must not block the screen. */ }
+  }
+
+  function saveMonthCache() {
+    const entries = [...state.rtmsCache].filter(([, value]) => value.expiresAt > Date.now()).slice(-36);
+    try {
+      let text = JSON.stringify(entries);
+      while (entries.length && text.length * 2 > MONTH_CACHE_BYTES) { entries.shift(); text = JSON.stringify(entries); }
+      localStorage.setItem(MONTH_CACHE_KEY, text);
+    } catch { /* Only public transaction rows are cached; never credentials. */ }
+  }
 
   function runtimeServiceKey() {
     return String(window.__TOJI_RUNTIME_CONFIG__?.molitApiKey || window.APP_CONFIG?.dataGoKrServiceKey || "").trim();
@@ -282,20 +305,13 @@
   }
 
   function transactionMonths(value) {
-    const raw = String(value || "all");
-    if (raw === "all") {
-      const now = new Date();
-      const months = [];
-      for (let year = now.getFullYear(); year >= 2006; year--) {
-        const end = year === now.getFullYear() ? now.getMonth() + 1 : 12;
-        for (let month = end; month >= 1; month--) months.push(String(year) + String(month).padStart(2, "0"));
-      }
-      return months;
-    }
-    if (/^year-(20[0-2][0-9])$/.test(raw)) {
+    const raw = String(value || "saved");
+    if (raw === "saved" || raw === "all") return [];
+    if (raw === "3") return recentMonths(3);
+    if (/^year-(20\d{2})$/.test(raw)) {
       const year = Number(raw.slice(5));
-      if (year > new Date().getFullYear()) return [];
-      return Array.from({length: 12}, (_, index) => String(year) + String(index + 1).padStart(2, "0"));
+      if (year < 2006 || year > new Date().getFullYear()) return [];
+      return Array.from({length: year === new Date().getFullYear() ? new Date().getMonth() + 1 : 12}, (_, index) => String(year) + String(index + 1).padStart(2, "0")).reverse();
     }
     return recentMonths(Math.max(12, Math.min(36, Number(raw) || 24)));
   }
@@ -408,6 +424,10 @@
         jibun: field(node, ["jibun", "지번"]),
         buildingName: field(node, ["aptNm", "offiNm", "mhouseNm", "buildingNm", "houseType", "아파트", "단지", "연립다세대", "주택유형", "건물명"]),
         floor: field(node, ["floor", "층"]),
+        buildingType: field(node, ["buildingType", "건물구분"]),
+        buildingUse: field(node, ["buildingUse", "건물용도"]),
+        sggCd: field(node, ["sggCd", "지역코드"]),
+        lotDisclosed: Boolean(normalizeLot(field(node, ["jibun", "지번"]))),
         jimok: field(node, ["jimok", "지목"]),
         landUse: field(node, ["landUse", "landCategory", "useArea", "지목", "용도지역"]),
         dealType: field(node, ["dealingGbn", "dealType", "거래유형"]),
@@ -459,7 +479,7 @@
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, {once: true});
-    const timer = setTimeout(() => controller.abort(), 15000);
+    const timer = setTimeout(() => controller.abort(), 8000);
     try {
       const response = await fetch(url, {signal: controller.signal, headers: {Accept: "application/xml,text/xml,application/json"}});
       if (response.status === 429) { markRateLimited(response.headers.get("Retry-After")); throw publicApiError("실거래 API 요청 제한(429)", "429"); }
@@ -488,6 +508,7 @@
     const result = {items: pages.flatMap(page => page.items), truncated: pages.reduce((n, page) => n + page.rawCount, 0) < first.totalCount};
     state.rtmsCache.set(cacheKey, {value: result, expiresAt: Date.now() + 3600000});
     while (state.rtmsCache.size > 36) state.rtmsCache.delete(state.rtmsCache.keys().next().value);
+    saveMonthCache();
     return result;
   }
 
@@ -506,6 +527,7 @@
     return {
       scope: `${area.emd || `${area.sido} ${area.sgg}`.trim()} ${area.lot}`,
       exact: exact.length > 0,
+      undisclosedCount: unique.filter(item => !normalizeLot(item.jibun)).length,
       items: exact.sort((a,b) => b.date.localeCompare(a.date)),
       comparable: comparable.filter(item => !item.exact).sort((a,b) => b.date.localeCompare(a.date))
     };
@@ -569,9 +591,9 @@
           <div>
             <span>${escapeHtml(item.date.replaceAll("-", "."))} 계약</span>
             <strong>${escapeHtml(item.buildingName || [item.umdNm, item.jibun || "지번 비공개"].filter(Boolean).join(" "))}</strong>
-            <small>${escapeHtml([item.buildingName ? [item.umdNm, item.jibun].filter(Boolean).join(" ") : "", item.jimok, item.landUse, item.floor ? `${item.floor}층` : "", item.dealType].filter(Boolean).join(" · ") || "세부 항목 미제공")}</small>
+            <small>${escapeHtml([item.buildingName ? [item.umdNm, item.jibun].filter(Boolean).join(" ") : "", item.jimok, item.landUse, item.buildingType, item.buildingUse, item.floor ? `${item.floor}층` : "", item.dealType].filter(Boolean).join(" · ") || "세부 항목 미제공")}</small>
           </div>
-          <span class="market-badge${item.exact ? "" : " neutral"}">${item.exact ? "선택 필지·단지" : "비교 거래"}</span>
+          <span class="market-badge${item.exact ? "" : " neutral"}">${item.exact ? "공개 지번 일치" : !normalizeLot(item.jibun) ? "지번 일부공개 · 필지 미확정" : "같은 법정동 비교"}</span>
         </div>
         <dl class="market-item-facts">
           <div><dt>거래금액</dt><dd>${escapeHtml(formatDealAmount(item.amount))}</dd></div>
@@ -593,52 +615,69 @@
     if (!group) return;
     const nearby = state.transactionView === "nearby";
     const items = nearby ? group.comparable : group.items;
-    renderTransactions(items, nearby ? group.scope + " · 주변 비교 거래" : group.scope + " · 해당 필지 거래", group.failedMonths, group.requestedMonths, {exact: !nearby && group.exact, truncated: group.truncated});
-    const status = document.querySelector("#transactionStatus");
+    renderTransactions(items, group.scope + (nearby ? " · 같은 법정동 비교" : " · 공개 지번 일치 거래"), group.failedMonths, group.requestedMonths, {exact: !nearby && group.exact, truncated: group.truncated});
+    const status = $("#transactionStatus");
     if (!status) return;
-    let control = document.querySelector("#transactionScopeSwitch");
-    if (!control) {
-      control = document.createElement("div");
-      control.id = "transactionScopeSwitch";
-      control.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin:10px 0";
-      status.parentNode.insertBefore(control, status);
-    }
+    let control = $("#transactionScopeSwitch");
+    if (!control) { control = document.createElement("div"); control.id = "transactionScopeSwitch"; status.before(control); }
+    control.className = "transaction-scope-switch";
     control.replaceChildren();
-    for (const [mode,label] of [["parcel","해당 필지 거래"],["nearby","주변 비교 거래"]]) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = label + " (" + (mode === "nearby" && !group.regionalCovered ? "미조회" : (mode === "parcel" ? group.items.length : group.comparable.length) + "건") + ")";
+    for (const [mode, label] of [["parcel", "해당 필지"], ["nearby", "같은 법정동 비교"]]) {
+      const count = mode === "parcel" ? group.items.length : group.comparable.length;
+      const known = mode === "nearby" ? group.regionalCovered : Boolean(count);
+      const button = document.createElement("button"); button.type = "button";
+      button.textContent = label + (count ? ` · ${count}건 확인` : mode === "parcel" ? " · 미확인" : known ? " · 확인된 거래 없음" : " · 미조회");
       button.setAttribute("aria-pressed", String(state.transactionView === mode));
-      button.style.cssText = "padding:8px 12px;border-radius:9px;border:1px solid #a9c9b8;cursor:pointer;background:" + (state.transactionView === mode ? "#176b54;color:white" : "white;color:#176b54");
-      button.addEventListener("click", () => {
-        state.transactionView = mode;
-        if (state.transactionSession) renderTransactionSession(state.transactionSession);
-        else renderTransactionView();
-        if (mode === "nearby" && !state.transactionSession?.loading && !state.transactionSession?.results.size) void loadTransactions(false, false, {more: true, limit: INITIAL_MONTH_LIMIT});
-      });
+      button.addEventListener("click", () => { state.transactionView = mode; renderTransactionSession(state.transactionSession); });
       control.appendChild(button);
     }
+    let disclosure = $("#transactionDisclosure");
+    if (!disclosure) { disclosure = document.createElement("div"); disclosure.id = "transactionDisclosure"; status.before(disclosure); }
+    disclosure.className = "transaction-disclosure";
+    disclosure.hidden = !group.undisclosedCount && state.transactionType !== "commercial";
+    disclosure.textContent = group.undisclosedCount
+      ? `조회된 같은 법정동 거래 중 ${group.undisclosedCount}건은 지번이 일부 공개되거나 누락돼 있습니다. 해당 필지 여부를 확정할 수 없으며 비교 자료로만 표시합니다.`
+      : "상업·업무용 일반건축물은 지번이 일부만 공개됩니다. 집합건축물 등 공개 지번이 완전한 거래만 필지 일치를 확인할 수 있습니다.";
     let paging = $("#transactionPaging");
     if (!paging) { paging = document.createElement("div"); paging.id = "transactionPaging"; status.after(paging); }
-    paging.className = "transaction-paging";
-    paging.replaceChildren();
+    paging.className = "transaction-paging"; paging.replaceChildren();
     const coverage = document.createElement("small");
-    coverage.textContent = `${group.periodLabel} · 확인 ${group.coveredMonths}/${group.totalMonths}개월 · 미조회 ${group.remainingMonths}개월` +
-      (group.failedMonths ? ` · 실패 ${group.failedMonths}개월` : "") + (group.truncated ? " · 일부 월 페이지 누락" : "") +
-      (group.snapshotAt ? ` · 저장 원본 확인 ${group.snapshotAt.slice(0, 10)}` : "");
+    coverage.textContent = group.savedOnly
+      ? `저장된 자료 · 확인 ${group.coveredMonths}개월 · 전체 거래이력 확보 여부 미확인`
+      : `${group.periodLabel} · 확인 ${group.coveredMonths}/${group.totalMonths}개월` + (group.remainingMonths ? ` · 미조회 ${group.remainingMonths}개월` : "");
+    if (group.failedMonths) coverage.textContent += ` · 실패 ${group.failedMonths}개월`;
+    if (group.truncated) coverage.textContent += " · 일부 월 페이지 미수신";
+    if (group.snapshotAt) coverage.textContent += ` · 원본 확인 ${group.snapshotAt.slice(0, 10)}`;
     paging.appendChild(coverage);
-    const more = document.createElement("button"); more.type = "button";
-    more.textContent = group.loading ? "조회 중단" : group.remainingMonths ? "미조회 기간 추가 조회 (최대 12개월)" : group.failedMonths ? "실패한 기간 다시 조회" : "선택 기간 확인 완료";
-    more.disabled = !group.loading && !group.remainingMonths && !group.failedMonths;
-    more.addEventListener("click", () => group.loading ? state.transactionController?.abort() : void loadTransactions(false, false, {more: true}));
-    paging.appendChild(more);
-    const note = state.transactionType === "land" ? "동일 필지 공개 거래" : "동일 지번 건물 거래이며, 층·면적이 같아도 동일 호실로 확정하지 않습니다.";
-    const message = group.error || (group.loading ? "자료를 조회하고 있습니다. 확인된 거래는 먼저 표시합니다." : items.length ? note : group.coveredMonths ? "확인한 기간에서 일치 거래를 찾지 못했습니다. 미조회 기간은 거래 없음으로 판단하지 않습니다." : "아직 조회 완료한 기간이 없습니다. 거래 없음이 아닙니다.");
-    setStatus("#transactionStatus", message, group.error ? "error" : group.loading ? "loading" : group.remainingMonths || group.failedMonths ? "" : "success");
-    state.transactionMeta = {...state.transactionMeta, status: group.loading ? "loading" : group.error ? (items.length ? "partial" : "error") : group.remainingMonths || group.failedMonths || group.truncated ? "partial" : "success", periodLabel: group.periodLabel, coveredMonths: group.coveredMonths, totalMonths: group.totalMonths, remainingMonths: group.remainingMonths, failedMonths: group.failedMonths, error: group.error || "", snapshotAt: group.snapshotAt};
-    if (!items.length && (!group.coveredMonths || nearby && !group.regionalCovered)) renderMarketStats("#transactionStats", [
-      {label: "거래 조회", value: group.loading ? "조회 중" : "미확인", note: "미조회·실패를 0건으로 표시하지 않습니다"}
-    ]);
+    const primary = document.createElement("button"); primary.type = "button";
+    primary.textContent = group.loading ? "조회 중단" : group.savedOnly ? "같은 법정동 최근 3개월 조회" : group.remainingMonths || group.failedMonths ? "선택 기간 추가 확인 (최대 3개월)" : "선택 기간 다시 확인";
+    primary.addEventListener("click", () => {
+      if (group.loading) { state.transactionController?.abort(); return; }
+      if (group.savedOnly) {
+        $("#transactionRange").value = "3";
+        void loadTransactions(false, false, {view: "nearby"});
+      } else void loadTransactions(!group.remainingMonths, false, {more: true, view: state.transactionView});
+    });
+    paging.appendChild(primary);
+    if (group.savedOnly) {
+      const hint = document.createElement("small"); hint.className = "transaction-provider-note";
+      hint.textContent = group.directAnswered ? `${group.directSource} 필지·기간 조회 결과입니다. 계약된 제공 범위 내 자료이며 전체 이력의 완전성은 별도 확인이 필요합니다.` : "필지·기간 일괄 실거래 서비스는 아직 연결되지 않았습니다. 저장된 거래는 전체 이력이 아니며, 2006년부터 월별 자동 조회하지 않습니다. 과거 자료는 조회기간에서 연도를 선택하세요.";
+      paging.appendChild(hint);
+    }
+    let message = group.error;
+    if (!message && group.loading) message = "선택한 기간의 자료를 확인 중입니다. 이미 받은 거래는 유지합니다.";
+    if (!message && nearby) message = group.regionalCovered ? "같은 법정동 비교 거래입니다. 선택 필지의 거래가 아니며 반경·거리 기준 자료가 아닙니다." : "같은 법정동 거래는 아직 조회하지 않았습니다.";
+    if (!message && items.length) message = "공개 지번이 일치하는 확인된 거래입니다. 미조회 기간이 있으며, 같은 지번의 다른 호실 거래가 포함될 수 있습니다.";
+    if (!message && group.undisclosedCount) message = "해당 필지 여부 미확인 · 지번 비공개 거래가 있어 거래 없음으로 판단할 수 없습니다.";
+    if (!message) message = group.savedOnly ? "저장된 해당 필지 거래가 없습니다. 전체 거래이력이 없다는 뜻은 아닙니다." : "확인한 기간에서 공개 지번 일치 거래를 찾지 못했습니다. 과거 거래 없음으로 판단하지 않습니다.";
+    setStatus("#transactionStatus", message, group.error ? "error" : group.loading ? "loading" : "");
+    state.transactionMeta = {...state.transactionMeta,
+      status: group.loading ? "loading" : group.error ? (items.length ? "partial" : "error") : group.savedOnly || group.remainingMonths || group.failedMonths || group.truncated || group.undisclosedCount ? "partial" : "success",
+      periodLabel: group.periodLabel, coveredMonths: group.coveredMonths, totalMonths: group.totalMonths,
+      remainingMonths: group.remainingMonths, failedMonths: group.failedMonths, error: group.error || "", snapshotAt: group.snapshotAt,
+      savedOnly: group.savedOnly, undisclosedCount: group.undisclosedCount, historyComplete: false};
+    if (!items.length) renderMarketStats("#transactionStats", [{label: nearby ? "같은 법정동 비교" : "해당 필지 거래",
+      value: group.loading ? "조회 중" : "미확인", note: "자료 미확보·지번 비공개·미조회는 거래 없음이 아닙니다"}]);
   }
 
   function renderTransactions(items, scope, failedMonths, requestedMonths, {exact: exactMatch = false, truncated = false} = {}) {
@@ -657,12 +696,7 @@
       error: ""
     };
     if (!items.length) {
-      renderMarketStats("#transactionStats", [
-        {label: `${definition.label} 거래`, value: "0건", note: "선택 기간·범위"},
-        {label: "중위 거래금액", value: "미제공", note: "조회 결과 없음"},
-        {label: "중위 거래단가", value: "미제공", note: "조회 결과 없음"},
-        {label: "선택 필지 일치", value: "0건", note: "공개 지번 기준"}
-      ]);
+      renderMarketStats("#transactionStats", [{label: "해당 기간 공개 지번 일치", value: "미확인", note: "조회 범위와 공개 제한을 확인하세요"}]);
       $("#transactionChartCard").hidden = true;
       $("#transactionListSection").hidden = true;
       setStatus("#transactionStatus", `${scope || "선택 지역"}에서 최근 ${requestedMonths}개월 신고된 ${definition.label} 매매를 찾지 못했습니다.`, "success");
@@ -683,14 +717,39 @@
     setStatus("#transactionStatus", `${scope}의 최근 ${requestedMonths}개월 ${definition.label} 공개 거래를 조회했습니다${partial}${pageNotice}.`, failedMonths ? "" : "success");
   }
 
+  async function fetchDirectHistory(session, parcel, signal) {
+    const endpoint = String(window.__TOJI_RUNTIME_CONFIG__?.parcelHistoryEndpoint || "").trim();
+    if (!endpoint || session.period !== "saved") return;
+    const pnu = String(parcel?.pnu || "");
+    if (!/^\d{19}$/.test(pnu)) return;
+    try {
+      const target = new URL(endpoint, window.location.href);
+      if (target.protocol !== "https:" && target.origin !== window.location.origin) throw new Error("unsafe endpoint");
+      const end = new Date().toISOString().slice(0,10).replaceAll("-", "");
+      const controller = new AbortController();
+      const cancel = () => controller.abort();signal?.addEventListener("abort",cancel,{once:true});
+      const timer = setTimeout(cancel, 8000);
+      try {
+        const response = await fetch(target, {method:"POST",credentials:"omit",headers:{"Content-Type":"application/json"},body:JSON.stringify({pnu,start_date:"20060101",end_date:end,type:session.type}),signal:controller.signal});
+        if (!response.ok) throw new Error("provider unavailable");
+        const data = await response.json();
+        if (data.pnu !== pnu || !Array.isArray(data.items)) throw new Error("invalid provider identity");
+        session.directItems = data.items.filter(item => item.pnu === pnu && item.type === session.type && Number.isFinite(item.amount) && item.amount>0 && Number.isFinite(item.area) && item.area>0 && /^20\d{2}-\d{2}-\d{2}$/.test(item.date || ""))
+          .map(item => ({...item,umdNm:session.area.emd}));
+        session.directAnswered = true;
+        session.directSource = String(data.source || "필지 조회 공급처");
+      } finally {clearTimeout(timer);signal?.removeEventListener("abort",cancel);}
+    } catch {session.error = "필지·기간 조회 공급처에 연결하지 못했습니다. 저장 자료는 유지하며 월별 전체 조회로 전환하지 않습니다.";}
+  }
+
   function getVerifiedSnapshots() {
-    if (!snapshotPromise) snapshotPromise = fetch(SNAPSHOT_URL, {signal: AbortSignal.timeout(4000)})
+    if (!snapshotPromise) snapshotPromise = fetch(SNAPSHOT_URL, {signal: AbortSignal.timeout(2000)})
       .then(response => response.ok ? response.json() : {entries: []}).catch(() => ({entries: []}));
     return snapshotPromise;
   }
 
-  function sessionMonths(session, nearby = state.transactionView === "nearby") {
-    return nearby && session.period === "all" ? session.months.filter(month => month >= recentMonths(24).at(-1)) : session.months;
+  function sessionMonths(session) {
+    return session.period === "saved" ? [...new Set([...session.results.keys(), ...session.snapshots.keys()])].sort().reverse() : session.months;
   }
 
   function coveredSessionMonths(session, nearby = state.transactionView === "nearby") {
@@ -704,19 +763,25 @@
     const allItems = [...session.results.values()].flatMap(value => value.items);
     // A successfully re-fetched month replaces its older parcel-only snapshot, including an empty response.
     for (const [month, rows] of session.snapshots) if (!session.results.has(month)) allItems.push(...rows);
+    if (session.directItems?.length) {
+      // Keep comparison rows, replace duplicate exact-parcel evidence with provider rows.
+      for (let i=allItems.length-1;i>=0;i--) if (normalizeLot(allItems[i].jibun)===session.area.lot && normalizeAreaName(allItems[i].umdNm)===normalizeAreaName(session.area.emd)) allItems.splice(i,1);
+      allItems.push(...session.directItems);
+    }
     const scoped = scopeTransactionItems(allItems, session.area, session.type);
     const expected = sessionMonths(session);
     const covered = coveredSessionMonths(session);
     const relevantFailures = [...session.failures.keys()].filter(month => expected.includes(month));
     const remaining = expected.filter(month => !covered.has(month) && !session.failures.has(month));
-    const nearbyCutoff = recentMonths(24).at(-1);
+    const savedOnly = session.period === "saved";
     state.transactionGroups = {...scoped,
-      comparable: session.period === "all" ? scoped.comparable.filter(item => item.month >= nearbyCutoff) : scoped.comparable,
+      comparable: scoped.comparable,
+      savedOnly, directAnswered: Boolean(session.directAnswered), directSource: session.directSource || "",
       requestedMonths: expected.length, totalMonths: expected.length,
       coveredMonths: expected.filter(month => covered.has(month)).length,
       remainingMonths: remaining.length, failedMonths: relevantFailures.length,
       regionalCovered: [...session.results.keys()].some(month => expected.includes(month)),
-      periodLabel: state.transactionView === "nearby" && session.period === "all" ? "같은 법정동 · 최근 24개월" : session.period === "all" ? "전체 기간 (2006년~)" : session.period.startsWith("year-") ? session.period.slice(5) + "년" : "최근 " + session.months.length + "개월",
+      periodLabel: savedOnly ? "저장된 자료 (전체 이력 아님)" : session.period.startsWith("year-") ? session.period.slice(5) + "년" : "최근 " + session.months.length + "개월",
       snapshotAt: session.snapshotAt, loading: session.loading, error: session.error,
       truncated: [...session.results.values()].some(value => value.truncated)
     };
@@ -732,7 +797,8 @@
     if (!area.lawdCode || !area.emd || !area.lot) {
       setStatus("#transactionStatus", "선택 필지의 법정동·지번 식별정보를 확인하지 못했습니다. 거래 없음이 아닙니다.", "error"); return;
     }
-    const period = String($("#transactionRange")?.value || "all");
+    const selectedPeriod = String($("#transactionRange")?.value || "saved");
+    const period = selectedPeriod === "all" ? "saved" : selectedPeriod;
     const months = transactionMonths(period);
     const cacheKey = `${area.lawdCode}:${area.emd}:${area.lot}:${type}:${period}`;
     let session = state.transactionSession;
@@ -747,7 +813,7 @@
     if (fresh) {
       session = {key: cacheKey, type, area, period, months, results: new Map(), snapshots: new Map(), failures: new Map(), loading: true, error: "", snapshotAt: "", snapshotFresh: false};
       state.transactionSession = session;
-      state.transactionView = "parcel";
+      state.transactionView = options.view || "parcel";
       state.transactionCacheKey = cacheKey;
       renderTransactionSession(session);
       const snapshots = await getVerifiedSnapshots();
@@ -756,16 +822,25 @@
       if (entry) {
         session.snapshotAt = entry.verifiedAt || "";
         session.snapshotFresh = Date.now() - Date.parse(session.snapshotAt) < 7 * 86400000;
-        for (const month of entry.completeMonths || []) if (months.includes(month)) {
+        for (const month of entry.completeMonths || []) if (period === "saved" || months.includes(month)) {
           session.snapshots.set(month, normalizeRtmsNodes((entry.rows || []).filter(row => `${field(row,["dealYear"])}${field(row,["dealMonth"]).padStart(2,"0")}` === month), type));
         }
       }
+      for (const [key, cached] of state.rtmsCache) {
+        const [cacheType, lawdCode, month] = key.split(":");
+        if (cacheType === type && lawdCode === area.lawdCode && cached.expiresAt > Date.now() && (period === "saved" || months.includes(month))) session.results.set(month, cached.value);
+      }
+      // Keep saved evidence visible while a configured PNU provider is contacted once.
+      renderTransactionSession(session);
+      await fetchDirectHistory(session, parcel, controller.signal);
+      if (!current() || controller.signal.aborted) { if (current()) { session.loading=false;renderTransactionSession(session); } return; }
       session.loading = false;
       renderTransactionSession(session);
       // Verified parcel data can be read without any MOLIT request. No hard-coded addresses in query logic.
       if (session.snapshots.size && !force && !options.more) return;
     }
     if (!current()) return;
+    if (period === "saved" && (!force || !sessionMonths(session).length)) { session.loading = false; renderTransactionSession(session); return; }
     if (!state.serviceKey) { session.loading = false; session.error = "현재 실거래 조회 서비스를 이용할 수 없습니다. 확인된 저장 자료만 표시합니다."; renderTransactionSession(session); return; }
     if (Date.now() < rtmsCooldownUntil) { session.loading = false; session.error = "API 요청 제한으로 추가 호출을 중단했습니다. 확인된 자료는 유지되며 제한 해제 시점은 공급기관에 따라 다릅니다."; renderTransactionSession(session); return; }
     const expected = sessionMonths(session);
@@ -778,6 +853,7 @@
     const batch = candidates.slice(0, limit);
     session.loading = Boolean(batch.length); session.error = "";
     renderTransactionSession(session);
+    const deadline = setTimeout(() => controller.abort(), 12000);
     try {
       for (const month of batch) {
         if (!current() || controller.signal.aborted) throw abortError();
@@ -796,7 +872,7 @@
         }
       }
     } catch (error) { if (current()) session.error = error.name === "AbortError" ? "조회 중단. 확인된 거래는 유지됩니다." : apiErrorMessage(error, "실거래 API"); }
-    finally { if (current()) { session.loading = false; renderTransactionSession(session); } }
+    finally { clearTimeout(deadline); if (current()) { session.loading = false; renderTransactionSession(session); } }
   }
 
 
@@ -977,7 +1053,7 @@
         ["조회 범위 확인", `${transactionMeta.coveredMonths || 0}/${transactionMeta.totalMonths || 0}개월 · 미조회 ${transactionMeta.remainingMonths || 0}개월`],
         ["거래 유형", transactionDefinition.label],
         ["공개 거래", `${formatNumber(transactionItems.length)}건`],
-        ["선택 필지·단지 일치", `${formatNumber(exactTransactions)}건`],
+        ["선택 필지·단지 일치", exactTransactions ? `${formatNumber(exactTransactions)}건 확인` : "미확인 · 거래 없음이 아님"],
         ["중위 거래금액", transactionItems.length ? formatDealAmount(median(transactionItems.map((item) => item.amount))) : "미제공"],
         ["중위 거래단가", transactionItems.length ? `${formatNumber(median(transactionItems.map((item) => item.unitPrice)), 1)}만원/㎡` : "미제공"],
         ["일부 응답 실패", transactionMeta.failedMonths ? `${transactionMeta.failedMonths}개월` : "없음"],
@@ -1050,6 +1126,7 @@
 
   function setParcel(parcel) {
     state.parcel = parcel || null;
+    if ($("#transactionRange")) $("#transactionRange").value = "saved";
     state.transactionController?.abort();
     state.auctionController?.abort();
     state.transactionRequest += 1;
@@ -1063,6 +1140,7 @@
     state.transactionSession = null;
     state.transactionView = "parcel";
     document.querySelector("#transactionScopeSwitch")?.remove();
+    document.querySelector("#transactionDisclosure")?.remove();
     document.querySelector("#transactionPaging")?.remove();
     state.auctionItems = [];
     state.transactionMeta = {status: "idle", scope: "", requestedMonths: 0, failedMonths: 0, fetchedAt: "", error: ""};
@@ -1101,7 +1179,7 @@
     });
     $("#transactionRange")?.addEventListener("change", () => {
       state.transactionCacheKey = "";
-      if (state.activeTab === "transactions") void loadTransactions(true);
+      if (state.activeTab === "transactions") void loadTransactions(false, false, {view: state.transactionView});
     });
     $("#refreshTransactions")?.addEventListener("click", () => void loadTransactions(true));
     $("#refreshAuctions")?.addEventListener("click", () => void loadAuctions(true));
@@ -1112,5 +1190,6 @@
   }
 
   window.TojihannunMarketData = {setParcel, refreshParcel, activate, prepareReportData, getReportSections};
+  readMonthCache();
   bindEvents();
 })();
