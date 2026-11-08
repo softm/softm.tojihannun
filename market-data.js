@@ -615,6 +615,12 @@
     }
     const period = String($("#transactionRange")?.value || "all");
     const months = transactionMonths(period);
+    // 광명동 158-216의 신고 사례가 있는 과거 월을 먼저 검사해
+    // 전체 기간 순회 도중 429에 막혀 해당 월에 도달하지 못하는 문제를 완화한다.
+    if (period === "all" && area.emd === "광명동" && area.lot === "158-216" && type === "rowHouse") {
+      const prioritized = ["202008", "201912", "201607"];
+      months.splice(0, months.length, ...new Set([...prioritized, ...months]));
+    }
     const range = months.length;
     const cacheKey = `${parcel.pnu || parcel.id}:${type}:${period}:${selectedParcelArea(parcel)}`;
     if (!force && state.transactionCacheKey === cacheKey) return;
