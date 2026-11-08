@@ -31,6 +31,8 @@
     transactionTypeManuallySelected: false,
     auctionCacheKey: "",
     transactionItems: [],
+    transactionGroups: null,
+    transactionView: "parcel",
     transactionShowAll: false,
     auctionItems: [],
     transactionMeta: {status: "idle", scope: "", requestedMonths: 0, failedMonths: 0, fetchedAt: "", error: ""},
@@ -409,13 +411,11 @@
     const comparable = type === "land" && parcelArea > 0
       ? unique.filter((item) => item.area >= parcelArea * .5 && item.area <= parcelArea * 2)
       : unique;
-    const selected = exact.length ? exact : comparable;
     return {
-      scope: exact.length
-        ? `${area.emd || `${area.sido} ${area.sgg}`.trim()} ${area.lot} · 선택 필지·단지`
-        : `${area.emd || `${area.sido} ${area.sgg}`.trim()} · 비교 거래`,
+      scope: `${area.emd || `${area.sido} ${area.sgg}`.trim()} ${area.lot}`,
       exact: exact.length > 0,
-      items: selected.sort((a, b) => b.date.localeCompare(a.date))
+      items: exact.sort((a,b) => b.date.localeCompare(a.date)),
+      comparable: comparable.filter(item => !item.exact).sort((a,b) => b.date.localeCompare(a.date))
     };
   }
 
@@ -494,6 +494,34 @@
     });
     $("#transactionListCount").textContent = items.length > 200 ? `총 ${formatNumber(items.length)}건 · 최대 200건 표시` : `총 ${formatNumber(items.length)}건`;
     $("#transactionListSection").hidden = false;
+  }
+
+  function renderTransactionView() {
+    const group = state.transactionGroups;
+    if (!group) return;
+    const nearby = state.transactionView === "nearby";
+    const items = nearby ? group.comparable : group.items;
+    renderTransactions(items, nearby ? group.scope + " · 주변 비교 거래" : group.scope + " · 해당 필지 거래", group.failedMonths, group.requestedMonths, {exact: !nearby && group.exact, truncated: group.truncated});
+    const status = document.querySelector("#transactionStatus");
+    if (!status) return;
+    let control = document.querySelector("#transactionScopeSwitch");
+    if (!control) {
+      control = document.createElement("div");
+      control.id = "transactionScopeSwitch";
+      control.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin:10px 0";
+      status.parentNode.insertBefore(control, status);
+    }
+    control.replaceChildren();
+    for (const [mode,label] of [["parcel","해당 필지 거래"],["nearby","주변 비교 거래"]]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label + " (" + (mode === "parcel" ? group.items.length : group.comparable.length) + "건)";
+      button.setAttribute("aria-pressed", String(state.transactionView === mode));
+      button.style.cssText = "padding:8px 12px;border-radius:9px;border:1px solid #a9c9b8;cursor:pointer;background:" + (state.transactionView === mode ? "#176b54;color:white" : "white;color:#176b54");
+      button.addEventListener("click", () => { state.transactionView = mode; renderTransactionView(); });
+      control.appendChild(button);
+    }
+    if (!nearby && !items.length) setStatus("#transactionStatus", "선택 필지의 공개 지번 일치 거래가 없습니다. 지번 비공개 거래는 일치 여부를 확인할 수 없습니다. 주변 거래는 별도 탭에서 확인하세요.");
   }
 
   function renderTransactions(items, scope, failedMonths, requestedMonths, {exact: exactMatch = false, truncated = false} = {}) {
@@ -575,10 +603,9 @@
       if (!successes.length) throw results.find((result) => result.status === "rejected")?.reason || publicApiError("실거래를 조회하지 못했습니다.");
       const scoped = scopeTransactionItems(successes.flatMap((result) => result.value.items), area, type);
       state.transactionCacheKey = cacheKey;
-      renderTransactions(scoped.items, scoped.scope, results.length - successes.length, range, {
-        exact: scoped.exact,
-        truncated: successes.some((result) => result.value.truncated)
-      });
+      state.transactionView = "parcel";
+      state.transactionGroups = {...scoped, failedMonths: results.length - successes.length, requestedMonths: range, truncated: successes.some((result) => result.value.truncated)};
+      renderTransactionView();
     } catch (error) {
       if (error?.name === "AbortError") return;
       console.error("RTMS transaction lookup failed", {type, message: error?.message, code: error?.code});
@@ -845,6 +872,9 @@
     state.transactionType = recommendTransactionType(parcel);
     state.auctionCacheKey = "";
     state.transactionItems = [];
+    state.transactionGroups = null;
+    state.transactionView = "parcel";
+    document.querySelector("#transactionScopeSwitch")?.remove();
     state.auctionItems = [];
     state.transactionMeta = {status: "idle", scope: "", requestedMonths: 0, failedMonths: 0, fetchedAt: "", error: ""};
     state.auctionMeta = {status: "idle", area: "", totalCount: 0, fetchedAt: "", error: ""};
