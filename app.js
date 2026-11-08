@@ -466,13 +466,35 @@ function openEumLandUse(record) {
   form.remove();
 }
 
+// Address search: tolerate spaced road names and abbreviated "번길" inputs.
+function addressSearchQueries(query) {
+  const value = String(query || "").trim().replace(/\s+/g, " ");
+  const variants = [value];
+  const add = (candidate) => {
+    const normalized = String(candidate || "").trim().replace(/\s+/g, " ");
+    if (normalized && !variants.includes(normalized)) variants.push(normalized);
+  };
+  // "지양로 166 27-8" => "지양로 166번길 27-8".
+  const separateRoadBranch = value.match(/^(.+?(?:로|길))\s+(\d+(?:-\d+)?)\s+(\d+(?:-\d+)?)$/);
+  if (separateRoadBranch) add(`${separateRoadBranch[1]} ${separateRoadBranch[2]}번길 ${separateRoadBranch[3]}`);
+  // "지양로 166" => both a regular building number and a numbered road branch.
+  const abbreviatedRoad = value.match(/^(.+?(?:로|길))\s+(\d+)$/);
+  if (abbreviatedRoad) add(`${abbreviatedRoad[1]} ${abbreviatedRoad[2]}번길`);
+  // "지양로 166번길" => accept extra spacing around the branch suffix.
+  const spacedBranch = value.match(/^(.+?(?:로|길))\s+(\d+)(번길)(.*)$/);
+  if (spacedBranch) add(`${spacedBranch[1]} ${spacedBranch[2]}${spacedBranch[3]}${spacedBranch[4]}`);
+  if (/\d\s+\d/.test(value)) add(value.replace(/(\d)\s+(\d)/g, "$1-$2"));
+  return variants.slice(0, 4);
+}
+
 async function searchVWorld(query, mode = "all") {
   const categories = mode === "road" ? ["road"] : mode === "lot" ? ["parcel"] : ["road", "parcel"];
   const targets = [
     ...categories.map((category) => ({type: "address", category})),
     ...(mode === "all" ? [{type: "place", category: ""}] : [])
   ];
-  const requests = targets.map(async ({type, category}) => {
+  const queryVariants = mode === "lot" ? [query] : addressSearchQueries(query);
+  const fetchSearchItems = async (searchQuery, {type, category}) => {
     const url = apiUrl("search", {
       service: "search",
       request: "search",
@@ -480,7 +502,7 @@ async function searchVWorld(query, mode = "all") {
       crs: "EPSG:4326",
       size: 10,
       page: 1,
-      query,
+      query: searchQuery,
       type,
       category,
       format: "json",
@@ -491,34 +513,47 @@ async function searchVWorld(query, mode = "all") {
     if (response?.status && response.status !== "OK" && response.status !== "NOT_FOUND") {
       throw new Error(response?.error?.text || response.status);
     }
-    return (response?.result?.items || []).map((item, index) => normalizeSearchItem(item, type === "place" ? "place" : category, index));
-  });
-  const settled = await Promise.allSettled(requests);
-  const failures = settled.filter((result) => result.status === "rejected");
-  const items = settled.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-  if (!items.length && failures.length === settled.length) throw failures[0].reason;
+    return (response?.result?.items || []).map((item, index) =>
+      normalizeSearchItem(item, type === "place" ? "place" : category, index));
+  };
 
-  const normalizedQuery = query.replace(/\s+/g, "").toLowerCase();
-  const ranked = items.sort((a, b) => searchResultRank(b, normalizedQuery) - searchResultRank(a, normalizedQuery));
+  const firstPass = await Promise.allSettled(targets.map((target) => fetchSearchItems(queryVariants[0], target)));
+  const results = [...firstPass];
+  const initialItems = firstPass.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  // Fallback variants only if the original address did not produce candidates.
+  if (!initialItems.length && queryVariants.length > 1) {
+    const fallbackTargets = targets.filter((target) => target.category === "road");
+    for (const variant of queryVariants.slice(1)) {
+      const passes = await Promise.allSettled(fallbackTargets.map((target) => fetchSearchItems(variant, target)));
+      results.push(...passes);
+      if (passes.some((result) => result.status === "fulfilled" && result.value.length)) break;
+    }
+  }
+  const failures = results.filter((result) => result.status === "rejected");
+  const items = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  if (!items.length && failures.length === results.length) throw failures[0].reason;
+
+  const normalizedQueries = queryVariants.map((candidate) => candidate.replace(/\s+/g, "").toLowerCase());
+  const ranked = items.sort((a, b) => searchResultRank(b, normalizedQueries) - searchResultRank(a, normalizedQueries));
   const seen = new Set();
   return ranked.filter((item) => {
-    const key = (item.parcel || item.road || item.address || `${item.lon},${item.lat}`).replace(/\s+/g, " ").trim();
+    const key = (item.pnu || item.parcel || item.road || item.address || `${item.lon},${item.lat}`).replace(/\s+/g, " ").trim();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   }).slice(0, 12);
 }
 
-function searchResultRank(item, normalizedQuery) {
-  if (item.category !== "place") return 100;
-  const title = item.title.replace(/\s+/g, "").toLowerCase();
+function searchResultRank(item, normalizedQueries) {
+  const names = [item.road, item.parcel, item.title].filter(Boolean).map((name) => name.replace(/\s+/g, "").toLowerCase());
+  const matches = normalizedQueries.flatMap((query) => names.map((name) =>
+    name === query ? 60 : name.endsWith(query) ? 45 : name.includes(query) ? 25 : 0));
+  const matchScore = Math.max(0, ...matches);
+  if (item.category !== "place") return 100 + matchScore;
   const placeCategory = item.placeCategory || "";
   let rank = /아파트단지|건물|주거용공동주택/.test(placeCategory) ? 40 : 0;
   if (/버스터미널|정류장/.test(placeCategory)) rank -= 20;
-  if (title === normalizedQuery) rank += 20;
-  else if (title.startsWith(normalizedQuery)) rank += 10;
-  else if (title.includes(normalizedQuery) || normalizedQuery.includes(title)) rank += 5;
-  return rank;
+  return rank + matchScore;
 }
 
 function normalizeSearchItem(item, category, index) {
