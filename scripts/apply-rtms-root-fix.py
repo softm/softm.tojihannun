@@ -25,4 +25,12 @@ for relative, entry in payload.items():
 for target, data in writes.items():
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
+# Check the displayed statistic value, not the explanatory phrase '0건으로 표시하지 않습니다'.
+browser = root / 'scripts/rtms.browser.mjs'
+source = browser.read_text()
+old = "assert.doesNotMatch(await page.locator('#transactionStats').innerText(),/0건/);"
+new = "assert.equal(await page.locator('#transactionStats strong').innerText(),'미확인');"
+if old not in source:
+    raise RuntimeError('Browser assertion anchor changed')
+browser.write_text(source.replace(old, new))
 print('RTMS reviewed sources applied:', len(writes))
