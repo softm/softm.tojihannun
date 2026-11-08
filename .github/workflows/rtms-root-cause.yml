@@ -2,79 +2,46 @@ name: RTMS root cause verification
 on:
   push:
     branches: [fix/rtms-root-cause-20261108]
+    paths: [scripts/apply-rtms-root-fix.py]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   verify:
     runs-on: ubuntu-22.04
-    timeout-minutes: 6
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Snapshot source (no credentials)
-        run: |
-          mkdir -p verification
-          git archive --format=tar HEAD > verification/source.tar
-      - name: Check reported months against official API
-        env:
-          MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
-        run: |
-          python3 - <<'PY'
-          import os, json, time, re, urllib.request, urllib.parse, urllib.error, xml.etree.ElementTree as ET
-          from pathlib import Path
-          key = urllib.parse.unquote(os.environ.get('MOLIT_API_KEY','').strip())
-          report = {'keyConfigured': bool(key), 'requests': [], 'verifiedRows': []}
-          def text(root, name):
-              item=root.find('.//'+name)
-              return (item.text or '').strip() if item is not None else ''
-          def check(service,month):
-              params={'serviceKey':key,'LAWD_CD':'41210','DEAL_YMD':month,'pageNo':'1','numOfRows':'1000'}
-              url='https://apis.data.go.kr/1613000/'+service+'/get'+service+'?'+urllib.parse.urlencode(params)
-              entry={'service':service,'month':month}
-              try:
-                  request=urllib.request.Request(url,headers={'Accept':'application/xml','User-Agent':'Tojihannun-verification/1.0'})
-                  try:
-                      with urllib.request.urlopen(request,timeout=20) as response:
-                          body=response.read().decode('utf-8-sig');entry['http']=response.status
-                          entry['retryAfter']=response.headers.get('Retry-After','')
-                  except urllib.error.HTTPError as error:
-                      entry['http']=error.code;body=error.read().decode('utf-8-sig',errors='replace');entry['retryAfter']=error.headers.get('Retry-After','')
-                  root=ET.fromstring(body)
-                  entry['code']=text(root,'resultCode') or text(root,'returnReasonCode')
-                  entry['message']=text(root,'resultMsg') or text(root,'returnAuthMsg') or text(root,'errMsg')
-                  entry['totalCount']=text(root,'totalCount')
-                  rows=[{x.tag:(x.text or '').strip() for x in item} for item in root.findall('.//item')]
-                  entry['received']=len(rows)
-                  selected=[r for r in rows if r.get('umdNm',r.get('법정동','')).strip()=='광명동' and r.get('jibun',r.get('지번','')).strip()=='158-216']
-                  entry['matched']=len(selected)
-                  entry['columns']=list(rows[0]) if rows else []
-                  for row in selected:report['verifiedRows'].append({'service':service,'requestedMonth':month,'row':row})
-              except Exception as error:
-                  entry['errorType']=type(error).__name__
-                  entry['error']=str(error).replace(key,'[redacted]')[:300] if key else str(error)[:300]
-              report['requests'].append(entry)
-              print(json.dumps(entry,ensure_ascii=False))
-              return entry
-          if key:
-              service='RTMSDataSvcRHTrade2'
-              first=check(service,'202008')
-              if first.get('http')==429 or first.get('code') in ('22','23'):
-                  report['stopped']='rate limited; no further requests'
-              else:
-                  if first.get('received') is None or first.get('code') not in ('00','000','0000',''):
-                      time.sleep(2);service='RTMSDataSvcRHTrade';first=check(service,'202008')
-                  if first.get('http')==200 and first.get('received') is not None:
-                      for month in ['201912','201607']:
-                          time.sleep(2);entry=check(service,month)
-                          if entry.get('http')==429 or entry.get('code') in ('22','23'):
-                              report['stopped']='rate limited; no further requests';break
-          Path('verification/api-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
-          print('Verified public rows:',len(report['verifiedRows']))
-          PY
-      - name: Upload diagnostic and source snapshot
-        if: always()
-        uses: actions/upload-artifact@v4
+      - uses: actions/setup-node@v4
         with:
-          name: rtms-verification
-          path: verification/
-          retention-days: 3
+          node-version: 22
+      - name: Apply reviewed repair
+        run: if [ -f scripts/apply-rtms-root-fix.py ]; then python3 scripts/apply-rtms-root-fix.py; fi
+      - run: npm ci
+      - run: npm test
+      - run: node --check market-data.js
+      - run: npm run build
+      - name: Isolated browser dependency
+        run: |
+          npm install --prefix /tmp/rtms-browser playwright@1.56.1
+          /tmp/rtms-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Browser regression with verified public records
+        env:
+          PLAYWRIGHT_MODULE: /tmp/rtms-browser/node_modules/playwright/index.mjs
+        run: node scripts/rtms.browser.mjs
+      - name: Commit tested source to repair branch
+        if: github.ref == 'refs/heads/fix/rtms-root-cause-20261108'
+        run: |
+          git add market-data.js market-data.css index.html scripts/build-pages.mjs scripts/full-history-default.test.mjs scripts/transaction-scope-separation.test.mjs scripts/rtms-behavior.test.mjs scripts/rtms.browser.mjs rtms-verified-snapshots.json docs/RTMS_ROOT_CAUSE_20261108.md docs/RTMS_API_VERIFICATION_20261108.json
+          git rm --ignore-unmatch scripts/rtms-repair-part*.b64 scripts/apply-rtms-root-fix.py
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: verify parcel identity and serve tested bounded RTMS queries'
+            git push origin HEAD:fix/rtms-root-cause-20261108
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rtms-browser-verified
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
