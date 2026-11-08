@@ -87,7 +87,7 @@
     actions.append(button("현재 범위 다시 조회", invalidate));
     const nav = external("현재 위치 네이버 부동산 ↗", "https://fin.land.naver.com/map"); nav.dataset.districtNaver = ""; actions.append(nav); panel.append(actions);
     panel.append(el("p", "출처: 국토교통부 공간정보 오픈플랫폼 VWorld. 후보지·공람안은 누락될 수 있습니다. 화면의 선은 편입·제척을 확정하는 자료가 아닙니다. 최신 고시 도면·조서를 확인하세요.", "district-disclaimer"));
-    wrap.append(panel); host.append(wrap);
+    wrap.append(panel); document.body.append(wrap);
     const detailActions = document.querySelector(".detail-title-actions");
     if (detailActions && !document.getElementById("parcelNaverLand")) {
       const navParcel = external("네이버 부동산 ↗", "https://fin.land.naver.com/map"); navParcel.id = "parcelNaverLand"; navParcel.className = "district-parcel-link"; detailActions.prepend(navParcel);
