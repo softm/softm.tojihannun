@@ -1,0 +1,50 @@
+name: Verify published fast RTMS lookup
+on:
+  push:
+    branches: [fix/rtms-fast-scope-20261108]
+    paths: [.github/workflows/rtms-fast-live.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c6c56d79d7f433e0eec1766bb2b36c74353f19ff
+      - name: Verify published sources without API calls or printing credentials
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,time,urllib.request,re
+          from pathlib import Path
+          base='https://tojihannun.designboard.net/'
+          report={'commit':'c6c56d79d7f433e0eec1766bb2b36c74353f19ff','assets':[]}
+          for name in ['index.html','market-data.js','market-data.css','rtms-verified-snapshots.json']:
+              req=urllib.request.Request(base+name+'?verify='+str(time.time_ns()),headers={'Cache-Control':'no-cache'})
+              with urllib.request.urlopen(req,timeout=20) as r:body=r.read();status=r.status
+              local=Path(name).read_bytes()
+              same=hashlib.sha256(local).digest()==hashlib.sha256(body).digest()
+              report['assets'].append({'path':name,'http':status,'matchesTestedSource':same})
+              assert same,name+' differs from tested source'
+              if name=='index.html':
+                  assert b'value="saved" selected' in body
+                  assert b'20261108.9' in body
+                  report['default']='saved'
+              if name=='rtms-verified-snapshots.json':
+                  data=json.loads(body);report['verifiedSnapshotRows']=sum(len(e.get('rows',[])) for e in data['entries'])
+          with urllib.request.urlopen(base+'runtime-config.js?verify='+str(time.time_ns()),timeout=20) as r:config=r.read().decode()
+          match=re.search(r'Object\.freeze\((\{.*\})\)',config)
+          assert match,'Runtime configuration format'
+          runtime=json.loads(match.group(1))
+          report['parcelHistoryProviderConfigured']=bool(runtime.get('parcelHistoryEndpoint'))
+          # Do not print or persist MOLIT_API_KEY or complete runtime configuration.
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          Path('live-proof.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rtms-fast-live-proof
+          path: live-proof.json
+          retention-days: 7
