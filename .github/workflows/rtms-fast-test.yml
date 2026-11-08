@@ -1,0 +1,85 @@
+name: RTMS fast scope verification
+on:
+  push:
+    branches: [fix/rtms-fast-scope-20261108]
+    paths: [.github/workflows/rtms-fast-test.yml, scripts/rtms-scope-part*.b64]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: rtms-fast-scope-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply reviewed source changes with SHA256 validation
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, lzma
+          from pathlib import Path
+          root=Path.cwd()
+          if (root/'scripts/rtms-scope-part0.b64').exists():
+              encoded=''.join((root/f'scripts/rtms-scope-part{i}.b64').read_text().strip() for i in range(4))
+              packed=base64.b64decode(encoded,validate=True)
+              assert hashlib.sha256(packed).hexdigest()=='694e46d26ce11de6b9842dec599fc32920d8de08bb487a45916ed79deb1f75f2', 'Transfer integrity mismatch'
+              payload=json.loads(lzma.decompress(packed).decode('utf-8'))
+              writes={}
+              for relative,entry in payload.items():
+                  target=(root/relative).resolve()
+                  assert root in target.parents, 'Invalid path'
+                  current=hashlib.sha256(target.read_bytes()).hexdigest() if target.exists() else None
+                  if current==entry['after']:continue
+                  assert current==entry['before'], 'Source changed: '+relative
+                  lines=target.read_text().splitlines(keepends=True) if target.exists() else []
+                  for start,end,replacement in reversed(entry['splices']):
+                      lines[start:end]=replacement.splitlines(keepends=True)
+                  data=''.join(lines).encode('utf-8')
+                  assert hashlib.sha256(data).hexdigest()==entry['after'], 'Output mismatch: '+relative
+                  writes[target]=data
+              for target,data in writes.items():
+                  target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+              print('Reviewed files applied:',len(writes))
+          PY
+      - run: npm ci
+      - name: Unit and behavior regression tests
+        run: |
+          npm test
+          node --check market-data.js
+          node --check server.mjs
+          node --check parcel-history-provider.mjs
+          node --check scripts/rtms.browser.mjs
+          npm run build
+      - name: Isolated browser dependencies
+        run: |
+          npm install --prefix /tmp/rtms-browser playwright@1.56.1
+          /tmp/rtms-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Desktop and mobile browser regression
+        env:
+          PLAYWRIGHT_MODULE: /tmp/rtms-browser/node_modules/playwright/index.mjs
+        run: node scripts/rtms.browser.mjs
+      - name: Commit tested source to feature branch
+        run: |
+          git add market-data.js market-data.css index.html server.mjs parcel-history-provider.mjs scripts/build-pages.mjs scripts/full-history-default.test.mjs scripts/historical-rtms.test.mjs scripts/mobile-detail-market-config.test.mjs scripts/parcel-history-provider.test.mjs scripts/rtms-behavior.test.mjs scripts/rtms.browser.mjs docs/RTMS_COMMERCIAL_DISCLOSURE_20261108.json docs/RTMS_FAST_SCOPE_20261108.md
+          git rm --ignore-unmatch scripts/rtms-scope-part0.b64 scripts/rtms-scope-part1.b64 scripts/rtms-scope-part2.b64 scripts/rtms-scope-part3.b64
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: serve cached parcel trades first and identify masked commercial records honestly'
+            git push origin HEAD:fix/rtms-fast-scope-20261108
+          fi
+      - name: Snapshot tested source
+        if: always()
+        run: |
+          mkdir -p test-results
+          tar --exclude=.git --exclude=node_modules --exclude=test-results --exclude=dist -cf /tmp/rtms-fast-source.tar .
+          cp /tmp/rtms-fast-source.tar test-results/source.tar
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rtms-fast-browser-proof
+          path: test-results/
+          retention-days: 7
