@@ -1,4 +1,5 @@
 import http from "node:http";
+import {queryParcelHistory} from "./parcel-history-provider.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
@@ -59,7 +60,7 @@ function writeRuntimeConfig(response) {
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff"
   });
-  response.end(`globalThis.__TOJI_RUNTIME_CONFIG__ = Object.freeze(${JSON.stringify({molitApiKey})});\n`);
+  response.end(`globalThis.__TOJI_RUNTIME_CONFIG__ = Object.freeze(${JSON.stringify({molitApiKey, parcelHistoryEndpoint: process.env.BIGVALUE_JWT && ["won","manwon"].includes(process.env.BIGVALUE_PRICE_UNIT) ? "/api/transactions/parcel" : ""})});\n`);
 }
 
 async function proxyVWorld(request, response, service, incomingUrl) {
@@ -223,8 +224,32 @@ function serveStatic(response, pathname) {
   fs.createReadStream(filePath).pipe(response);
 }
 
+// Whole-history requests are opt-in and use one PNU request, never a monthly scan.
+let historyWindowStart = 0;
+let historyRequests = 0;
+async function handleParcelHistory(request, response) {
+  const allowedOrigins = (process.env.PARCEL_HISTORY_ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
+  const origin = request.headers.origin;
+  const sameHost = origin && ["http://", "https://"].some(scheme => origin === scheme + request.headers.host);
+  if (origin && !sameHost && !allowedOrigins.includes(origin)) { response.writeHead(403); response.end(); return; }
+  const headers = {"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","Vary":"Origin"};
+  if (origin) headers["Access-Control-Allow-Origin"] = origin;
+  if (request.method === "OPTIONS") { response.writeHead(204,{...headers,"Access-Control-Allow-Methods":"POST","Access-Control-Allow-Headers":"Content-Type"});response.end();return; }
+  if (request.method !== "POST") { response.writeHead(405,headers);response.end(JSON.stringify({error:"METHOD_NOT_ALLOWED"}));return; }
+  if (Date.now() - historyWindowStart > 60000) { historyWindowStart = Date.now(); historyRequests = 0; }
+  if (++historyRequests > 20) {response.writeHead(429,{...headers,"Retry-After":"60"});response.end(JSON.stringify({error:"LOCAL_RATE_LIMIT"}));return;}
+  try {
+    let raw = "";
+    for await (const chunk of request) {raw += chunk; if (Buffer.byteLength(raw)>4096) {response.writeHead(413,headers);response.end(JSON.stringify({error:"REQUEST_TOO_LARGE"}));return;}}
+    let body;try {body=JSON.parse(raw);}catch {response.writeHead(400,headers);response.end(JSON.stringify({error:"INVALID_REQUEST"}));return;}
+    const result=await queryParcelHistory(body);
+    response.writeHead(200,headers);response.end(JSON.stringify(result));
+  } catch(error) {response.writeHead(error.status || 502,headers);response.end(JSON.stringify({error:error.code || "PROVIDER_UNAVAILABLE"}));}
+}
+
 const server = http.createServer(async (request, response) => {
   const incomingUrl = new URL(request.url || "/", `http://${request.headers.host || `localhost:${port}`}`);
+  if (incomingUrl.pathname === "/api/transactions/parcel") { await handleParcelHistory(request,response);return; }
   if (incomingUrl.pathname === "/runtime-config.js") {
     writeRuntimeConfig(response);
     return;

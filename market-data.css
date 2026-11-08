@@ -555,3 +555,12 @@
 .transaction-market-controls select { max-width: 100%; }
 .market-panel-head > div:first-child { min-width: 0; }
 @media (min-width: 721px) { #detailPanelTransactions .market-panel-head { flex-wrap: wrap; } #detailPanelTransactions .market-panel-head > div:first-child { flex: 1 1 230px; } }
+
+/* Fast scope: explicit bounded periods, no fake zero counts. */
+.transaction-scope-switch {display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;}
+.transaction-scope-switch button {padding:10px 13px;border-radius:10px;border:1px solid #a9c9b8;background:#fff;color:#176b54;cursor:pointer;}
+.transaction-scope-switch button[aria-pressed="true"] {background:#176b54;color:#fff;}
+.transaction-disclosure {padding:12px 14px;margin:10px 0;border:1px solid #e4c788;border-radius:12px;background:#fff8e8;color:#715723;font-size:12px;line-height:1.7;}
+.transaction-disclosure[hidden] {display:none;}
+.transaction-provider-note {line-height:1.7;white-space:normal;overflow-wrap:anywhere;}
+.transaction-market-controls select {max-width:100%;}

@@ -44,7 +44,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
     <link rel="stylesheet" href="./styles.css?v=20261108.3" />
-    <link rel="stylesheet" href="./market-data.css?v=20261108.8" />
+    <link rel="stylesheet" href="./market-data.css?v=20261108.9" />
     <link rel="stylesheet" href="./districts.css?v=20261108.4" />
   </head>
   <body>
@@ -284,7 +284,8 @@
                 <option value="factory">공장·창고</option>
               </select>
               <select id="transactionRange">
-                <option value="all" selected>전체 기간 (2006년~)</option>
+                <option value="saved" selected>저장된 거래 (전체 이력 아님)</option>
+                <option value="3">최근 3개월</option>
                 <option value="12">최근 12개월</option>
                 <option value="24">최근 24개월</option>
                 <option value="36">최근 36개월</option>
@@ -331,7 +332,7 @@
             </div>
             <div class="transaction-list" id="transactionList"></div>
           </section>
-          <p class="market-disclaimer">공개 지번이 일치하는 거래와 같은 법정동 비교 거래를 분리합니다. 전체 기간은 조회 범위이며, 미조회 기간은 별도로 표시하고 추가 조회합니다. 지번 비공개 거래는 일치 여부를 확인할 수 없습니다. 다세대 거래는 같은 지번의 여러 호실이 포함되며 동일 호실 이력으로 확정하지 않습니다.</p>
+          <p class="market-disclaimer">공개 지번이 일치하는 거래와 같은 법정동 비교 거래를 분리합니다. 전체 거래이력은 별도 데이터 공급 연결이 필요합니다. 저장된 자료를 먼저 보여주며, 기간 선택 시 최대 3개월씩 확인합니다. 지번 비공개 거래는 일치 여부를 확인할 수 없습니다. 다세대 거래는 같은 지번의 여러 호실이 포함되며 동일 호실 이력으로 확정하지 않습니다.</p>
           <div class="market-source">
             <span>출처</span>
             <strong>국토교통부 실거래가 공개시스템 · 공공데이터포털</strong>
@@ -554,7 +555,7 @@
     <script src="./adfit.js?v=20261012.1"></script>
     <script src="./report-export.js?v=20261013.5"></script>
     <script src="./runtime-config.js"></script>
-    <script src="./market-data.js?v=20261108.8"></script>
+    <script src="./market-data.js?v=20261108.9"></script>
     <script src="./app.js?v=20261108.3"></script>
     <script defer src="./districts-core.js?v=20261108.1"></script>
     <script defer src="./districts.js?v=20261108.1"></script>
