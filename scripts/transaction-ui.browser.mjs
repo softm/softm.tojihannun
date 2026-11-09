@@ -57,6 +57,12 @@ try{
     await page.setViewportSize({width,height:850});
     const dimensions=await page.locator('#detailPanelTransactions').evaluate(e=>({client:e.clientWidth,scroll:e.scrollWidth}));
     assert.ok(dimensions.client>0 && dimensions.scroll<=dimensions.client+1,`horizontal overflow at ${width}: ${JSON.stringify(dimensions)}`);
+    if(width<=390){
+      const period=await page.locator('#transactionRange').boundingBox();
+      const refresh=await page.locator('#refreshTransactions').boundingBox();
+      assert.ok(period && period.width>=145,`period selector too narrow at ${width}: ${JSON.stringify(period)}`);
+      assert.ok(refresh && refresh.width<=60,`refresh steals period width at ${width}: ${JSON.stringify(refresh)}`);
+    }
     proof.checks.push(`no transaction-panel horizontal overflow at ${width}px`);
   }
   await page.setViewportSize({width:360,height:800});
