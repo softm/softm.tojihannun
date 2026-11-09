@@ -377,7 +377,9 @@
     return {kind: "xml", xml};
   }
 
+  // COLLECTION_UI_20261110: collected-only filters and explicit presentation state.
   function resetTransactionView() {
+    window.TojiTransactionUI?.reset();
     const area = parseParcelArea(state.parcel);
     const definition = TRANSACTION_TYPES[state.transactionType] || TRANSACTION_TYPES.land;
     applyTransactionType(state.transactionType);
@@ -389,7 +391,7 @@
     $("#transactionChartCard").hidden = true;
     $("#transactionList").innerHTML = "";
     $("#transactionListSection").hidden = true;
-    setStatus("#transactionStatus", state.serviceKey ? `${definition.label} 확인된 거래를 먼저 표시하고, 미조회 기간은 추가 조회합니다.` : "현재 실거래 조회 서비스를 이용할 수 없습니다.");
+    setStatus("#transactionStatus", `${definition.label} 수집 자료를 확인합니다. 미수집은 거래 없음이 아닙니다.`);
   }
 
   function resetAuctionView() {
@@ -678,6 +680,11 @@
       savedOnly: group.savedOnly, undisclosedCount: group.undisclosedCount, historyComplete: false};
     if (!items.length) renderMarketStats("#transactionStats", [{label: nearby ? "같은 법정동 비교" : "해당 필지 거래",
       value: group.loading ? "조회 중" : "미확인", note: "자료 미확보·지번 비공개·미조회는 거래 없음이 아닙니다"}]);
+    window.TojiTransactionUI?.render({group, type:state.transactionType, definition:TRANSACTION_TYPES[state.transactionType],
+      view:state.transactionView, period:state.transactionSession?.period || "saved",
+      onView:(view) => {state.transactionView=view;renderTransactionSession(state.transactionSession);},
+      onReload:() => void loadTransactions(true), onStop:() => {state.transactionController?.abort();
+        if(state.transactionSession){state.transactionSession.loading=false;state.transactionSession.error="조회 중단. 다시 불러오기로 재시도할 수 있습니다.";renderTransactionSession(state.transactionSession);}}});
   }
 
   function renderTransactions(items, scope, failedMonths, requestedMonths, {exact: exactMatch = false, truncated = false} = {}) {
@@ -782,6 +789,8 @@
       remainingMonths: remaining.length, failedMonths: relevantFailures.length,
       regionalCovered: [...session.results.keys()].some(month => expected.includes(month)),
       periodLabel: savedOnly ? "저장된 자료 (전체 이력 아님)" : session.period.startsWith("year-") ? session.period.slice(5) + "년" : "최근 " + session.months.length + "개월",
+      coveredMonthKeys: expected.filter(month => covered.has(month)),
+      staticLoaded: Boolean(session.staticLoaded), staticError: Boolean(session.staticError),
       snapshotAt: session.snapshotAt, loading: session.loading, error: session.error,
       truncated: [...session.results.values()].some(value => value.truncated)
     };
@@ -789,6 +798,9 @@
   }
 
   async function loadTransactions(force = false, allowInactive = false, options = {}) {
+    // Filter/refresh published files by default. A government query requires an explicit opt-in.
+    const collectedOnly = options.collectedOnly !== false;
+    if (force && collectedOnly) snapshotPromise = undefined;
     const parcel = state.parcel;
     if (!parcel || (!allowInactive && state.activeTab !== "transactions")) return;
     if (!state.transactionTypeManuallySelected) applyTransactionType(recommendTransactionType(parcel));
@@ -809,7 +821,7 @@
     state.transactionController = controller;
     const requestId = ++state.transactionRequest;
     const current = () => requestId === state.transactionRequest && state.transactionSession === session;
-    const fresh = !session || session.key !== cacheKey;
+    const fresh = !session || session.key !== cacheKey || (force && collectedOnly);
     if (fresh) {
       session = {key: cacheKey, type, area, period, months, results: new Map(), snapshots: new Map(), failures: new Map(), loading: true, error: "", snapshotAt: "", snapshotFresh: false};
       state.transactionSession = session;
@@ -829,24 +841,25 @@
       // File/API collector publishes shared static datasets; no interactive government requests.
       if (window.TojiStaticTrades) {
         try {
-          const staticEntry = await window.TojiStaticTrades.lookup(area, type);
-          if (!current() || controller.signal.aborted) return;
+          const staticEntry = await window.TojiStaticTrades.lookup(area, type, {includeNearby:true, force:force && collectedOnly});
+          if (!current() || controller.signal.aborted) { if(current()){session.loading=false;renderTransactionSession(session);} return; }
           if (staticEntry) {
+            session.staticLoaded = true;
             session.snapshotAt = staticEntry.verifiedAt || session.snapshotAt;
             session.snapshotFresh = Date.now() - Date.parse(session.snapshotAt) < 7 * 86400000;
             for (const month of staticEntry.completeMonths) if (period === "saved" || months.includes(month)) {
-              session.snapshots.set(month, normalizeRtmsNodes(staticEntry.rows.filter(row => `${row.dealYear}${row.dealMonth}` === month), type));
+              session.results.set(month, {items:normalizeRtmsNodes(staticEntry.rows.filter(row => `${row.dealYear}${row.dealMonth}` === month), type), truncated:false, source:"collected"});
             }
           }
-        } catch { /* Retain separately verified records when a static shard is unavailable. */ }
+        } catch { session.staticError=true;session.error="수집 파일을 불러오지 못했습니다. 다시 불러와 주세요. 별도로 확인된 기록이 있으면 유지합니다."; }
       }
-      for (const [key, cached] of state.rtmsCache) {
+      for (const [key, cached] of (collectedOnly ? [] : state.rtmsCache)) {
         const [cacheType, lawdCode, month] = key.split(":");
         if (cacheType === type && lawdCode === area.lawdCode && cached.expiresAt > Date.now() && (period === "saved" || months.includes(month))) session.results.set(month, cached.value);
       }
       // Keep saved evidence visible while a configured PNU provider is contacted once.
       renderTransactionSession(session);
-      await fetchDirectHistory(session, parcel, controller.signal);
+      if (!collectedOnly) await fetchDirectHistory(session, parcel, controller.signal);
       if (!current() || controller.signal.aborted) { if (current()) { session.loading=false;renderTransactionSession(session); } return; }
       session.loading = false;
       renderTransactionSession(session);
@@ -854,6 +867,7 @@
       if (session.snapshots.size && !force && !options.more) return;
     }
     if (!current()) return;
+    if (collectedOnly) { session.loading=false;renderTransactionSession(session);return; }
     if (period === "saved" && (!force || !sessionMonths(session).length)) { session.loading = false; renderTransactionSession(session); return; }
     if (!state.serviceKey) { session.loading = false; session.error = "현재 실거래 조회 서비스를 이용할 수 없습니다. 확인된 저장 자료만 표시합니다."; renderTransactionSession(session); return; }
     if (Date.now() < rtmsCooldownUntil) { session.loading = false; session.error = "API 요청 제한으로 추가 호출을 중단했습니다. 확인된 자료는 유지되며 제한 해제 시점은 공급기관에 따라 다릅니다."; renderTransactionSession(session); return; }

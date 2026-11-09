@@ -22,7 +22,7 @@ function harness({snap=snapshot,respond=async()=>new Response(JSON.stringify({re
     fetch:async (url,options)=>{if(String(url).startsWith('./rtms-verified'))return {ok:true,json:async()=>snap};calls.push(String(url));return respond(url,options,calls.length);}};
   const instrumented=source.replace('  bindEvents();',`  renderTransactionView = () => {state.transactionItems = state.transactionView === 'nearby' ? state.transactionGroups.comparable : state.transactionGroups.items;};
   waitForRtms = async (ms,signal) => {if(signal?.aborted) throw abortError();};
-  window.testApi = {state, parseParcelArea, normalizeLot, parcelLot, parseRtmsResponse, normalizeRtmsNodes, scopeTransactionItems, transactionMonths, loadTransactions, setParcel, refreshParcel, activate, fetchRtmsMonth, readMonthCache, saveMonthCache};`);
+  window.testApi = {state, parseParcelArea, normalizeLot, parcelLot, parseRtmsResponse, normalizeRtmsNodes, scopeTransactionItems, transactionMonths, loadTransactions: (force=false, allowInactive=false, options={}) => loadTransactions(force, allowInactive, {collectedOnly:false, ...options}), loadCollectedTransactions: loadTransactions, setParcel, refreshParcel, activate, fetchRtmsMonth, readMonthCache, saveMonthCache};`);
   vm.runInNewContext(instrumented,context);
   const api=context.window.testApi;
   api.setParcel(parcel);api.state.activeTab='transactions';
@@ -113,4 +113,15 @@ test('configured PNU endpoint is called once with no government monthly fallback
 test('PNU endpoint failure keeps verified rows and never causes 251-month fallback',async()=>{
  const {api,context,calls}=harness({respond:async()=>new Response('',{status:503})});context.window.__TOJI_RUNTIME_CONFIG__.parcelHistoryEndpoint='https://provider.example/parcel';
  await api.loadTransactions();assert.equal(calls.length,1);assert.equal(api.state.transactionItems.length,3);assert.match(api.state.transactionGroups.error,/공급처/);
+});
+
+// Collection UI defaults have their own tests; the existing source-mode guards above remain unchanged.
+test('collection-default period and refresh never initiate government requests',async()=>{
+  const {api,calls,get}=harness({snap:{entries:[]}});get('#transactionRange').value='year-2020';
+  await api.loadCollectedTransactions();assert.equal(calls.length,0);assert.equal(api.state.transactionGroups.coveredMonths,0);assert.equal(api.state.transactionGroups.loading,false);
+  await api.loadCollectedTransactions(true);assert.equal(calls.length,0);
+});
+test('collection-default ignores optional PNU provider and retains verified saved evidence',async()=>{
+  const {api,calls,context}=harness();context.window.__TOJI_RUNTIME_CONFIG__.parcelHistoryEndpoint='https://provider.example/parcel';
+  await api.loadCollectedTransactions();assert.equal(calls.length,0);assert.equal(api.state.transactionItems.length,3);
 });
