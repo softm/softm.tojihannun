@@ -85,7 +85,7 @@ class Pipeline:
           'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),
           'added':sum((new-old).values()),'removed':sum((old-new).values()),'unchanged':sum((new&old).values())}
         self.state['failures'].pop(key,None)
-        self.state.setdefault('streamCooldowns',{}).pop(stream_id,None)
+        if source=='public_api':self.state.setdefault('streamCooldowns',{}).pop(stream_id,None)
         self.touched.add(code);self.save()
         return self.state['segments'][key]
     def fail(self,key,error):
