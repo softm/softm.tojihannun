@@ -24,6 +24,7 @@ on:
     - cron: '17 * * * *'
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: rtms-collection
   cancel-in-progress: false
@@ -77,6 +78,31 @@ jobs:
             git pull --rebase origin main
             git push origin HEAD:main
           fi
+      - name: Continue nationwide backfill without waiting for next hourly schedule
+        if: always() && steps.collect.outcome != 'skipped' && github.event_name != 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_MODE: ${{ inputs.mode }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+          p=Path('data/transactions/collection-state.json')
+          if not p.exists():
+              print('CONTINUE_BACKFILL=false')
+          else:
+              run=json.loads(p.read_text()).get('lastRun') or {}
+              # Stop on any source failure, no progress, or non-backfill mode.
+              ok=run.get('mode')=='backfill' and run.get('status')=='success' and run.get('success',0)>0 and run.get('failed',0)==0
+              print('CONTINUE_BACKFILL='+str(ok).lower())
+          PY
+      - name: Dispatch next bounded backfill batch
+        if: env.CONTINUE_BACKFILL == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST repos/softm/softm.tojihannun/actions/workflows/collect-transactions.yml/dispatches \
+            -f ref=main -f inputs[mode]=backfill -f inputs[max_tasks]=96 -f inputs[districts]=''
       - uses: actions/upload-artifact@v4
         if: always()
         with:
