@@ -9,6 +9,7 @@ const publicFiles = [
   "districts.js",
   "districts.css",
   "index.html",
+  "data-status.html",
   "privacy.html",
   "sources.html",
   "privacy.css",
@@ -37,6 +38,12 @@ for (const relativePath of publicFiles) {
   const source = path.join(root, relativePath);
   if (fs.existsSync(source)) fs.copyFileSync(source, path.join(output, relativePath));
 }
+
+const manifestSource = path.join(root, "data/transactions/status-manifest.json");
+if (!fs.existsSync(manifestSource)) throw new Error("Required data-status manifest is missing");
+const manifestTarget = path.join(output, "data/transactions/status-manifest.json");
+fs.mkdirSync(path.dirname(manifestTarget), {recursive: true});
+fs.copyFileSync(manifestSource, manifestTarget);
 
 const runtimeConfig = {
   molitApiKey: String(process.env.MOLIT_API_KEY || "").trim(),
