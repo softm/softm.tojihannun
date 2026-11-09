@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
-  actions: write
 concurrency:
   group: rtms-collection
   cancel-in-progress: false
@@ -24,7 +23,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Apply integrity-checked reviewed changes
+      - name: Apply integrity-checked reviewed non-workflow changes
         run: |
           python3 - <<'PY'
           import base64,hashlib,json,lzma
@@ -36,6 +35,7 @@ jobs:
               payload=json.loads(lzma.decompress(raw))
               writes={}
               for name,entry in payload.items():
+                  if name.startswith('.github/workflows/'):continue
                   p=(root/name).resolve()
                   assert root in p.parents and '.git' not in p.relative_to(root).parts,'Invalid source path'
                   before=p.read_bytes() if p.exists() else None
@@ -65,24 +65,17 @@ jobs:
           npm install --prefix /tmp/rtms-browser playwright@1.56.1
           /tmp/rtms-browser/node_modules/.bin/playwright install --with-deps chromium
           PLAYWRIGHT_MODULE=/tmp/rtms-browser/node_modules/playwright/index.mjs node scripts/rtms/status.browser.mjs
-      - name: Commit tested source and migrated static data on main
+      - name: Commit only tested source and migrated static data on main
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm --ignore-unmatch scripts/rtms-transfer-0.b64 scripts/rtms-transfer-1.b64 scripts/rtms-transfer-2.b64 scripts/rtms-transfer-3.b64
-          git add .gitignore AGENTS.md .github/workflows/ data-status.html data-status.css data-status.js index.html market-data.js static-transactions.js scripts/ docs/TRANSACTION_COLLECTION.md data/transactions/
+          git add .gitignore AGENTS.md data-status.html data-status.css data-status.js index.html market-data.js static-transactions.js scripts/ docs/TRANSACTION_COLLECTION.md data/transactions/
           if ! git diff --cached --quiet; then
             git commit -m 'feat: validated nationwide source collector, Excel import and static transaction service'
             git pull --rebase origin main
             git push origin HEAD:main
           fi
-      - name: Start actual collection now (bounded official API; no Excel web scraping)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api --method POST repos/softm/softm.tojihannun/actions/workflows/collect-transactions.yml/dispatches --input - <<'JSON'
-          {"ref":"main","inputs":{"mode":"backfill","max_tasks":"96","districts":""}}
-          JSON
       - name: Snapshot reviewed code and test proof
         if: always()
         run: |
