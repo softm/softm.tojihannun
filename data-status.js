@@ -2,7 +2,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const fmt = value => value == null ? '미확인' : Number(value).toLocaleString('ko-KR');
-  const names={not_collected:'미수집',not_started:'미시작',partial:'부분 확보',complete:'확보 완료',success:'실행 성공',failed:'실행 실패',failure:'실행 실패',error:'오류',running:'수집 중',in_progress:'수집 중',queued:'실행 대기',pending:'실행 대기',cancelled:'취소'};
+  const names={not_collected:'미수집',not_started:'미시작',partial:'부분 확보',complete:'확보 완료',success:'실행 성공',failed:'실행 실패',failure:'실행 실패',error:'오류',running:'수집 중',in_progress:'수집 중',queued:'실행 대기',pending:'실행 대기',cancelled:'취소',deferred:'요청 보류',idle:'대기 중'};
   const stamp=value=>value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour12:false})+' KST':'미확인';
   const bytes=n=>n==null?'미확인':n>1048576?(n/1048576).toFixed(1)+' MB':(n/1024).toFixed(1)+' KB';
   function el(tag,text,cls){const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;}
@@ -37,13 +37,13 @@
     }catch(e){host.textContent='상세 현황을 읽지 못했습니다. 기존 거래자료와 별개입니다. '+e.message;}
   }
   function render(){
-    const c=model.collection||{},s=model.summary||{};const cards=[['정기 최신화','매일 04:00','KST · 최근 3개월 재확인'],['마지막 정상 수집',stamp(c.lastSuccessAt),'원본을 정상 수신한 시각'],['유효 거래',fmt(s.records),'취소 제외 · 확보 범위 내'],['완료 구간',fmt(s.completedTasks)+' / '+fmt(s.expectedTasks),'시군구 × 유형 × 계약월'],['지번 식별 가능',fmt(s.identifiable),'가려진 지번은 포함하지 않음'],['취소 기록',fmt(s.cancelled),'취소 정보를 별도 보존'],['파일 반입',fmt(s.fileImports),'검증 완료한 Excel/CSV'],['저장 용량',bytes(s.sourceBytes),'정규화 원본 gzip 합계']];
+    const c=model.collection||{},s=model.summary||{};const cards=[['정기 최신화','매일 04:00','KST · 최근 3개월 재확인'],['마지막 정상 수집',stamp(c.lastSuccessAt),'원본을 정상 수신한 시각'],['유효 거래',fmt(s.records),'취소 제외 · 확보 범위 내'],['완료 구간',fmt(s.completedTasks)+' / '+fmt(s.expectedTasks),'시군구 × 유형 × 계약월'],['지번 식별 가능',fmt(s.identifiable),'가려진 지번은 포함하지 않음'],['취소 기록',fmt(s.cancelled),'취소 정보를 별도 보존'],['접근 보류 유형',fmt(s.cooldownStreams),'API 권한 문제 · 재시도 시각 적용'],['재시도 대기',fmt(s.cooldownTasks),'실패한 구간 재시도 예약'],['파일 반입',fmt(s.fileImports),'검증 완료한 Excel/CSV'],['저장 용량',bytes(s.sourceBytes),'정규화 원본 gzip 합계']];
     $('summary').replaceChildren();for(const [label,value,note]of cards){const box=el('div',null,'card');box.append(el('span',label),el('strong',value),el('small',note));$('summary').append(box);}
     $('notice').textContent=model.sourcePolicy?.note||'실제 확보 범위를 확인하세요. 전국 수집 완료를 뜻하지 않습니다.';renderRegions();
-    const ops=$('operations');ops.replaceChildren();for(const [k,v]of [['자동 수집',c.schedule||'미설정'],['마지막 시도',stamp(c.lastAttemptAt)],['자료 생성',stamp(model.generatedAt)],['검증 범위',(model.verification?.level||'미확인')+' · '+fmt(model.verification?.segmentsChecked)+'개 원본'],['운영 게시파일 별도 검증',stamp(model.deployment?.lastVerifiedAt)],['웹 다운로드 자동화',model.sourcePolicy?.excelAutomation==='permission_required'?'승인 필요 · 자동 크롤링 비활성':'미확인']])kv(ops,k,v);
+    const ops=$('operations');ops.replaceChildren();for(const [k,v]of [['자동 수집',c.schedule||'미설정'],['마지막 시도',stamp(c.lastAttemptAt)],['API 호출 제한 해제 예정',s.apiCooldownUntil?stamp(s.apiCooldownUntil):'호출 제한 보류 없음'],['자료 생성',stamp(model.generatedAt)],['검증 범위',(model.verification?.level||'미확인')+' · '+fmt(model.verification?.segmentsChecked)+'개 원본'],['운영 게시파일 별도 검증',stamp(model.deployment?.lastVerifiedAt)],['웹 다운로드 자동화',model.sourcePolicy?.excelAutomation==='permission_required'?'승인 필요 · 자동 크롤링 비활성':'미확인']])kv(ops,k,v);
     const history=$('history');history.replaceChildren();const rows=(c.history||[]).slice(0,500);
     if(!rows.length)history.append(el('p','수집 실행 이력이 없습니다.'));
-    for(const run of rows){const item=el('article',null,'history-item');item.append(badge(run.status),el('strong',' '+stamp(run.finishedAt||run.at||run.startedAt)));item.append(el('p',run.message||'성공 '+fmt(run.success)+' / 실패 '+fmt(run.failed)+' · 요청 '+fmt(run.requests)+'회'));if(run.added!=null)item.append(el('small','원본 비교: 추가 '+fmt(run.added)+' · 사라짐 '+fmt(run.removed)+' · 취소표시 '+fmt(run.cancelled)));history.append(item);}
+    for(const run of rows){const item=el('article',null,'history-item');item.append(badge(run.status),el('strong',' '+stamp(run.finishedAt||run.at||run.startedAt)));if(run.status==='partial'&&run.success>0)item.append(el('small',' · 일부 성공: 정상 자료 저장됨, 실패 유형 별도 기록'));item.append(el('p',run.message||'성공 '+fmt(run.success)+' / 실패 '+fmt(run.failed)+' · 요청 '+fmt(run.requests)+'회'));if(run.added!=null)item.append(el('small','원본 비교: 추가 '+fmt(run.added)+' · 사라짐 '+fmt(run.removed)+' · 취소표시 '+fmt(run.cancelled)));history.append(item);}
     $('sources').replaceChildren();for(const source of model.source||[]){try{const url=new URL(source.url);if(url.protocol!=='https:')continue;const p=el('p'),a=el('a',source.name+' ↗');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';p.append(a);$('sources').append(p);}catch{}}
   }
   async function live(){
