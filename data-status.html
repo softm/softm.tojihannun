@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>토지한눈 · 데이터 수집 현황</title><style>
+:root{font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#18372e;background:#f4f7f6}*{box-sizing:border-box}body{margin:0}header{background:#153d32;color:white;padding:24px max(18px,calc((100% - 1180px)/2))}header a{color:#d3f2e2}main{max-width:1180px;margin:auto;padding:20px}h1{margin:8px 0}h2{margin:28px 0 12px;font-size:1.2rem}.muted{color:#64746d}.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.stat,.panel{background:white;border:1px solid #dce7e1;border-radius:14px;padding:18px}.stat strong{display:block;font-size:1.5rem;margin-top:8px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}select,input{border:1px solid #b7c9bf;border-radius:8px;padding:10px;font:inherit;background:white;max-width:100%}table{width:100%;border-collapse:collapse}th,td{padding:12px 10px;text-align:left;border-bottom:1px solid #e6ece9}th{font-size:.85rem;color:#51665b;background:#f6f9f7}td{font-size:.92rem}.scroll{overflow:auto}button{cursor:pointer;border:1px solid #a6c5b4;background:#eff8f3;border-radius:7px;padding:6px 10px;color:#12503b}.pill{border-radius:99px;background:#edf1ef;padding:4px 9px;font-size:.78rem;white-space:nowrap}.warning{color:#8c4d12}.good{color:#0a7046}.detail{margin:10px 0;padding:14px;background:#f6f9f7;border-radius:10px}details{margin:8px 0}summary{cursor:pointer;font-weight:600}a{color:#176b54}@media(max-width:650px){main{padding:12px}header{padding:18px}th,td{padding:10px 7px;white-space:nowrap}}
+</style></head><body><header><a href="./">← 토지한눈으로</a><h1>데이터 수집 현황</h1><div>전국 실거래 자료 · 시도/시군구/거래유형/연도별 확보 현황</div></header>
+<main><p id="notice" class="warning">데이터 수집 현황을 불러오는 중입니다.</p><section class="summary" id="summary"></section>
+<h2>시도별 상세 수집 현황</h2><div class="toolbar"><input id="search" placeholder="시도·시군구 검색" aria-label="지역 검색"><select id="filter" aria-label="수집 상태"><option value="">모든 상태</option><option value="not_collected">미수집</option><option value="partial">부분 수집</option><option value="complete">수집 완료</option><option value="error">오류</option><option value="stale">갱신 지연</option></select></div>
+<div class="panel scroll"><table><thead><tr><th>시도</th><th>상태</th><th>거래 건수</th><th>확보 연도</th><th>마지막 정상 수집</th><th>상세</th></tr></thead><tbody id="regions"></tbody></table></div>
+<h2>최신화·배포 상태</h2><div class="panel" id="operations"></div><h2>최근 수집 실행 이력</h2><div class="panel scroll" id="history"></div><h2>공식 출처</h2><div class="panel" id="sources"></div>
+<p class="muted">수집되지 않은 지역은 0건이 아니라 미수집으로 표시합니다. 조회 화면 새로고침은 원본 재수집을 실행하지 않습니다.</p></main>
+<script>
+const fmt=n=>n===null||n===undefined?'미확인':Number(n).toLocaleString('ko-KR');
+const date=v=>v?new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour12:false})+' KST':'미확인';
+const names={not_collected:'미수집',not_started:'미시작',partial:'부분 수집',complete:'수집 완료',error:'오류',stale:'갱신 지연',running:'진행 중'};
+let model;
+function el(tag,text){const x=document.createElement(tag);x.textContent=text;return x}
+function render(){
+ const regions=model.regions||[], known=regions.filter(r=>Number.isFinite(r.records));
+ const total=known.length?known.reduce((n,r)=>n+r.records,0):null;
+ const cards=[['집계된 거래 건수',fmt(total)+'건'],['수집 완료 시도',regions.filter(r=>r.status==='complete').length+' / '+regions.length],['부분 수집 시도',regions.filter(r=>r.status==='partial').length+'개'],['마지막 정상 수집',date(model.collection?.lastSuccessAt)]];
+ const summary=document.getElementById('summary');summary.replaceChildren();
+ for(const [label,value] of cards){const box=el('div','');box.className='stat';box.append(el('span',label),el('strong',value));summary.append(box)}
+ const q=document.getElementById('search').value.trim(),filter=document.getElementById('filter').value,tbody=document.getElementById('regions');tbody.replaceChildren();
+ for(const r of regions.filter(r=>(!filter||r.status===filter)&&(!q||[r.name,...(r.districts||[]).map(d=>d.name)].join(' ').includes(q)))){
+ const tr=document.createElement('tr');
+ for(const value of [r.name,names[r.status]||r.status,Number.isFinite(r.records)?fmt(r.records)+'건':'미수집',r.firstYear&&r.lastYear?r.firstYear+'~'+r.lastYear:'미확인',date(r.lastSuccessAt)])tr.append(el('td',value));
+ const td=document.createElement('td'),button=el('button','상세 보기');button.onclick=()=>{const next=tr.nextElementSibling;if(next?.dataset.detail==='yes'){next.remove();return}const detail=document.createElement('tr');detail.dataset.detail='yes';const cell=document.createElement('td');cell.colSpan=6;const wrap=el('div','');wrap.className='detail';wrap.append(el('strong','시군구·유형·연도별 수집 결과'));const ds=r.districts||[];if(!ds.length)wrap.append(el('p','아직 등록된 시군구 수집 자료가 없습니다.'));for(const d of ds){const section=document.createElement('details');const title=el('summary',d.name+' · '+(names[d.status]||'상태 미확인')+' · '+(d.records==null?'미확인':fmt(d.records)+'건'));section.append(title);for(const t of d.types||[]){section.append(el('p',(t.label||t.type)+' : '+(t.records==null?'미확인':fmt(t.records)+'건')+' / '+(t.years||[]).map(y=>y.year+':'+(y.status||'미확인')+' '+(y.records==null?'':fmt(y.records)+'건')).join(' · ')))}wrap.append(section)}cell.append(wrap);detail.append(cell);tr.after(detail)};td.append(button);tr.append(td);tbody.append(tr)}
+ const c=model.collection||{},ops=document.getElementById('operations');ops.replaceChildren();for(const [a,b] of [['수집 상태',names[c.status]||'미확인'],['예약 주기',c.schedule||'미설정'],['마지막 수집 시도',date(c.lastAttemptAt)],['마지막 정상 수집',date(c.lastSuccessAt)],['현황 파일 생성',date(model.generatedAt)],['게시 파일 검증',date(model.deployment?.lastVerifiedAt)]])ops.append(el('p',a+' : '+b));
+ const hist=document.getElementById('history');hist.replaceChildren();const events=(c.history||[]).slice(0,500);if(!events.length)hist.append(el('p','기록된 수집 실행 이력이 없습니다.'));for(const e of events)hist.append(el('p',date(e.at)+' · '+(names[e.status]||e.status||'미확인')+' · '+(e.region||'전체')+' · '+(e.message||'')));
+ const sources=document.getElementById('sources');sources.replaceChildren();for(const src of model.source||[]){const p=document.createElement('p'),a=el('a',src.name);a.href=src.url;a.target='_blank';a.rel='noopener noreferrer';p.append(a);sources.append(p)}
+ document.getElementById('notice').textContent=c.status==='not_started'?'실거래 정적 수집 파이프라인은 아직 시작되지 않았습니다. 표시된 미수집 지역은 거래 0건을 뜻하지 않습니다.':'수집 범위와 최신화 시각을 확인하세요. 일부 자료는 미확인일 수 있습니다.';
+}
+document.getElementById('search').addEventListener('input',()=>model&&render());document.getElementById('filter').addEventListener('change',()=>model&&render());
+fetch('./data/transactions/status-manifest.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(x=>{model=x;render()}).catch(e=>{document.getElementById('notice').textContent='현황 파일 조회 실패: '+e.message+' (수집 0건이 아닙니다)';});
+</script></body></html>
