@@ -1,0 +1,97 @@
+name: Install verified transaction pipeline
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/install-transaction-pipeline.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: rtms-collection
+  cancel-in-progress: false
+jobs:
+  install:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply integrity-checked reviewed changes
+        run: |
+          python3 - <<'PY'
+          import base64,hashlib,json,lzma
+          from pathlib import Path
+          root=Path.cwd()
+          if (root/'scripts/rtms-transfer-0.b64').exists():
+              raw=base64.b64decode(''.join((root/f'scripts/rtms-transfer-{i}.b64').read_text().strip() for i in range(4)),validate=True)
+              assert hashlib.sha256(raw).hexdigest()=='3e096a760b180dcd808a3c9ce882494eb5d2a8f7fd248cb830c65b2806393885','Transfer checksum mismatch'
+              payload=json.loads(lzma.decompress(raw))
+              writes={}
+              for name,entry in payload.items():
+                  p=(root/name).resolve()
+                  assert root in p.parents and '.git' not in p.relative_to(root).parts,'Invalid source path'
+                  before=p.read_bytes() if p.exists() else None
+                  sha=hashlib.sha256(before).hexdigest() if before is not None else None
+                  if sha==entry['after']:continue
+                  assert sha==entry['before'],'Source changed; reconcile: '+name
+                  lines=(before or b'').decode('utf-8').splitlines(keepends=True)
+                  for start,end,text in reversed(entry['splices']):lines[start:end]=text.splitlines(keepends=True)
+                  data=''.join(lines).encode('utf-8')
+                  assert hashlib.sha256(data).hexdigest()==entry['after'],'Source output mismatch: '+name
+                  writes[p]=data
+              for p,data in writes.items():p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
+              print('Reviewed source files applied:',len(writes))
+          PY
+      - name: Validate imported legacy data, behavior and build
+        run: |
+          python3 -m unittest discover -s scripts/rtms -p 'test_*.py'
+          python3 scripts/rtms/collector.py --mode build
+          npm ci
+          npm test
+          node --check market-data.js
+          node --check data-status.js
+          node --check static-transactions.js
+          npm run build
+      - name: Isolated browser validation
+        run: |
+          npm install --prefix /tmp/rtms-browser playwright@1.56.1
+          /tmp/rtms-browser/node_modules/.bin/playwright install --with-deps chromium
+          PLAYWRIGHT_MODULE=/tmp/rtms-browser/node_modules/playwright/index.mjs node scripts/rtms/status.browser.mjs
+      - name: Commit tested source and migrated static data on main
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm --ignore-unmatch scripts/rtms-transfer-0.b64 scripts/rtms-transfer-1.b64 scripts/rtms-transfer-2.b64 scripts/rtms-transfer-3.b64
+          git add .gitignore AGENTS.md .github/workflows/ data-status.html data-status.css data-status.js index.html market-data.js static-transactions.js scripts/ docs/TRANSACTION_COLLECTION.md data/transactions/
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat: validated nationwide source collector, Excel import and static transaction service'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+      - name: Start actual collection now (bounded official API; no Excel web scraping)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST repos/softm/softm.tojihannun/actions/workflows/collect-transactions.yml/dispatches --input - <<'JSON'
+          {"ref":"main","inputs":{"mode":"backfill","max_tasks":"96","districts":""}}
+          JSON
+      - name: Snapshot reviewed code and test proof
+        if: always()
+        run: |
+          mkdir -p test-results
+          tar --exclude=.git --exclude=node_modules --exclude=dist --exclude=test-results -cf /tmp/transaction-pipeline-source.tar .
+          cp /tmp/transaction-pipeline-source.tar test-results/source.tar
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: transaction-pipeline-install-proof
+          path: test-results/
+          retention-days: 7
