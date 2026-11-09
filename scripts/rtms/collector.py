@@ -280,6 +280,12 @@ class Pipeline:
             'lastSuccessAt':max((v['fetchedAt'] for v in segments.values()),default=None),
             'schedule':'최신화 매일 04:00 KST · 미확보 자료 매 10분 제한 수집 · 오류 유형별 재시도 대기 · Excel inbox 반입 시 자동 적재',
             'history':history,'active':self.active,'workflow':'Collect transaction sources',
+            'blockedSources':[{'type':sid,'label':STREAMS[sid]['label']+' '+('매매' if STREAMS[sid]['deal']=='sale' else '전월세'),
+                'errorCode':v.get('code'),'nextRetryAt':v.get('nextRetryAt'),
+                'reason':'API 활용승인/접근권한 확인 필요' if v.get('code') in ACCESS_ERRORS else '재시도 대기'}
+                for sid,v in self.state.get('streamCooldowns',{}).items() if sid in STREAMS and cooldown_active(v)],
+            'recentErrors':[{'code':code,'count':count} for code,count in
+                collections.Counter(v.get('code','UNKNOWN') for v in self.state.get('failures',{}).values()).most_common()],
             'executionSource':'https://api.github.com/repos/softm/softm.tojihannun/actions/runs?per_page=10'},
           'summary':{'records':total if segments else None,'sourceRows':sum(v['sourceRows'] for v in segments.values()),
               'cancelled':sum(v['cancelled'] for v in segments.values()),'identifiable':sum(v['identifiable'] for v in segments.values()),
@@ -342,7 +348,11 @@ def main():
         migrated=pipe.migrate_legacy();run['legacySegmentsImported']=migrated
         pipe.status()
         for p in sorted((pipe.base/'inbox').glob('*.scope.json')):
-            try:pipe.import_file(p)
+            try:
+                imported=pipe.import_file(p)
+                if imported:
+                    run['importedFiles']=run.get('importedFiles',0)+1
+                    run['importedRows']=run.get('importedRows',0)+imported
             except (SourceError,KeyError,ValueError,FileNotFoundError) as e:
                 run['failed']+=1;run.setdefault('fileErrors',[]).append({'file':p.name,'code':getattr(e,'code','INVALID_IMPORT')})
         if args.mode in ('refresh','backfill'):
@@ -373,7 +383,7 @@ def main():
                     if e.code in ('20','30','31','401','403','12','404'):blocked.add(sid)
                 done+=1;run['requests']=client.calls
             run['requests']=client.calls
-        run['status']='partial' if run['failed'] or STOP else 'deferred' if run.get('stopReason')=='API_COOLDOWN' else 'idle' if run.get('success',0)==0 else 'success'
+        run['status']='partial' if run['failed'] or STOP else 'deferred' if run.get('stopReason')=='API_COOLDOWN' else 'idle' if run.get('success',0)==0 and not run.get('importedFiles') else 'success'
     except SourceError as e:run['status']='failed';run['errorCode']=e.code
     except Exception as e:run['status']='failed';run['errorCode']=type(e).__name__;raise
     finally:
