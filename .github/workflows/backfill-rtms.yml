@@ -1,46 +1,10 @@
-name: Backfill RTMS historical data
+name: Archived backfill-rtms (replaced)
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/backfill-rtms.mjs'
-      - '.github/workflows/backfill-rtms.yml'
   workflow_dispatch:
-  schedule:
-    - cron: '30 19 * * *'
 permissions:
-  contents: write
-concurrency:
-  group: rtms-collection
-  cancel-in-progress: false
+  contents: read
 jobs:
-  backfill:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  guidance:
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - name: Backfill next 12 monthly type tasks
-        id: backfill
-        continue-on-error: true
-        env:
-          MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
-          START_YEAR: '2025'
-          END_YEAR: '2006'
-          MONTH_LIMIT: '12'
-        run: node scripts/backfill-rtms.mjs
-      - name: Persist partial or completed results
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/transactions/
-          if ! git diff --cached --quiet; then
-            git commit -m "data: backfill historical RTMS transactions"
-            git pull --rebase origin main
-            git push
-          fi
-      - name: Report failed source requests
-        if: steps.backfill.outcome == 'failure'
-        run: exit 1
+      - run: echo "Use Collect transaction sources. Legacy schedules are disabled; no source requests made."
