@@ -369,7 +369,10 @@ def main():
                 if done>=max(1,min(args.max_tasks,500)) or STOP:break
                 code,sid,month=task.split('/')
                 if sid in blocked:continue
-                run['currentTask']=task;pipe.active=dict(run);pipe.status()
+                # Status aggregation scans every district and validates all saved shards.
+                # Do not repeat it for each monthly request: the run log is live and
+                # the manifest is rebuilt once, after the batch is safely persisted.
+                run['currentTask']=task;pipe.active=dict(run)
                 try:
                     rows=client.month(STREAMS[sid],pipe.districts[code],month)
                     result=pipe.put(task,rows,'public_api');run['success']+=1
