@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "sourcePolicy": "https://rt.molit.go.kr/pt/info/info.do?mobileAt=",
+  "bulkFileAutomation": {
+    "enabled": false,
+    "reason": "공식 사이트는 자동 대량 수집을 제한합니다. 정상적으로 확보한 Excel/CSV 파일은 inbox로 반입합니다."
+  },
+  "streams": [
+    {
+      "id": "apartment-sale",
+      "category": "apartment",
+      "label": "아파트",
+      "deal": "sale",
+      "start": "2006-01-01",
+      "service": "RTMSDataSvcAptTrade",
+      "catalog": "15126469"
+    },
+    {
+      "id": "rowHouse-sale",
+      "category": "rowHouse",
+      "label": "연립·다세대",
+      "deal": "sale",
+      "start": "2006-01-01",
+      "service": "RTMSDataSvcRHTrade2",
+      "catalog": "15126467"
+    },
+    {
+      "id": "detached-sale",
+      "category": "detached",
+      "label": "단독·다가구",
+      "deal": "sale",
+      "start": "2006-01-01",
+      "service": "RTMSDataSvcSHTrade",
+      "catalog": "15126465"
+    },
+    {
+      "id": "officetel-sale",
+      "category": "officetel",
+      "label": "오피스텔",
+      "deal": "sale",
+      "start": "2006-01-01",
+      "service": "RTMSDataSvcOffiTrade",
+      "catalog": "15126464"
+    },
+    {
+      "id": "rights-sale",
+      "category": "rights",
+      "label": "분양·입주권",
+      "deal": "sale",
+      "start": "2007-06-29",
+      "service": "RTMSDataSvcSilvTrade",
+      "catalog": "15126471"
+    },
+    {
+      "id": "commercial-sale",
+      "category": "commercial",
+      "label": "상업·업무",
+      "deal": "sale",
+      "start": "2006-01-01",
+      "service": "RTMSDataSvcNrgTrade",
+      "catalog": "15126463"
+    },
+    {
+      "id": "land-sale",
+      "category": "land",
+      "label": "토지",
+      "deal": "sale",
+      "start": "2006-01-01",
+      "service": "RTMSDataSvcLandTrade",
+      "catalog": "15126466"
+    },
+    {
+      "id": "factory-sale",
+      "category": "factory",
+      "label": "공장·창고 등",
+      "deal": "sale",
+      "start": "2006-01-01",
+      "service": "RTMSDataSvcInduTrade",
+      "catalog": "15126462"
+    },
+    {
+      "id": "apartment-rent",
+      "category": "apartment",
+      "label": "아파트",
+      "deal": "rent",
+      "start": "2011-01-01",
+      "service": "RTMSDataSvcAptRent",
+      "catalog": "15126474"
+    },
+    {
+      "id": "rowHouse-rent",
+      "category": "rowHouse",
+      "label": "연립·다세대",
+      "deal": "rent",
+      "start": "2011-01-01",
+      "service": "RTMSDataSvcRHRent",
+      "catalog": "15126473"
+    },
+    {
+      "id": "detached-rent",
+      "category": "detached",
+      "label": "단독·다가구",
+      "deal": "rent",
+      "start": "2011-01-01",
+      "service": "RTMSDataSvcSHRent",
+      "catalog": "15126472"
+    },
+    {
+      "id": "officetel-rent",
+      "category": "officetel",
+      "label": "오피스텔",
+      "deal": "rent",
+      "start": "2011-01-01",
+      "service": "RTMSDataSvcOffiRent",
+      "catalog": "15126475"
+    }
+  ]
+}

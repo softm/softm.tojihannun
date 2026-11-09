@@ -826,6 +826,20 @@
           session.snapshots.set(month, normalizeRtmsNodes((entry.rows || []).filter(row => `${field(row,["dealYear"])}${field(row,["dealMonth"]).padStart(2,"0")}` === month), type));
         }
       }
+      // File/API collector publishes shared static datasets; no interactive government requests.
+      if (window.TojiStaticTrades) {
+        try {
+          const staticEntry = await window.TojiStaticTrades.lookup(area, type);
+          if (!current() || controller.signal.aborted) return;
+          if (staticEntry) {
+            session.snapshotAt = staticEntry.verifiedAt || session.snapshotAt;
+            session.snapshotFresh = Date.now() - Date.parse(session.snapshotAt) < 7 * 86400000;
+            for (const month of staticEntry.completeMonths) if (period === "saved" || months.includes(month)) {
+              session.snapshots.set(month, normalizeRtmsNodes(staticEntry.rows.filter(row => `${row.dealYear}${row.dealMonth}` === month), type));
+            }
+          }
+        } catch { /* Retain separately verified records when a static shard is unavailable. */ }
+      }
       for (const [key, cached] of state.rtmsCache) {
         const [cacheType, lawdCode, month] = key.split(":");
         if (cacheType === type && lawdCode === area.lawdCode && cached.expiresAt > Date.now() && (period === "saved" || months.includes(month))) session.results.set(month, cached.value);

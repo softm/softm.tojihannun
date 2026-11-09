@@ -6,3 +6,7 @@ work.md
 softm.realestate.tojihannun/
 *.log
 
+
+__pycache__/
+*.pyc
+test-results/

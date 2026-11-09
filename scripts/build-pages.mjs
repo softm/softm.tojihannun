@@ -10,6 +10,9 @@ const publicFiles = [
   "districts.css",
   "index.html",
   "data-status.html",
+  "data-status.js",
+  "data-status.css",
+  "static-transactions.js",
   "privacy.html",
   "sources.html",
   "privacy.css",
@@ -45,6 +48,11 @@ const manifestTarget = path.join(output, "data/transactions/status-manifest.json
 fs.mkdirSync(path.dirname(manifestTarget), {recursive: true});
 fs.copyFileSync(manifestSource, manifestTarget);
 
+for (const name of ["published", "status"]) {
+  const directory = path.join(root, "data/transactions", name);
+  if (fs.existsSync(directory)) fs.cpSync(directory, path.join(output, "data/transactions", name), {recursive: true});
+}
+// Raw inputs, worker state, credentials and inbox are deliberately NOT published.
 const runtimeConfig = {
   molitApiKey: String(process.env.MOLIT_API_KEY || "").trim(),
   parcelHistoryEndpoint: String(process.env.PARCEL_HISTORY_ENDPOINT || "").trim()
