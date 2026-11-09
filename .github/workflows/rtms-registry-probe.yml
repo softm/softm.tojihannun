@@ -1,0 +1,38 @@
+name: Verify RTMS region registry
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/rtms-registry-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Read official registry metadata
+        run: |
+          mkdir -p registry-probe
+          python3 - <<'PY'
+          import urllib.request,json,re,time
+          from pathlib import Path
+          targets=[('code.html','https://www.code.go.kr/stdcode/regCodeL.do'),('data.html','https://www.data.go.kr/data/15063424/fileData.do')]
+          report=[]
+          for name,url in targets:
+              try:
+                  with urllib.request.urlopen(url,timeout=30) as response: raw=response.read()
+                  text=raw.decode('utf-8',errors='replace');Path('registry-probe/'+name).write_text(text)
+                  report.append({'file':name,'bytes':len(raw)})
+                  for line in text.splitlines():
+                      if re.search('download|Download|\.zip|fileDataDetail|atchFileId|fileSn',line):print(line[:1500])
+              except Exception as e: report.append({'file':name,'error':str(e)[:200]})
+              time.sleep(1)
+          Path('registry-probe/report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rtms-registry-probe
+          path: registry-probe/
+          retention-days: 7
