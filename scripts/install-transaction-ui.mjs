@@ -58,4 +58,16 @@ fs.writeFileSync('index.html', html);
 let build = fs.readFileSync('scripts/build-pages.mjs','utf8');
 if (!build.includes('"transaction-ui.js"')) build=replaceOnce(build, 'const publicFiles = [', 'const publicFiles = [\n  "transaction-ui.js",\n  "transaction-ui.css",', 'build');
 fs.writeFileSync('scripts/build-pages.mjs',build);
+
+// Preserve all API protection assertions under their explicit source-query contract.
+// Separately assert that the default UI path never invokes either external provider.
+const testPath='scripts/rtms-behavior.test.mjs';
+let behavior=fs.readFileSync(testPath,'utf8');
+if(!behavior.includes('loadCollectedTransactions: loadTransactions')) {
+  if(blob(testPath)!=='abd4cd0248c396be860f91f6e5b4e24ffc4bd519') throw new Error('Behavior tests changed; reconcile before installation');
+  behavior=replaceOnce(behavior,'transactionMonths, loadTransactions, setParcel,',
+    'transactionMonths, loadTransactions: (force=false, allowInactive=false, options={}) => loadTransactions(force, allowInactive, {collectedOnly:false, ...options}), loadCollectedTransactions: loadTransactions, setParcel,','source mode test API');
+  behavior+=`\n// Collection UI defaults have their own tests; the existing source-mode guards above remain unchanged.\ntest('collection-default period and refresh never initiate government requests',async()=>{\n  const {api,calls,get}=harness({snap:{entries:[]}});get('#transactionRange').value='year-2020';\n  await api.loadCollectedTransactions();assert.equal(calls.length,0);assert.equal(api.state.transactionGroups.coveredMonths,0);assert.equal(api.state.transactionGroups.loading,false);\n  await api.loadCollectedTransactions(true);assert.equal(calls.length,0);\n});\ntest('collection-default ignores optional PNU provider and retains verified saved evidence',async()=>{\n  const {api,calls,context}=harness();context.window.__TOJI_RUNTIME_CONFIG__.parcelHistoryEndpoint='https://provider.example/parcel';\n  await api.loadCollectedTransactions();assert.equal(calls.length,0);assert.equal(api.state.transactionItems.length,3);\n});\n`;
+  fs.writeFileSync(testPath,behavior);
+}
 console.log('Transaction UI source installed without changing collection workflows or data.');

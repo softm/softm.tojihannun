@@ -46,7 +46,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html market-data.js scripts/build-pages.mjs
+          git add index.html market-data.js scripts/build-pages.mjs scripts/rtms-behavior.test.mjs
           if ! git diff --cached --quiet; then
             git commit -m 'feat: activate collected-data transaction UI after regression and browser verification'
             git pull --rebase origin main
