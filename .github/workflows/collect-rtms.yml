@@ -1,5 +1,10 @@
 name: Collect RTMS pilot data
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/collect-rtms.mjs'
+      - '.github/workflows/collect-rtms.yml'
   workflow_dispatch:
   schedule:
     - cron: '0 19 * * *'
