@@ -10,6 +10,7 @@ const region=manifest.regions.find(r=>r.code==="41");
 const district=region.districts.find(d=>d.code==="41210")||{code:"41210",name:"광명시",status:"not_collected",records:null,types:[]};
 if(!region.districts.some(d=>d.code==="41210"))region.districts.push(district);
 const at=now.toISOString(),results=[];let failures=0;
+console.log("RTMS collection started:",at,"district=41210","months="+months.join(","),"types="+Object.keys(types).join(","));
 for(const [type,endpoint] of Object.entries(types)){
  for(const month of months){
   const url=new URL("https://apis.data.go.kr/1613000/"+endpoint);
