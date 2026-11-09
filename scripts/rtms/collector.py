@@ -15,6 +15,27 @@ STOP=False
 
 def utc(): return datetime.now(timezone.utc).isoformat()
 def today(): return (datetime.now(timezone.utc)+timedelta(hours=9)).date()
+# Source access failure is not a data failure. Keep blocked streams out of
+# subsequent runs without hiding the error from the public status dashboard.
+ACCESS_ERRORS=frozenset(('401','403','20','30','31','12','404'))
+QUOTA_ERRORS=frozenset(('429','22','23','29'))
+def cooldown_active(item,now=None):
+    if not isinstance(item,dict):return False
+    expiry=item.get('nextRetryAt') or item.get('until')
+    if not expiry:return False
+    try:return datetime.fromisoformat(expiry)> (now or datetime.now(timezone.utc))
+    except (ValueError,TypeError):return False
+def retry_delay(code,attempts):
+    # Never hammer an unapproved endpoint every ten minutes.
+    if code in ACCESS_ERRORS:return 24*3600
+    if code in QUOTA_ERRORS:return 60*60
+    if code=='NETWORK_TIMEOUT':return min(4*3600,600*2**min(attempts-1,5))
+    return min(6*3600,600*2**min(attempts-1,5))
+def run_exit_code(run):
+    # GitHub action success = persisted useful work, not nationwide completion.
+    # Source gaps remain explicitly visible as partial in the manifest.
+    if run.get('status')=='partial' and run.get('success',0)>0:return 0
+    return 1 if run.get('status') in ('failed','partial') else 0
 def dump(obj):return json.dumps(obj,ensure_ascii=False,separators=(',',':'),sort_keys=True).encode()
 def atomic(path,raw):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
@@ -63,11 +84,25 @@ class Pipeline:
           'scopeEnd':scope_end or min(self.asof,f"{month[:4]}-{month[4:]}-{calendar.monthrange(int(month[:4]),int(month[4:]))[1]:02}"),
           'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),
           'added':sum((new-old).values()),'removed':sum((old-new).values()),'unchanged':sum((new&old).values())}
-        self.state['failures'].pop(key,None);self.touched.add(code);self.save()
+        self.state['failures'].pop(key,None)
+        self.state.setdefault('streamCooldowns',{}).pop(stream_id,None)
+        self.touched.add(code);self.save()
         return self.state['segments'][key]
     def fail(self,key,error):
         prior=self.state['failures'].get(key,{})
-        self.state['failures'][key]={'code':getattr(error,'code','UNKNOWN'),'at':utc(),'attempts':prior.get('attempts',0)+1,'preserved':key in self.state['segments']}
+        code=getattr(error,'code','UNKNOWN')
+        attempts=prior.get('attempts',0)+1
+        at=utc()
+        retry_at=(datetime.now(timezone.utc)+timedelta(seconds=retry_delay(code,attempts))).isoformat()
+        self.state['failures'][key]={'code':code,'at':at,'attempts':attempts,
+            'preserved':key in self.state['segments'],'nextRetryAt':retry_at}
+        if code in ACCESS_ERRORS:
+            stream_id=key.split('/')[1]
+            self.state.setdefault('streamCooldowns',{})[stream_id]={
+                'code':code,'at':at,'nextRetryAt':retry_at,
+                'reason':'source_access_unavailable'}
+        elif code in QUOTA_ERRORS:
+            self.state['apiCooldown']={'code':code,'at':at,'nextRetryAt':retry_at,'reason':'quota_or_rate_limit'}
         self.save()
     def migrate_legacy(self):
         migrated=0
@@ -135,13 +170,18 @@ class Pipeline:
         all_months=month_range('2006-01-01',self.asof)[::-1]
         if mode=='refresh':all_months=all_months[:3]
         candidates=[]
+        now=datetime.now(timezone.utc)
+        blocked_streams={sid for sid,entry in self.state.get('streamCooldowns',{}).items() if cooldown_active(entry,now)}
+        failures=self.state.get('failures',{})
         for month in all_months:
             for stream_id in streams:
+                if stream_id in blocked_streams:continue
                 if month<STREAMS[stream_id]['start'][:7].replace('-',''):continue
                 for code in ordered:
                     key=f'{code}/{stream_id}/{month}';old=self.state['segments'].get(key)
+                    if cooldown_active(failures.get(key),now):continue
                     if old and mode=='backfill':continue
-                    if old and mode=='refresh' and (datetime.now(timezone.utc)-datetime.fromisoformat(old['fetchedAt'])).total_seconds()<20*3600:continue
+                    if old and mode=='refresh' and (now-datetime.fromisoformat(old['fetchedAt'])).total_seconds()<20*3600:continue
                     candidates.append((old['fetchedAt'] if old else '',key))
         if mode=='refresh':candidates.sort(key=lambda x:x[0])
         # Establish real support/permission for each stream before broadening nationwide.
@@ -238,12 +278,15 @@ class Pipeline:
           'collection':{'status': 'running' if self.active else 'partial' if segments else 'not_started',
             'runStatus':last.get('status','not_started'),'lastAttemptAt':last.get('startedAt'),
             'lastSuccessAt':max((v['fetchedAt'] for v in segments.values()),default=None),
-            'schedule':'최신화 매일 04:00 KST · 미확보 자료 매시 17분 제한 수집 · Excel inbox 반입 시 자동 적재',
+            'schedule':'최신화 매일 04:00 KST · 미확보 자료 매 10분 제한 수집 · 오류 유형별 재시도 대기 · Excel inbox 반입 시 자동 적재',
             'history':history,'active':self.active,'workflow':'Collect transaction sources',
             'executionSource':'https://api.github.com/repos/softm/softm.tojihannun/actions/runs?per_page=10'},
           'summary':{'records':total if segments else None,'sourceRows':sum(v['sourceRows'] for v in segments.values()),
               'cancelled':sum(v['cancelled'] for v in segments.values()),'identifiable':sum(v['identifiable'] for v in segments.values()),
               'completedTasks':len(segments),'failedTasks':len(self.state['failures']),
+              'cooldownStreams':sum(cooldown_active(v) for v in self.state.get('streamCooldowns',{}).values()),
+              'cooldownTasks':sum(cooldown_active(v) for v in self.state.get('failures',{}).values()),
+              'apiCooldownUntil':self.state.get('apiCooldown',{}).get('nextRetryAt') if cooldown_active(self.state.get('apiCooldown')) else None,
               'expectedTasks':sum(d['expected'] for d in details.values()),
               'sourceBytes':sum(v['bytes'] for v in segments.values()),'fileImports':len(self.state['imports'])},
           'sourcePolicy':{'excelAutomation':'permission_required','excelImported':len(self.state['imports']),'apiIsBulkSource':True,
@@ -307,10 +350,12 @@ def main():
             if not key:raise SourceError('MISSING_KEY')
             client=Client(key,max_requests=max(1,min(args.max_requests,500)),deadline=time.monotonic()+max(30,min(args.max_seconds,900)))
             blocked=set();done=0
+            if cooldown_active(pipe.state.get('apiCooldown')):
+                run['stopReason']='API_COOLDOWN'
             codes=args.districts.split(',') if args.districts else None;streams=args.streams.split(',') if args.streams else None
             if codes and any(c not in pipe.districts for c in codes):raise SourceError('UNKNOWN_DISTRICT')
             if streams and any(s not in STREAMS for s in streams):raise SourceError('UNKNOWN_STREAM')
-            for task in pipe.plan(args.mode,codes,streams):
+            for task in (() if run.get('stopReason')=='API_COOLDOWN' else pipe.plan(args.mode,codes,streams)):
                 if done>=max(1,min(args.max_tasks,500)) or STOP:break
                 code,sid,month=task.split('/')
                 if sid in blocked:continue
@@ -328,14 +373,18 @@ def main():
                     if e.code in ('20','30','31','401','403','12','404'):blocked.add(sid)
                 done+=1;run['requests']=client.calls
             run['requests']=client.calls
-        run['status']='partial' if run['failed'] or STOP else 'success'
+        run['status']='partial' if run['failed'] or STOP else 'deferred' if run.get('stopReason')=='API_COOLDOWN' else 'idle' if run.get('success',0)==0 else 'success'
     except SourceError as e:run['status']='failed';run['errorCode']=e.code
     except Exception as e:run['status']='failed';run['errorCode']=type(e).__name__;raise
     finally:
         run['finishedAt']=utc();run.pop('currentTask',None);pipe.active=None
         pipe.state['lastRun']=run;pipe.state['history']=[dict(run),*pipe.state.get('history',[])][:500];pipe.save();pipe.publish()
         print('COLLECTION_SUMMARY '+json.dumps(run,ensure_ascii=False),flush=True)
-    return 1 if run['status'] in ('failed','partial') else 0
+        if run.get('status')=='partial' and run.get('success',0)>0:
+            print('::warning title=Partial RTMS collection::Validated data was saved, but '+str(run['failed'])+' source tasks failed. See status-manifest.json.',flush=True)
+        if run.get('status')=='deferred':
+            print('::warning title=RTMS quota cooldown::Source requests are deferred until the recorded retry time.',flush=True)
+    return run_exit_code(run)
 
 def request_stop(signum,frame):
     global STOP
