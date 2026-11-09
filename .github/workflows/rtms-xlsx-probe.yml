@@ -1,0 +1,47 @@
+name: Verify official Excel download
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/rtms-xlsx-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read public download form and its scripts (no transaction API)
+        run: |
+          mkdir -p xlsx-probe
+          git archive --format=tar HEAD > xlsx-probe/source.tar
+          python3 - <<'PY'
+          import json,re,time,urllib.request,urllib.parse,urllib.error
+          from pathlib import Path
+          root=Path('xlsx-probe');base='https://rt.molit.go.kr';report=[]
+          def get(url,name):
+              try:
+                  req=urllib.request.Request(url,headers={'User-Agent':'Tojihannun-Excel-collector/1.0','Accept':'text/html,application/javascript,text/plain,*/*'})
+                  with urllib.request.urlopen(req,timeout=25) as r: data=r.read();status=r.status
+                  text=data.decode('utf-8',errors='replace');(root/name).write_text(text)
+                  report.append({'url':url,'file':name,'status':status,'bytes':len(data)})
+                  return text
+              except Exception as e:
+                  report.append({'url':url,'file':name,'error':type(e).__name__+': '+str(e)[:200]});return ''
+          get(base+'/robots.txt','robots.txt')
+          text=get(base+'/pt/xls/xls.do?mobileAt=','download.html')
+          urls=re.findall(r'<script[^>]+src=[\"\']([^\"\']+)',text,re.I)
+          for i,u in enumerate(urls[:18]):
+              url=urllib.parse.urljoin(base+'/pt/xls/xls.do',u)
+              if urllib.parse.urlparse(url).netloc!='rt.molit.go.kr':continue
+              time.sleep(.4);get(url,'script-'+str(i)+'.js')
+          (root/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print(json.dumps(report,ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rtms-xlsx-probe
+          path: xlsx-probe/
+          retention-days: 7
