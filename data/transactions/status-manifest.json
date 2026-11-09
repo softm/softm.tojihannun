@@ -1,12 +1,18 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-09T10:08:48.705Z",
+  "generatedAt": "2026-11-09T10:10:59.627Z",
   "collection": {
     "status": "partial",
-    "lastAttemptAt": "2026-11-09T10:08:48.705Z",
-    "lastSuccessAt": "2026-11-09T10:08:48.705Z",
+    "lastAttemptAt": "2026-11-09T10:10:47.191Z",
+    "lastSuccessAt": "2026-11-09T10:10:59.627Z",
     "schedule": "매일 04:00 KST · 최근 3개월 · 광명시 4개 유형 (시범 수집)",
     "history": [
+      {
+        "at": "2026-11-09T10:10:47.191Z",
+        "status": "complete",
+        "region": "광명시 과거 이력",
+        "message": "월별 유형 12/12 성공, 0 실패; 잔여 작업 948"
+      },
       {
         "at": "2026-11-09T10:08:48.705Z",
         "status": "complete",
@@ -19,7 +25,8 @@
         "region": "경기도 광명시",
         "message": "12/12개월·유형 성공; 실패 0건"
       }
-    ]
+    ],
+    "active": null
   },
   "deployment": {
     "lastVerifiedAt": null
@@ -143,22 +150,27 @@
       "code": "41",
       "name": "경기도",
       "status": "partial",
-      "records": 421,
+      "records": 1922,
       "firstYear": null,
       "lastYear": null,
-      "lastSuccessAt": "2026-11-09T10:08:48.705Z",
+      "lastSuccessAt": "2026-11-09T10:10:59.627Z",
       "types": [],
       "districts": [
         {
           "code": "41210",
           "name": "광명시",
           "status": "partial",
-          "records": 421,
+          "records": 1922,
           "types": [
             {
               "type": "rowHouse",
               "label": "연립·다세대",
               "years": [
+                {
+                  "year": 2025,
+                  "records": 223,
+                  "status": "partial"
+                },
                 {
                   "year": 2026,
                   "records": 84,
@@ -166,6 +178,30 @@
                 }
               ],
               "months": [
+                {
+                  "type": "rowHouse",
+                  "month": "202510",
+                  "records": 85,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:56.012Z"
+                },
+                {
+                  "type": "rowHouse",
+                  "month": "202511",
+                  "records": 62,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:52.475Z"
+                },
+                {
+                  "type": "rowHouse",
+                  "month": "202512",
+                  "records": 76,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:48.460Z"
+                },
                 {
                   "type": "rowHouse",
                   "month": "202609",
@@ -191,12 +227,17 @@
                   "at": "2026-11-09T10:08:48.705Z"
                 }
               ],
-              "records": 84
+              "records": 307
             },
             {
               "type": "apartment",
               "label": "아파트",
               "years": [
+                {
+                  "year": 2025,
+                  "records": 1064,
+                  "status": "partial"
+                },
                 {
                   "year": 2026,
                   "records": 276,
@@ -204,6 +245,30 @@
                 }
               ],
               "months": [
+                {
+                  "type": "apartment",
+                  "month": "202510",
+                  "records": 555,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:57.193Z"
+                },
+                {
+                  "type": "apartment",
+                  "month": "202511",
+                  "records": 203,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:53.356Z"
+                },
+                {
+                  "type": "apartment",
+                  "month": "202512",
+                  "records": 306,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:49.800Z"
+                },
                 {
                   "type": "apartment",
                   "month": "202609",
@@ -229,12 +294,17 @@
                   "at": "2026-11-09T10:08:48.705Z"
                 }
               ],
-              "records": 276
+              "records": 1340
             },
             {
               "type": "land",
               "label": "토지",
               "years": [
+                {
+                  "year": 2025,
+                  "records": 154,
+                  "status": "partial"
+                },
                 {
                   "year": 2026,
                   "records": 32,
@@ -242,6 +312,30 @@
                 }
               ],
               "months": [
+                {
+                  "type": "land",
+                  "month": "202510",
+                  "records": 29,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:58.062Z"
+                },
+                {
+                  "type": "land",
+                  "month": "202511",
+                  "records": 29,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:54.232Z"
+                },
+                {
+                  "type": "land",
+                  "month": "202512",
+                  "records": 96,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:50.695Z"
+                },
                 {
                   "type": "land",
                   "month": "202609",
@@ -267,12 +361,17 @@
                   "at": "2026-11-09T10:08:48.705Z"
                 }
               ],
-              "records": 32
+              "records": 186
             },
             {
               "type": "commercial",
               "label": "상업·업무",
               "years": [
+                {
+                  "year": 2025,
+                  "records": 60,
+                  "status": "partial"
+                },
                 {
                   "year": 2026,
                   "records": 29,
@@ -280,6 +379,30 @@
                 }
               ],
               "months": [
+                {
+                  "type": "commercial",
+                  "month": "202510",
+                  "records": 15,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:58.927Z"
+                },
+                {
+                  "type": "commercial",
+                  "month": "202511",
+                  "records": 16,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:55.097Z"
+                },
+                {
+                  "type": "commercial",
+                  "month": "202512",
+                  "records": 29,
+                  "status": "complete",
+                  "pages": 1,
+                  "at": "2026-11-09T10:10:51.574Z"
+                },
                 {
                   "type": "commercial",
                   "month": "202609",
@@ -305,10 +428,10 @@
                   "at": "2026-11-09T10:08:48.705Z"
                 }
               ],
-              "records": 29
+              "records": 89
             }
           ],
-          "lastSuccessAt": "2026-11-09T10:08:48.705Z"
+          "lastSuccessAt": "2026-11-09T10:10:59.627Z"
         }
       ],
       "bytes": null,
