@@ -1,0 +1,66 @@
+name: Install and verify transaction UI
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/transaction-ui.yml', 'scripts/install-transaction-ui.mjs']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: transaction-ui-install
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Apply reviewed UI integration on main
+        run: node scripts/install-transaction-ui.mjs
+      - name: Syntax and regression tests
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          node --check market-data.js
+          node --check transaction-ui.js
+          node --check static-transactions.js
+          npm ci
+          npm test | tee test-results/transaction-ui-unit.txt
+          python3 -m unittest discover -s scripts/rtms -p 'test_*.py'
+          npm run build
+      - name: Verify published data in mobile and desktop transaction panel
+        run: |
+          set -euo pipefail
+          npm install --prefix /tmp/transaction-ui-browser playwright@1.56.1
+          /tmp/transaction-ui-browser/node_modules/.bin/playwright install --with-deps chromium
+          PLAYWRIGHT_MODULE=/tmp/transaction-ui-browser/node_modules/playwright/index.mjs node scripts/transaction-ui.browser.mjs
+      - name: Push tested integration directly to main
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html market-data.js scripts/build-pages.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat: activate collected-data transaction UI after regression and browser verification'
+            git pull --rebase origin main
+            npm test > test-results/transaction-ui-post-rebase.txt
+            git push origin HEAD:main
+          fi
+          git rev-parse HEAD > test-results/transaction-ui-commit.txt
+      - name: Deploy verified main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy-pages.yml --ref main
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: transaction-ui-verification
+          path: test-results/
+          retention-days: 7
