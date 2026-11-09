@@ -3,6 +3,10 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main]
+  workflow_run:
+    workflows: ["Collect transaction sources"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -19,12 +23,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: python3 -m unittest discover -s scripts/rtms -p 'test_*.py'
       - run: npm run build
         env:
           MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
