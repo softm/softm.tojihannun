@@ -1,12 +1,18 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-09T10:04:50.122Z",
+  "generatedAt": "2026-11-09T10:08:48.705Z",
   "collection": {
     "status": "partial",
-    "lastAttemptAt": "2026-11-09T10:04:50.122Z",
-    "lastSuccessAt": "2026-11-09T10:04:50.122Z",
+    "lastAttemptAt": "2026-11-09T10:08:48.705Z",
+    "lastSuccessAt": "2026-11-09T10:08:48.705Z",
     "schedule": "매일 04:00 KST · 최근 3개월 · 광명시 4개 유형 (시범 수집)",
     "history": [
+      {
+        "at": "2026-11-09T10:08:48.705Z",
+        "status": "complete",
+        "region": "경기도 광명시",
+        "message": "12/12개월·유형 성공; 실패 0건"
+      },
       {
         "at": "2026-11-09T10:04:50.122Z",
         "status": "complete",
@@ -140,7 +146,7 @@
       "records": 421,
       "firstYear": null,
       "lastYear": null,
-      "lastSuccessAt": "2026-11-09T10:04:50.122Z",
+      "lastSuccessAt": "2026-11-09T10:08:48.705Z",
       "types": [],
       "districts": [
         {
@@ -166,7 +172,7 @@
                   "records": 40,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 },
                 {
                   "type": "rowHouse",
@@ -174,7 +180,7 @@
                   "records": 43,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 },
                 {
                   "type": "rowHouse",
@@ -182,7 +188,7 @@
                   "records": 1,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 }
               ],
               "records": 84
@@ -204,7 +210,7 @@
                   "records": 152,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 },
                 {
                   "type": "apartment",
@@ -212,7 +218,7 @@
                   "records": 118,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 },
                 {
                   "type": "apartment",
@@ -220,7 +226,7 @@
                   "records": 6,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 }
               ],
               "records": 276
@@ -242,7 +248,7 @@
                   "records": 21,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 },
                 {
                   "type": "land",
@@ -250,7 +256,7 @@
                   "records": 10,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 },
                 {
                   "type": "land",
@@ -258,7 +264,7 @@
                   "records": 1,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 }
               ],
               "records": 32
@@ -280,7 +286,7 @@
                   "records": 17,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 },
                 {
                   "type": "commercial",
@@ -288,7 +294,7 @@
                   "records": 12,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 },
                 {
                   "type": "commercial",
@@ -296,13 +302,13 @@
                   "records": 0,
                   "status": "complete",
                   "pages": 1,
-                  "at": "2026-11-09T10:04:50.122Z"
+                  "at": "2026-11-09T10:08:48.705Z"
                 }
               ],
               "records": 29
             }
           ],
-          "lastSuccessAt": "2026-11-09T10:04:50.122Z"
+          "lastSuccessAt": "2026-11-09T10:08:48.705Z"
         }
       ],
       "bytes": null,
