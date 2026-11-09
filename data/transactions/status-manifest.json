@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": null,
+  "collection": {
+    "status": "not_started",
+    "lastAttemptAt": null,
+    "lastSuccessAt": null,
+    "schedule": "미설정",
+    "history": []
+  },
+  "deployment": {
+    "lastVerifiedAt": null
+  },
+  "source": [
+    {
+      "name": "국토교통부 실거래가 공개시스템",
+      "url": "https://rt.molit.go.kr/pt/xls/xls.do"
+    },
+    {
+      "name": "공공데이터포털 실거래 API",
+      "url": "https://www.data.go.kr/"
+    }
+  ],
+  "regions": [
+    {
+      "code": "11",
+      "name": "서울특별시",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "26",
+      "name": "부산광역시",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "27",
+      "name": "대구광역시",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "28",
+      "name": "인천광역시",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "29",
+      "name": "광주광역시",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "30",
+      "name": "대전광역시",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "31",
+      "name": "울산광역시",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "36",
+      "name": "세종특별자치시",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "41",
+      "name": "경기도",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "43",
+      "name": "충청북도",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "44",
+      "name": "충청남도",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "46",
+      "name": "전라남도",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "45",
+      "name": "전북특별자치도",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "47",
+      "name": "경상북도",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "48",
+      "name": "경상남도",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "50",
+      "name": "제주특별자치도",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    },
+    {
+      "code": "51",
+      "name": "강원특별자치도",
+      "status": "not_collected",
+      "records": null,
+      "firstYear": null,
+      "lastYear": null,
+      "lastSuccessAt": null,
+      "types": [],
+      "districts": [],
+      "bytes": null,
+      "filesVerified": null
+    }
+  ]
+}
