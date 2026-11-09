@@ -1,42 +1,10 @@
-name: Collect RTMS pilot data
+name: Archived collect-rtms (replaced)
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/collect-rtms.mjs'
-      - '.github/workflows/collect-rtms.yml'
   workflow_dispatch:
-  schedule:
-    - cron: '0 19 * * *'
 permissions:
-  contents: write
-concurrency:
-  group: rtms-collection
-  cancel-in-progress: false
+  contents: read
 jobs:
-  collect:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  guidance:
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - name: Collect recent transactions (pilot Gwangmyeong)
-        id: collect
-        continue-on-error: true
-        env:
-          MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
-        run: node scripts/collect-rtms.mjs
-      - name: Commit collected data and status
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/transactions/
-          if ! git diff --cached --quiet; then
-            git commit -m "data: refresh RTMS pilot transactions and collection status"
-            git push
-          fi
-      - name: Fail on incomplete collection
-        if: steps.collect.outcome == 'failure'
-        run: exit 1
+      - run: echo "Use Collect transaction sources. Legacy schedules are disabled; no source requests made."
