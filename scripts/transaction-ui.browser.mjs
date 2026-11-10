@@ -76,6 +76,12 @@ try{
       assert.ok(period && period.width>=145,`period selector too narrow at ${width}: ${JSON.stringify(period)}`);
       assert.ok(refresh && refresh.width<=60,`refresh steals period width at ${width}: ${JSON.stringify(refresh)}`);
     }
+    const cards=await page.locator('.trade-row--compact').evaluateAll(elements=>elements.slice(0,20).map(e=>({height:e.getBoundingClientRect().height,scrollWidth:e.scrollWidth,clientWidth:e.clientWidth,detailLines:e.querySelectorAll('.trade-row-inline .trade-row-fact').length,oldGrid:e.querySelectorAll('dl').length})));
+    assert.ok(cards.length>0,'compact trade cards should be rendered');
+    const maxCardHeight=width<=390?120:92;
+    assert.ok(cards.every(c=>c.height<=maxCardHeight),`compact card too tall at ${width}px: ${JSON.stringify(cards)}`);
+    assert.ok(cards.every(c=>c.oldGrid===0&&c.scrollWidth<=c.clientWidth+1),'no 3-column fact grids or horizontal clipping');
+    proof.checks.push(`compact transaction cards at ${width}px, max ${Math.max(...cards.map(c=>Math.round(c.height)))}px`);
     proof.checks.push(`no transaction-panel horizontal overflow at ${width}px`);
   }
   await page.setViewportSize({width:360,height:800});
