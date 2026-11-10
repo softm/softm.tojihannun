@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "mode": "planned",
   "note": "지역별 저장소는 아직 생성·연결되지 않았습니다. 수집 데이터와 상세 상태는 기존 토지한눈 저장소에서 계속 제공됩니다.",
   "shards": [
     {
-      "id": "realestate-data-01",
+      "id": "realestate-data-001",
       "label": "데이터 01 · 수도권",
       "regions": [
         "서울",
@@ -17,10 +17,12 @@
         "41"
       ],
       "status": "planned",
-      "pagesBaseUrl": null
+      "pagesBaseUrl": null,
+      "capacityBytes": null,
+      "publishedBytes": null
     },
     {
-      "id": "realestate-data-02",
+      "id": "realestate-data-002",
       "label": "데이터 02 · 강원·충청",
       "regions": [
         "강원",
@@ -38,10 +40,12 @@
         "51"
       ],
       "status": "planned",
-      "pagesBaseUrl": null
+      "pagesBaseUrl": null,
+      "capacityBytes": null,
+      "publishedBytes": null
     },
     {
-      "id": "realestate-data-03",
+      "id": "realestate-data-003",
       "label": "데이터 03 · 호남·영남·제주",
       "regions": [
         "광주",
@@ -67,7 +71,35 @@
         "52"
       ],
       "status": "planned",
-      "pagesBaseUrl": null
+      "pagesBaseUrl": null,
+      "capacityBytes": null,
+      "publishedBytes": null
     }
-  ]
+  ],
+  "allocation": {
+    "unit": "bytes",
+    "maxPublishedBytes": 1000000000,
+    "rotateAtBytes": 900000000,
+    "hardStopAtBytes": 1000000000,
+    "includes": [
+      "JSON files",
+      "index and manifest files",
+      "static assets in Pages artifact"
+    ],
+    "partitionOrder": [
+      "district",
+      "transactionType",
+      "contractYear",
+      "contractMonth"
+    ],
+    "onThreshold": "allocate-next-shard",
+    "onHardLimit": "block-deployment",
+    "verifyBeforeDelete": true,
+    "actualCapacityNote": "Published artifact total must remain below 1GB; Git history and Actions artifacts are tracked separately."
+  },
+  "naming": {
+    "owner": "softm",
+    "prefix": "realestate-data-",
+    "digits": 3
+  }
 }

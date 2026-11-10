@@ -24,6 +24,9 @@
       const matched=(model?.regions||[]).flatMap(r=>r.districts||[]).filter(d=>storageFor(d.code)?.id===shard.id);
       kv(card,'담당 시군구',fmt(matched.length)+'개');kv(card,'수집된 거래',fmt(matched.reduce((sum,d)=>sum+(Number(d.records)||0),0))+'건');
       kv(card,'저장소 상태',shard.status==='active'?'연결됨':'연결 전 · 기존 저장소 사용');
+      const cap=storage?.allocation?.maxPublishedBytes;const used=shard.publishedBytes;
+      kv(card,'게시 용량',used==null?'미측정 / 최대 1GB':bytes(used)+' / '+bytes(cap));
+      if(used!=null&&cap){const meter=el('progress');meter.max=cap;meter.value=used;meter.setAttribute('aria-label','저장소 게시 용량 사용률');card.append(meter);}
       if(shard.status==='active' && shard.pagesBaseUrl){try{const url=new URL(shard.pagesBaseUrl);if(url.protocol==='https:'){const a=el('a','게시 데이터 확인 ↗');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';card.append(a);}}catch{}}
       host.append(card);
     }
