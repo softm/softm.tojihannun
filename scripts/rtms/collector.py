@@ -44,6 +44,18 @@ def write_json(path,obj):atomic(path,dump(obj)+b'\n')
 def read_json(path,default):
     return json.loads(Path(path).read_text()) if Path(path).exists() else default
 
+def collection_owners(base):
+    config=read_json(Path(base)/'storage-registry.json',{})
+    if config.get('schemaVersion')!=3:return {}
+    owners={}
+    for shard in config.get('shards',[]):
+        owner=shard.get('collectionOwner')
+        if owner not in ('legacy','paused','shard'):raise SourceError('INVALID_COLLECTION_OWNER')
+        for code in shard['districtCodes']:
+            if code in owners:raise SourceError('DUPLICATE_COLLECTION_OWNER')
+            owners[code]=owner
+    return owners
+
 def month_range(start,end):
     y,m=map(int,start[:7].split('-'));ey,em=map(int,end[:7].split('-'))
     if (y,m)>(ey,em):return []
@@ -140,6 +152,8 @@ class Pipeline:
         if end != today() and end.day!=calendar.monthrange(end.year,end.month)[1]:raise SourceError('IMPORT_MUST_END_AT_MONTH_BOUNDARY_OR_TODAY')
         districts=[self.districts[code]] if code in self.districts else [d for d in self.districts.values() if d['sido']==str(meta.get('sido','')) and d['active']]
         if not districts:raise SourceError('IMPORT_REGION_NOT_FOUND')
+        owners=collection_owners(self.base)
+        if any(owners.get(d['code'],'legacy')!='legacy' for d in districts):raise SourceError('IMPORT_REGION_OWNERSHIP_MOVED')
         grouped={d['code']:{m:[] for m in month_range(str(start),str(end))} for d in districts}
         for source_row in table_rows(file):
             matches=[d for d in districts if field(source_row,'시군구','소재지').startswith(d['name']+' ')]
@@ -158,6 +172,8 @@ class Pipeline:
     def plan(self,mode='refresh',codes=None,streams=None):
         codes=codes or [x['code'] for x in self.registry['districts'] if x['active']]
         streams=streams or list(STREAMS)
+        owners=collection_owners(self.base)
+        codes=[c for c in codes if owners.get(c,'legacy')=='legacy']
         # Breadth-first province ordering prevents one large province starving every other province.
         provinces=collections.defaultdict(list)
         for c in codes:provinces[self.districts[c]['sido']].append(c)

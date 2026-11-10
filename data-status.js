@@ -7,13 +7,14 @@
   const bytes=n=>n==null?'미확인':n>1048576?(n/1048576).toFixed(1)+' MB':(n/1024).toFixed(1)+' KB';
   function el(tag,text,cls){const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;}
   function badge(status){return el('span',names[status]||status||'미확인','badge '+status);}
-  let model=null, storage=null;
+  let model=null, storage=null, shardReports={}, loadVersion=0;
   async function get(url){const r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error('HTTP '+r.status);return r.json();}
   function kv(host,k,v){const line=el('div',null,'key-value');line.append(el('strong',k),el('span',v));host.append(line);}
   function storageFor(code){
     return (storage?.shards||[]).find(shard=>(shard.districtCodes||[]).includes(code)||(shard.regionCodes||[]).some(prefix=>code.startsWith(prefix)))||null;
   }
   function renderShards(){
+    if(storage?.schemaVersion===3&&window.TojiDistributedStatus)return window.TojiDistributedStatus.render(storage,shardReports);
     const host=$('shards');if(!host)return;host.replaceChildren();
     if(!storage){host.append(el('p','저장소 구성 정보를 불러오지 못했습니다.'));return;}
     const shards=storage.shards||[];
@@ -49,7 +50,8 @@
     if(!d.completed && d.records==null && d.status!=='error'){host.textContent='아직 수집 완료한 구간이 없습니다. 거래가 없다는 뜻이 아닙니다.';return;}
     try{
       if(!/^\d{5}$/.test(d.code))throw Error('잘못된 지역 코드');
-      const data=await get('./data/transactions/status/'+d.code+'.json');host.replaceChildren();
+      const owner=storageFor(d.code),remote=owner?.serving==='pages'&&shardReports[owner.id]?.source==='pages';
+      const data=await get(remote?owner.pagesBaseUrl+'status-'+d.code+'.json':'./data/transactions/status/'+d.code+'.json');host.replaceChildren();
       kv(host,'최근 정상 수집',stamp(data.lastSuccessAt));kv(host,'확보 구간',fmt(data.completed)+' / '+fmt(data.expected)+' 지역·유형·계약월');
       for(const type of data.types||[]){const details=el('details');const head=el('summary');head.append(el('span',type.label),badge(type.status),el('span',type.records==null?'미확인':fmt(type.records)+'건'));details.append(head);
         const wrap=el('div',null,'table-wrap'),table=el('table'),thead=el('thead'),tr=el('tr');for(const t of ['계약연도','상태','유효 거래','확보 / 대상 월'])tr.append(el('th',t));thead.append(tr);table.append(thead);
@@ -77,7 +79,17 @@
       if(last.html_url?.startsWith('https://github.com/softm/softm.tojihannun/actions/runs/'))$('runLink').href=last.html_url;
     }catch{$('liveState').textContent='실시간 실행 상태 미확인';$('liveDetail').textContent='GitHub 조회 제한 또는 연결 오류입니다. 아래는 마지막 게시된 수집 결과입니다.';}
   }
-  async function load(){try{const [manifest,registry]=await Promise.all([get('./data/transactions/status-manifest.json'),get('./data/transactions/storage-registry.json').catch(()=>null)]);model=manifest;storage=registry;render();}catch(e){$('notice').textContent='수집 현황 조회 실패: '+e.message;}}
+  async function load(){
+    const version=++loadVersion;
+    try{
+      const [manifest,registry]=await Promise.all([get('./data/transactions/status-manifest.json'),get('./data/transactions/storage-registry.json').catch(()=>null)]);
+      if(version!==loadVersion)return;model=manifest;storage=registry;render();
+      if(storage?.schemaVersion===3&&window.TojiDistributedStatus){
+        const reports=await window.TojiDistributedStatus.load(storage);if(version!==loadVersion)return;
+        shardReports=reports;model=window.TojiDistributedStatus.merge(manifest,storage,reports);render();
+      }
+    }catch(e){if(version===loadVersion)$('notice').textContent='수집 현황 조회 실패: '+e.message;}
+  }
   $('search').oninput=()=>model&&renderRegions();$('filter').onchange=()=>model&&renderRegions();$('refresh').onclick=()=>{void load();void live();};
   void load();void live();setInterval(()=>{if(!document.hidden)void live();},60000);
 })();
