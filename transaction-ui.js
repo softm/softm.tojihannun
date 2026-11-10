@@ -119,7 +119,7 @@
     }
     const status=$('transactionStatus');
     status.dataset.tone=failed?'error':group.loading?'loading':items.length?'success':'';
-    status.textContent=failed?'거래 정보를 불러오지 못했습니다. 다시 시도해 주세요.':group.loading?'거래 내역을 불러오는 중입니다.':items.length?`${number(items.length)}건 · ${nearby?'비교 거래':'공개 지번 일치'} · 취소 제외`:'조회 조건에 맞는 거래 내역을 찾지 못했습니다.';
+    status.textContent=failed?'거래 정보를 불러오지 못했습니다. 다시 시도해 주세요.':group.loading?'거래 내역을 불러오는 중입니다.':items.length?'':'조회 조건에 맞는 거래 내역을 찾지 못했습니다.';
     const newest=sorted(items)[0];
     $('transactionStats').innerHTML=newest?[
       ['매매 거래',number(items.length)+'건',nearby?'같은 법정동 비교':'해당 지번 기준'],

@@ -29,7 +29,7 @@ const server=http.createServer((req,res)=>{
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const origin=`http://127.0.0.1:${server.address().port}`;
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});
 fs.mkdirSync('test-results',{recursive:true});
 const proof={source:'repository published files; production DOM/CSS; no live government requests',sample:{lot:sample.lot,date:sample.date},checks:[]};
 try{
@@ -46,6 +46,11 @@ try{
     assert.equal(await panel.locator('#transactionCollection').count(),0,'collection card must not be rendered');
     assert.equal(await panel.locator('a[href*="data-status"]').count(),0,'no collection-status link in transaction panel');
     assert.doesNotMatch(await panel.innerText(),/수집 현황|데이터\s*수집|수집중|수집 중|수집 자료|일부 기간 확보|계약월 확보|자료 갱신|전체 이력 아님|확보한 계약월|미수집 기간/);
+    const status=page.locator('#transactionStatus');
+    if(await status.getAttribute('data-tone')==='success'){
+      assert.equal(await status.textContent(),'','successful lookup has no count/matching/cancellation summary');
+      assert.equal(await status.isVisible(),false,'successful lookup leaves no blank status card');
+    }
   };
   await page.goto(origin,{waitUntil:'domcontentloaded'});
   await page.evaluate(p=>{
@@ -93,21 +98,33 @@ try{
   assert.equal(apiCalls.length,0,'filtering must not initiate government requests');
   await assertCleanPanel();
   proof.checks.push('period filter reads collected files only, without progress notices');
-  await page.route('**/data/transactions/published/index.json',r=>r.fulfill({status:503,body:'unavailable'}));
+  let releaseFailure;
+  const failureGate=new Promise(resolve=>{releaseFailure=resolve;});
+  await page.route('**/data/transactions/published/index.json',async r=>{await failureGate;await r.fulfill({status:503,body:'unavailable'});});
   await page.locator('#refreshTransactions').click();
+  await page.waitForFunction(()=>document.getElementById('transactionStatus').dataset.tone==='loading');
+  assert.equal(await page.locator('#transactionStatus').isVisible(),true,'loading remains visible after a successful lookup');
+  assert.match(await page.locator('#transactionStatus').textContent(),/불러오는 중/);
+  releaseFailure();
   await page.waitForFunction(()=>document.getElementById('transactionStatus').textContent.includes('불러오지 못'));
+  assert.equal(await page.locator('#transactionStatus').isVisible(),true,'error remains visible after a successful lookup');
   assert.match(await page.locator('#transactionEmpty').textContent(),/읽지 못/);
   assert.doesNotMatch(await page.locator('#transactionEmpty').textContent(),/거래가 없습니다/);
   await assertCleanPanel();
   assert.equal(await page.locator('#transactionPaging button').textContent(),'다시 불러오기');
   proof.checks.push('failed file has a concise retry state, not zero transactions');
   await page.unroute('**/data/transactions/published/index.json');
+  await page.locator('#transactionPaging button').click();
+  await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false'&&document.querySelector('.trade-row'));
+  await assertCleanPanel();
+  proof.checks.push('success hides only the redundant status card; loading, failure and retry restore the correct state');
   await page.evaluate(()=>{
     window.TojihannunMarketData.setParcel({id:'uncollected-fixture',pnu:'9999910100100010001',address:'검증시 검증동 1-1',number:'1-1',buildings:[{use:'연립주택'}]});
     window.TojihannunMarketData.activate('transactions');
   });
   await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false');
   assert.match(await page.locator('#transactionEmpty').textContent(),/조회된 거래 내역이 없습니다/);
+  assert.equal(await page.locator('#transactionStatus').isVisible(),true,'empty-result guidance stays visible');
   assert.doesNotMatch(await page.locator('#transactionEmpty').textContent(),/읽지 못|거래가 없습니다/);
   await assertCleanPanel();
   proof.checks.push('empty lookup shows filter guidance without collection diagnostics or complete-history claims');

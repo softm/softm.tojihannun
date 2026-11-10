@@ -26,6 +26,7 @@
 #detailPanelTransactions.collection-trades .transaction-scope-switch { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:12px 0; }
 #detailPanelTransactions.collection-trades .transaction-scope-switch button { min-width:0;min-height:44px;white-space:normal;padding:8px;font-size:12px;line-height:1.5; }
 #detailPanelTransactions.collection-trades .transaction-disclosure,#detailPanelTransactions.collection-trades .market-status { font-size:12px;line-height:1.6;overflow-wrap:anywhere; }
+#detailPanelTransactions.collection-trades #transactionStatus:empty { display:none; }
 #detailPanelTransactions.collection-trades .trade-help { display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px; }
 #detailPanelTransactions.collection-trades .trade-help small { font-size:11px;line-height:1.6;color:#607169; }
 #detailPanelTransactions.collection-trades .trade-help button { min-height:40px; }
