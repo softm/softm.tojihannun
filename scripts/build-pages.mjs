@@ -49,6 +49,8 @@ if (!fs.existsSync(manifestSource)) throw new Error("Required data-status manife
 const manifestTarget = path.join(output, "data/transactions/status-manifest.json");
 fs.mkdirSync(path.dirname(manifestTarget), {recursive: true});
 fs.copyFileSync(manifestSource, manifestTarget);
+const registrySource = path.join(root, "data/transactions/storage-registry.json");
+if (fs.existsSync(registrySource)) fs.copyFileSync(registrySource, path.join(output, "data/transactions/storage-registry.json"));
 
 for (const name of ["published", "status"]) {
   const directory = path.join(root, "data/transactions", name);
