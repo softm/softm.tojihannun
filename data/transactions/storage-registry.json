@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "mode": "planned",
+  "note": "지역별 저장소는 아직 생성·연결되지 않았습니다. 수집 데이터와 상세 상태는 기존 토지한눈 저장소에서 계속 제공됩니다.",
+  "shards": [
+    {
+      "id": "realestate-data-01",
+      "label": "데이터 01 · 수도권",
+      "regions": [
+        "서울",
+        "인천",
+        "경기"
+      ],
+      "regionCodes": [
+        "11",
+        "28",
+        "41"
+      ],
+      "status": "planned",
+      "pagesBaseUrl": null
+    },
+    {
+      "id": "realestate-data-02",
+      "label": "데이터 02 · 강원·충청",
+      "regions": [
+        "강원",
+        "대전",
+        "세종",
+        "충북",
+        "충남"
+      ],
+      "regionCodes": [
+        "42",
+        "43",
+        "44",
+        "30",
+        "36",
+        "51"
+      ],
+      "status": "planned",
+      "pagesBaseUrl": null
+    },
+    {
+      "id": "realestate-data-03",
+      "label": "데이터 03 · 호남·영남·제주",
+      "regions": [
+        "광주",
+        "전북",
+        "전남",
+        "부산",
+        "대구",
+        "울산",
+        "경북",
+        "경남",
+        "제주"
+      ],
+      "regionCodes": [
+        "26",
+        "27",
+        "29",
+        "31",
+        "45",
+        "46",
+        "47",
+        "48",
+        "50",
+        "52"
+      ],
+      "status": "planned",
+      "pagesBaseUrl": null
+    }
+  ]
+}

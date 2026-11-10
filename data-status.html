@@ -1,10 +1,11 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>토지한눈 | 데이터 수집 현황</title><link rel="stylesheet" href="./data-status.css?v=20261109.1"></head>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>토지한눈 | 데이터 수집 현황</title><link rel="stylesheet" href="./data-status.css?v=20261110.4"></head>
 <body><header><a href="./">← 토지한눈</a><span>DATA OPERATIONS</span><h1>데이터 수집 현황</h1><p>시도 → 시군구 → 매매·전월세 → 연도별로 확인합니다.</p></header><main>
 <section class="live" aria-live="polite"><div><small>현재 실행 상태</small><strong id="liveState">실행 상태 확인 중</strong><p id="liveDetail">GitHub Actions와 저장 자료 상태를 따로 확인합니다.</p></div><a id="runLink" href="https://github.com/softm/softm.tojihannun/actions" target="_blank" rel="noopener">실행 로그 ↗</a></section>
 <p id="notice" role="status">집계 파일을 불러오는 중입니다.</p><section id="summary" class="cards"></section>
+<section class="panel"><h2>데이터 저장소별 관리</h2><p class="hint">전국 수집 현황은 중앙에서 통합하고, 데이터 저장소가 연결되면 담당 지역·용량·배포 상태를 함께 확인합니다. 연결되지 않은 저장소는 운영 중으로 표시하지 않습니다.</p><div id="shards" class="shard-grid"></div></section>
 <section class="panel"><h2>지역별 확보 현황</h2><div class="filters"><label>지역 검색<input id="search" placeholder="광명시 · 서산시 · 서울"></label><label>상태<select id="filter"><option value="">전체</option><option value="partial">부분 확보</option><option value="complete">확보 완료</option><option value="not_collected">미수집</option></select></label><button id="refresh" type="button">현황 새로고침</button></div><div id="regions"></div></section>
-<section class="panel"><h2 id="detailTitle">시군구 상세</h2><div id="detail">위 지역에서 시군구를 선택하세요. 대용량 거래 파일은 이 화면에서 자동 다운로드하지 않습니다.</div></section>
+<section class="panel"><h2 id="detailTitle">시군구 상세</h2><div id="districtStorage" class="district-storage"></div><div id="detail">위 지역에서 시군구를 선택하세요. 대용량 거래 파일은 이 화면에서 자동 다운로드하지 않습니다.</div></section>
 <section class="panel"><h2>업데이트 내역</h2><p>추가·사라짐은 원본 스냅샷 비교 결과입니다. ‘사라짐’을 계약 취소로 단정하지 않습니다.</p><div id="history"></div></section>
 <section class="panel"><h2>수집 경로와 검증</h2><div id="operations"></div><div id="sources"></div></section>
 <footer>미수집·실패는 거래 0건이 아닙니다. 공식 거래 통계가 아닌 서비스 데이터 확보 현황입니다.<br>지번이 가려진 자료는 필지 마커로 추정 배치하지 않습니다. 현황 새로고침은 원본 재수집이 아닙니다.</footer>
-</main><script src="./data-status.js?v=20261109.2"></script></body></html>
+</main><script src="./data-status.js?v=20261110.4"></script></body></html>
