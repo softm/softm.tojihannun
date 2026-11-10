@@ -27,6 +27,7 @@ class DistributionTests(unittest.TestCase):
         with self.assertRaises(ValueError):s.shard_map(self.config)
     def test_handover_pauses_legacy_first(self):
         code=self.config['shards'][0]['districtCodes'][0]
+        self.config['shards'][0]['collectionOwner']='legacy'
         self.assertTrue(s.legacy_allows(self.config,code))
         self.config['shards'][0]['collectionOwner']='paused';self.assertFalse(s.legacy_allows(self.config,code))
         self.config['shards'][0]['collectionOwner']='shard';self.assertFalse(s.legacy_allows(self.config,code))

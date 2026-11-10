@@ -1,9 +1,9 @@
 {
   "schemaVersion": 3,
-  "revision": "regional-workers-v2-pool20",
-  "mode": "staged",
+  "revision": "collection-operations-v3",
+  "mode": "collecting",
   "bootstrapSourceRef": "f328c729eece4fe45f1b403a1af1fcd62fa5de46",
-  "note": "20개 저장소를 등록했습니다. 기존 10개 지역 배정은 유지하며, 새 저장소는 중복 수집 없이 증설 대기합니다. 본수집 이관과 Pages 게시 상태는 별도입니다.",
+  "note": "10개 지역 수집기 가동; 10개 증설 대기. 기존 웹 조회와 Pages 전환은 별도 관리.",
   "allocation": {
     "unit": "bytes",
     "maxPublishedBytes": 1000000000,
@@ -28,7 +28,7 @@
       "id": "realestate-data-001",
       "label": "001 · 서울 A",
       "repository": "softm/realestate-data-001",
-      "status": "provisioning",
+      "status": "collecting",
       "districtCodes": [
         "11110",
         "11170",
@@ -48,17 +48,18 @@
         "서울특별시"
       ],
       "activeDistrictCount": 13,
-      "collectionOwner": "legacy",
+      "collectionOwner": "shard",
       "serving": "legacy",
-      "handoverCommit": null,
+      "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-001/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": true
     },
     {
       "id": "realestate-data-002",
       "label": "002 · 서울 B",
       "repository": "softm/realestate-data-002",
-      "status": "provisioning",
+      "status": "collecting",
       "districtCodes": [
         "11140",
         "11200",
@@ -77,17 +78,18 @@
         "서울특별시"
       ],
       "activeDistrictCount": 12,
-      "collectionOwner": "legacy",
+      "collectionOwner": "shard",
       "serving": "legacy",
-      "handoverCommit": null,
+      "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-002/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": true
     },
     {
       "id": "realestate-data-003",
       "label": "003 · 경기 A",
       "repository": "softm/realestate-data-003",
-      "status": "provisioning",
+      "status": "collecting",
       "districtCodes": [
         "41010",
         "41012",
@@ -137,17 +139,18 @@
         "경기도"
       ],
       "activeDistrictCount": 22,
-      "collectionOwner": "legacy",
+      "collectionOwner": "shard",
       "serving": "legacy",
-      "handoverCommit": null,
+      "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-003/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": true
     },
     {
       "id": "realestate-data-004",
       "label": "004 · 경기 B",
       "repository": "softm/realestate-data-004",
-      "status": "provisioning",
+      "status": "collecting",
       "districtCodes": [
         "41011",
         "41013",
@@ -197,17 +200,18 @@
         "경기도"
       ],
       "activeDistrictCount": 25,
-      "collectionOwner": "legacy",
+      "collectionOwner": "shard",
       "serving": "legacy",
-      "handoverCommit": null,
+      "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-004/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": true
     },
     {
       "id": "realestate-data-005",
       "label": "005 · 인천·강원",
       "repository": "softm/realestate-data-005",
-      "status": "provisioning",
+      "status": "collecting",
       "districtCodes": [
         "23110",
         "23140",
@@ -280,17 +284,18 @@
         "인천광역시"
       ],
       "activeDistrictCount": 29,
-      "collectionOwner": "legacy",
+      "collectionOwner": "shard",
       "serving": "legacy",
-      "handoverCommit": null,
+      "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-005/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": true
     },
     {
       "id": "realestate-data-006",
       "label": "006 · 충청",
       "repository": "softm/realestate-data-006",
-      "status": "provisioning",
+      "status": "collecting",
       "districtCodes": [
         "25110",
         "25140",
@@ -365,17 +370,18 @@
         "충청북도"
       ],
       "activeDistrictCount": 36,
-      "collectionOwner": "legacy",
+      "collectionOwner": "shard",
       "serving": "legacy",
-      "handoverCommit": null,
+      "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-006/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": true
     },
     {
       "id": "realestate-data-007",
       "label": "007 · 호남",
       "repository": "softm/realestate-data-007",
-      "status": "provisioning",
+      "status": "collecting",
       "districtCodes": [
         "12110",
         "12130",
@@ -493,17 +499,18 @@
         "전북특별자치도"
       ],
       "activeDistrictCount": 42,
-      "collectionOwner": "legacy",
+      "collectionOwner": "shard",
       "serving": "legacy",
-      "handoverCommit": null,
+      "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-007/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": true
     },
     {
       "id": "realestate-data-008",
       "label": "008 · 부산·울산·제주",
       "repository": "softm/realestate-data-008",
-      "status": "provisioning",
+      "status": "collecting",
       "districtCodes": [
         "21110",
         "21140",
@@ -551,17 +558,18 @@
         "제주특별자치도"
       ],
       "activeDistrictCount": 23,
-      "collectionOwner": "legacy",
+      "collectionOwner": "shard",
       "serving": "legacy",
-      "handoverCommit": null,
+      "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-008/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": true
     },
     {
       "id": "realestate-data-009",
       "label": "009 · 대구·경북",
       "repository": "softm/realestate-data-009",
-      "status": "provisioning",
+      "status": "collecting",
       "districtCodes": [
         "22110",
         "22140",
@@ -632,17 +640,18 @@
         "대구광역시"
       ],
       "activeDistrictCount": 32,
-      "collectionOwner": "legacy",
+      "collectionOwner": "shard",
       "serving": "legacy",
-      "handoverCommit": null,
+      "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-009/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": true
     },
     {
       "id": "realestate-data-010",
       "label": "010 · 경남",
       "repository": "softm/realestate-data-010",
-      "status": "provisioning",
+      "status": "collecting",
       "districtCodes": [
         "48011",
         "48012",
@@ -705,11 +714,12 @@
         "경상남도"
       ],
       "activeDistrictCount": 22,
-      "collectionOwner": "legacy",
+      "collectionOwner": "shard",
       "serving": "legacy",
-      "handoverCommit": null,
+      "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-010/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": true
     },
     {
       "id": "realestate-data-011",
@@ -724,7 +734,8 @@
       "serving": "legacy",
       "handoverCommit": null,
       "pagesBaseUrl": "https://softm.github.io/realestate-data-011/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-012",
@@ -739,7 +750,8 @@
       "serving": "legacy",
       "handoverCommit": null,
       "pagesBaseUrl": "https://softm.github.io/realestate-data-012/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-013",
@@ -754,7 +766,8 @@
       "serving": "legacy",
       "handoverCommit": null,
       "pagesBaseUrl": "https://softm.github.io/realestate-data-013/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-014",
@@ -769,7 +782,8 @@
       "serving": "legacy",
       "handoverCommit": null,
       "pagesBaseUrl": "https://softm.github.io/realestate-data-014/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-015",
@@ -784,7 +798,8 @@
       "serving": "legacy",
       "handoverCommit": null,
       "pagesBaseUrl": "https://softm.github.io/realestate-data-015/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-016",
@@ -799,7 +814,8 @@
       "serving": "legacy",
       "handoverCommit": null,
       "pagesBaseUrl": "https://softm.github.io/realestate-data-016/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-017",
@@ -814,7 +830,8 @@
       "serving": "legacy",
       "handoverCommit": null,
       "pagesBaseUrl": "https://softm.github.io/realestate-data-017/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-018",
@@ -829,7 +846,8 @@
       "serving": "legacy",
       "handoverCommit": null,
       "pagesBaseUrl": "https://softm.github.io/realestate-data-018/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-019",
@@ -844,7 +862,8 @@
       "serving": "legacy",
       "handoverCommit": null,
       "pagesBaseUrl": "https://softm.github.io/realestate-data-019/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-020",
@@ -859,7 +878,8 @@
       "serving": "legacy",
       "handoverCommit": null,
       "pagesBaseUrl": "https://softm.github.io/realestate-data-020/",
-      "publishedBytes": null
+      "publishedBytes": null,
+      "collectionEnabled": false
     }
   ],
   "pool": {
@@ -867,5 +887,11 @@
     "reservedCount": 10,
     "maxPublishedBytes": 20000000000,
     "rotationCapacityBytes": 18000000000
+  },
+  "handover": {
+    "sourceCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
+    "verifiedSegments": 755,
+    "records": 22563,
+    "verifiedAt": "2026-11-10T12:25:14.073625+00:00"
   }
 }

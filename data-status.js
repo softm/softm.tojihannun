@@ -51,7 +51,8 @@
     try{
       if(!/^\d{5}$/.test(d.code))throw Error('잘못된 지역 코드');
       const owner=storageFor(d.code),remote=owner?.serving==='pages'&&shardReports[owner.id]?.source==='pages';
-      const data=await get(remote?owner.pagesBaseUrl+'status-'+d.code+'.json':'./data/transactions/status/'+d.code+'.json');host.replaceChildren();
+      const collected=window.TojiCollectionOps?.authoritative(owner,shardReports[owner?.id]);
+      const data=await get(collected?'https://raw.githubusercontent.com/'+owner.repository+'/main/data/transactions/status/'+d.code+'.json':remote?owner.pagesBaseUrl+'status-'+d.code+'.json':'./data/transactions/status/'+d.code+'.json');host.replaceChildren();
       kv(host,'최근 정상 수집',stamp(data.lastSuccessAt));kv(host,'확보 구간',fmt(data.completed)+' / '+fmt(data.expected)+' 지역·유형·계약월');
       for(const type of data.types||[]){const details=el('details');const head=el('summary');head.append(el('span',type.label),badge(type.status),el('span',type.records==null?'미확인':fmt(type.records)+'건'));details.append(head);
         const wrap=el('div',null,'table-wrap'),table=el('table'),thead=el('thead'),tr=el('tr');for(const t of ['계약연도','상태','유효 거래','확보 / 대상 월'])tr.append(el('th',t));thead.append(tr);table.append(thead);
@@ -60,7 +61,7 @@
     }catch(e){host.textContent='상세 현황을 읽지 못했습니다. 기존 거래자료와 별개입니다. '+e.message;}
   }
   function render(){
-    const c=model.collection||{},s=model.summary||{};const cards=[['전국 기반자료 수집','매 10분','미수집 구간 배치 처리 · 완료 시 종료'],['정기 최신화','매일 04:00','KST · 최근 3개월 재확인'],['마지막 정상 수집',stamp(c.lastSuccessAt),'원본을 정상 수신한 시각'],['유효 거래',fmt(s.records),'취소 제외 · 확보 범위 내'],['완료 구간',fmt(s.completedTasks)+' / '+fmt(s.expectedTasks),'시군구 × 유형 × 계약월'],['지번 식별 가능',fmt(s.identifiable),'가려진 지번은 포함하지 않음'],['취소 기록',fmt(s.cancelled),'취소 정보를 별도 보존'],['접근 보류 유형',fmt(s.cooldownStreams),'API 권한 문제 · 재시도 시각 적용'],['재시도 대기',fmt(s.cooldownTasks),'실패한 구간 재시도 예약'],['파일 반입',fmt(s.fileImports),'검증 완료한 Excel/CSV'],['저장 용량',bytes(s.sourceBytes),'정규화 원본 gzip 합계']];
+    const c=model.collection||{},s=model.summary||{};const cards=[['전국 기반자료 수집',storage?.mode==='collecting'?'지역별 매시간':'매 10분','미수집 구간 이어서 수집'],['정기 최신화',storage?.mode==='collecting'?'수집 배치마다':'매일 04:00','최근 3개월 재확인 · 과거 수집 병행'],['마지막 정상 수집',stamp(c.lastSuccessAt),'원본을 정상 수신한 시각'],['유효 거래',fmt(s.records),'취소 제외 · 확보 범위 내'],['완료 구간',fmt(s.completedTasks)+' / '+fmt(s.expectedTasks),'시군구 × 유형 × 계약월'],['지번 식별 가능',fmt(s.identifiable),'가려진 지번은 포함하지 않음'],['취소 기록',fmt(s.cancelled),'취소 정보를 별도 보존'],['접근 보류 레포·유형',fmt(s.cooldownStreams),'재시도 시각 적용 · 레포별 합계'],['재시도 대기',fmt(s.cooldownTasks),'실패한 구간 재시도 예약'],['파일 반입',fmt(s.fileImports),'검증 완료한 Excel/CSV'],['저장 용량',bytes(s.sourceBytes),'정규화 원본 gzip 합계']];
     $('summary').replaceChildren();for(const [label,value,note]of cards){const box=el('div',null,'card');box.append(el('span',label),el('strong',value),el('small',note));$('summary').append(box);}
     $('notice').textContent=model.sourcePolicy?.note||'실제 확보 범위를 확인하세요. 전국 수집 완료를 뜻하지 않습니다.';renderShards();renderRegions();
     const ops=$('operations');ops.replaceChildren();for(const [k,v]of [['자동 수집',c.schedule||'미설정'],['마지막 시도',stamp(c.lastAttemptAt)],['API 호출 제한 해제 예정',s.apiCooldownUntil?stamp(s.apiCooldownUntil):'호출 제한 보류 없음'],['자료 생성',stamp(model.generatedAt)],['검증 범위',(model.verification?.level||'미확인')+' · '+fmt(model.verification?.segmentsChecked)+'개 원본'],['운영 게시파일 별도 검증',stamp(model.deployment?.lastVerifiedAt)],['웹 다운로드 자동화',model.sourcePolicy?.excelAutomation==='permission_required'?'승인 필요 · 자동 크롤링 비활성':'미확인'],['수집 오류 현황',(c.recentErrors||[]).map(x=>(x.code==='403'?'API 접근 거부(403)':x.code==='NETWORK_TIMEOUT'?'네트워크 지연':x.code==='429'||x.code==='22'?'호출 제한':x.code)+' '+fmt(x.count)+'개 구간').join(' · ')||'기록된 오류 없음']])kv(ops,k,v);for(const x of c.blockedSources||[])kv(ops,'접근 보류 · '+x.label,(x.reason||'재시도 대기')+' · 다음 재시도 '+stamp(x.nextRetryAt));
@@ -70,6 +71,8 @@
     $('sources').replaceChildren();for(const source of model.source||[]){try{const url=new URL(source.url);if(url.protocol!=='https:')continue;const p=el('p'),a=el('a',source.name+' ↗');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';p.append(a);$('sources').append(p);}catch{}}
   }
   async function live(){
+    if(!storage)return;
+    if(window.TojiCollectionOps?.live(storage,shardReports))return;
     try{
       const data=await get('https://api.github.com/repos/softm/softm.tojihannun/actions/runs?per_page=15');
       const runs=(data.workflow_runs||[]).filter(r=>r.name==='Collect transaction sources');const running=runs.find(r=>['queued','pending','in_progress','waiting'].includes(r.status));const last=running||runs[0];
@@ -91,5 +94,5 @@
     }catch(e){if(version===loadVersion)$('notice').textContent='수집 현황 조회 실패: '+e.message;}
   }
   $('search').oninput=()=>model&&renderRegions();$('filter').onchange=()=>model&&renderRegions();$('refresh').onclick=()=>{void load();void live();};
-  void load();void live();setInterval(()=>{if(!document.hidden)void live();},60000);
+  void load();void live();setInterval(()=>{if(!document.hidden){void load();void live();}},60000);
 })();

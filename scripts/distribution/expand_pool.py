@@ -25,6 +25,8 @@ def expand(config, count=20):
     hard=int(result['allocation']['maxPublishedBytes']);rotate=int(result['allocation']['rotateAtBytes'])
     result['pool']={'repositoryCount':len(result['shards']),'reservedCount':sum(not s['districtCodes'] for s in result['shards']),
                     'maxPublishedBytes':hard*len(result['shards']),'rotationCapacityBytes':rotate*len(result['shards'])}
+    if config.get('mode')=='collecting':
+        result['revision']=config['revision'];result['note']=config['note']
     return result
 
 if __name__=='__main__':
