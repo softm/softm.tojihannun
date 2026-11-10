@@ -1,0 +1,137 @@
+name: Regional transaction collector
+on:
+  workflow_call:
+    inputs:
+      engine_ref:
+        type: string
+        required: true
+      mode:
+        type: string
+        default: bootstrap
+    secrets:
+      MOLIT_API_KEY:
+        required: false
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: regional-transaction-collection
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      pages_ready: ${{ steps.pages.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v4
+        with:
+          repository: softm/softm.tojihannun
+          ref: ${{ inputs.engine_ref }}
+          path: _engine
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: softm/softm.tojihannun
+          ref: main
+          path: _control
+          persist-credentials: false
+          sparse-checkout: data/transactions
+      - name: Validate assignment and pinned source checkpoint
+        id: plan
+        env:
+          ENGINE_REF: ${{ inputs.engine_ref }}
+        run: |
+          python3 - <<'PY'
+          import json,os,re
+          from pathlib import Path
+          assert re.fullmatch(r'[0-9a-f]{40}',os.environ['ENGINE_REF']), 'Engine must be pinned to a commit'
+          config=json.loads(Path('_control/data/transactions/storage-registry.json').read_text())
+          name=os.environ['GITHUB_REPOSITORY'].split('/')[1]
+          shard=next(s for s in config['shards'] if s['id']==name)
+          assert shard['repository']==os.environ['GITHUB_REPOSITORY']
+          ref=shard.get('handoverCommit') or config['bootstrapSourceRef']
+          assert re.fullmatch(r'[0-9a-f]{40}',ref), 'Bootstrap must be an immutable checkpoint'
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('source_ref='+ref+'\n')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          repository: softm/softm.tojihannun
+          ref: ${{ steps.plan.outputs.source_ref }}
+          path: _legacy
+          persist-credentials: false
+          sparse-checkout: data/transactions
+      - name: Import verified checkpoints or collect owned regions
+        id: worker
+        env:
+          MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
+          INPUT_MODE: ${{ inputs.mode }}
+          SOURCE_COMMIT: ${{ steps.plan.outputs.source_ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          python3 _engine/scripts/distribution/shards.py --root . --control _control --legacy _legacy --shard "${GITHUB_REPOSITORY#*/}" --source-commit "$SOURCE_COMMIT" --mode "$INPUT_MODE" | tee test-results/worker.jsonl
+      - name: Persist only verified regional state and public status
+        if: steps.worker.outcome == 'success'
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .gitignore data/transactions migration-receipt.json shard-status.json split-plan.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data: persist validated regional checkpoints and compressed publication status'
+            # Never force-push or overwrite a concurrently updated checkpoint.
+            git push origin HEAD:main
+          fi
+      - name: Check whether Pages has been configured
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json,os,urllib.request,urllib.error
+          request=urllib.request.Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/pages',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+          ready=False
+          try:
+              with urllib.request.urlopen(request,timeout=20) as response:
+                  ready=json.load(response).get('build_type')=='workflow'
+          except urllib.error.HTTPError as error:
+              if error.code not in (403,404):raise
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('ready='+str(ready).lower()+'\n')
+          if not ready:print('::notice::Regional data built. Configure Settings > Pages > Source: GitHub Actions to publish.')
+          PY
+      - uses: actions/configure-pages@v5
+        if: steps.pages.outputs.ready == 'true'
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.pages.outputs.ready == 'true'
+        with:
+          path: site
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: regional-data-proof
+          path: |
+            test-results/
+            shard-status.json
+            migration-receipt.json
+            split-plan.json
+          retention-days: 3
+  deploy:
+    if: needs.collect.outputs.pages_ready == 'true'
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish validated gzip data
+        id: deployment
+        uses: actions/deploy-pages@v4

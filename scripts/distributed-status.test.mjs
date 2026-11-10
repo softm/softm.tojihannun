@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const source=fs.readFileSync(new URL('../distributed-status.js',import.meta.url),'utf8');
+const env={window:{},document:{}};vm.runInNewContext(source,env);const api=env.window.TojiDistributedStatus;
+const legacy={summary:{records:10,completedTasks:2},regions:[{districts:[{code:'41210',records:10,completed:2,expected:100}]}]};
+const shard={id:'realestate-data-003',districtCodes:['41210'],repository:'softm/realestate-data-003',collectionOwner:'legacy',serving:'legacy'};
+const report={source:'pages',data:{schemaVersion:1,shardId:shard.id,repository:shard.repository,districtCodes:['41210'],capacity:{publishedBytes:100},regions:[{districts:[{code:'41210',records:15,completed:3,expected:100}]}]}};
+test('mirror data never doubles national totals',()=>assert.equal(api.merge(legacy,{shards:[shard]},{[shard.id]:report}).summary.records,10));
+test('verified handover replaces regional summary rather than adding duplicates',()=>assert.equal(api.merge(legacy,{shards:[{...shard,collectionOwner:'shard',serving:'pages'}]},{[shard.id]:report}).summary.records,15));
+test('repository snapshot never claims live Pages publication',()=>assert.equal(api.merge(legacy,{shards:[{...shard,collectionOwner:'shard',serving:'pages'}]},{[shard.id]:{...report,source:'repository'}}).summary.records,10));
+test('shard identity and 1GB limit are validated',()=>{assert.equal(api.validate(report.data,shard).capacity.publishedBytes,100);assert.throws(()=>api.validate({...report.data,shardId:'wrong'},shard));assert.throws(()=>api.validate({...report.data,capacity:{publishedBytes:1000000000}},shard));});
