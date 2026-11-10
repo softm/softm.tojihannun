@@ -5,7 +5,7 @@ let css=fs.readFileSync(cssPath,'utf8').replace(/(?<!#detailPanelTransactions)\.
 const reset='#detailPanelTransactions.collection-trades .market-panel-head > div:first-child { flex:0 1 auto;width:auto; }';
 if(!css.includes(reset))css+='\n'+reset+'\n';
 fs.writeFileSync(cssPath,css);
-let html=fs.readFileSync('index.html','utf8').replace(/transaction-ui\.(js|css)\?v=[^"']+/g,'transaction-ui.$1?v=20261110.4');
+let html=fs.readFileSync('index.html','utf8').replace(/transaction-ui\.(js|css)\?v=[^"']+/g,'transaction-ui.$1?v=20261110.5');
 // Keep the initial markup consistent with the transaction renderer (no diagnostic flash).
 html=html.replace(/(<section\b[^>]*\bid="detailPanelTransactions"[\s\S]*?)(?=<section\b[^>]*\bid="detailPanelAuctions")/, panel=>panel
   .replace('<label for="transactionType">거래유형</label>','<label for="transactionType">부동산 유형</label>')
