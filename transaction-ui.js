@@ -83,13 +83,24 @@
     const {group,view,definition}=current;
     const items=sorted(view==='nearby'?group.comparable:group.items,order);
     const host=$('transactionList');
-    host.innerHTML=items.slice(0,limit).map(item => `<article class="trade-row" aria-label="${esc(item.date)} 계약 거래">
-      <div class="trade-row-top"><time datetime="${esc(item.date)}">${esc(text(item.date).replaceAll('-','.'))}</time><strong>${esc(money(item.amount))}</strong></div>
-      <div class="trade-row-name">${esc(item.buildingName || [item.umdNm,item.jibun || '지번 미공개'].filter(Boolean).join(' '))}</div>
-      <div class="trade-row-scope">${esc(item.exact?'공개 지번 일치':item.jibun?'같은 법정동 비교':'지번 미공개 · 필지 미확정')}<span>${esc([item.umdNm,item.jibun].filter(Boolean).join(' '))}</span></div>
-      <dl><div><dt>${esc(definition.areaKind)}</dt><dd>${esc(number(item.area,2))}㎡</dd></div><div><dt>층</dt><dd>${esc(item.floor ? item.floor+'층':'미제공')}</dd></div><div><dt>거래단가</dt><dd>${esc(number(item.unitPrice,1))}<small>만원/㎡</small></dd></div></dl>
-      ${[item.dealType,item.jimok,item.landUse,item.buildingUse].some(Boolean)?`<div class="trade-row-meta">${esc([item.dealType,item.jimok,item.landUse,item.buildingUse].filter(Boolean).join(' · '))}</div>`:''}
-    </article>`).join('');
+    host.innerHTML=items.slice(0,limit).map(item => {
+      const name=item.buildingName || [item.umdNm,item.jibun || '지번 미공개'].filter(Boolean).join(' ');
+      const address=[item.umdNm,item.jibun].filter(Boolean).join(' ');
+      const scope=item.exact?'공개 지번 일치':item.jibun?'같은 법정동 비교':'지번 미공개 · 필지 미확정';
+      const extras=[item.dealType,item.jimok,item.landUse,item.buildingUse].filter(Boolean);
+      return `<article class="trade-row trade-row--compact" aria-label="${esc([item.date,name,money(item.amount),scope].join(' · '))}">
+        <div class="trade-row-top"><time datetime="${esc(item.date)}">${esc(text(item.date).replaceAll('-','.'))}</time><strong>${esc(money(item.amount))}</strong></div>
+        <div class="trade-row-inline">
+          <strong class="trade-row-name" title="${esc(name)}">${esc(name)}</strong>
+          ${address && address!==name ? `<span class="trade-row-address" title="${esc(address)}">${esc(address)}</span>` : ''}
+          ${Number(item.area)>0 ? `<span class="trade-row-fact">${esc(definition.areaKind)} ${esc(number(item.area,2))}㎡</span>` : ''}
+          ${item.floor ? `<span class="trade-row-fact">${esc(item.floor)}층</span>` : ''}
+          ${Number(item.unitPrice)>0 ? `<span class="trade-row-fact">${esc(number(item.unitPrice,1))}만원/㎡</span>` : ''}
+          ${extras.map(value=>`<span class="trade-row-fact">${esc(value)}</span>`).join('')}
+          <span class="trade-row-scope-chip${item.exact?'':' neutral'}" title="${esc(scope)}">${item.exact?'지번 일치':item.jibun?'같은 동 비교':'지번 미확정'}</span>
+        </div>
+      </article>`;
+    }).join('');
     if(items.length>limit){const more=document.createElement('button');more.type='button';more.className='trade-more';more.textContent=`거래 20건 더 보기 · ${number(Math.min(limit,items.length))}/${number(items.length)}건 표시`;more.onclick=()=>{limit+=20;drawList();};host.append(more);}
     $('transactionListCount').textContent=`${number(items.length)}건 · ${number(Math.min(limit,items.length))}건 표시`;
     $('transactionListSection').hidden=!items.length;
