@@ -1,0 +1,91 @@
+name: Audit installed regional repositories
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit-data-shards.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: regional-install-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify remote checkpoints, actual runs and publication state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64,json,os,subprocess,urllib.request,urllib.error
+          from pathlib import Path
+          from datetime import datetime,timezone
+          config=json.loads(Path('data/transactions/storage-registry.json').read_text())
+          def get(url):
+              headers={'Accept':'application/vnd.github+json','User-Agent':'Tojihannun-install-verifier'}
+              if url.startswith('https://api.github.com/'):
+                  headers['Authorization']='Bearer '+os.environ['GH_TOKEN']
+              with urllib.request.urlopen(urllib.request.Request(url,headers=headers),timeout=20) as r:return json.load(r)
+          def file(repo,path,ref='main'):
+              item=get('https://api.github.com/repos/'+repo+'/contents/'+path+'?ref='+ref)
+              return json.loads(base64.b64decode(item['content']))
+          original=file('softm/softm.tojihannun','data/transactions/collection-state.json',config['bootstrapSourceRef'])
+          expected={k:v['sha256'] for k,v in original['segments'].items()}
+          observed={};rows=[];errors=[]
+          for shard in config['shards']:
+              repo=shard['repository'];result={'id':shard['id'],'repository':repo,'label':shard['label'],'activeDistricts':shard['activeDistrictCount']}
+              try:
+                  head=get('https://api.github.com/repos/'+repo+'/branches/main')['commit']['sha']
+                  receipt=file(repo,'migration-receipt.json',head);status=file(repo,'shard-status.json',head)
+                  hashes=receipt['hashes'];allowed=set(shard['districtCodes'])
+                  wanted={k:v for k,v in expected.items() if k.split('/')[0] in allowed}
+                  assert receipt['sourceCommit']==config['bootstrapSourceRef'],'unexpected source checkpoint'
+                  assert hashes==wanted,'missing or changed regional checkpoint'
+                  assert not (set(observed)&set(hashes)),'overlapping region ownership'
+                  observed.update(hashes)
+                  assert status['summary']['completedTasks']==len(wanted),'segment count mismatch'
+                  assert status['summary']['records']==sum(original['segments'][k]['records'] for k in wanted),'transaction count mismatch'
+                  assert status['capacity']['publishedBytes']<1000000000,'publication capacity exceeded'
+                  runs=get('https://api.github.com/repos/'+repo+'/actions/runs?per_page=1')['workflow_runs']
+                  result.update(verified=True,head=head,records=status['summary']['records'],segments=len(wanted),publishedBytes=status['capacity']['publishedBytes'],collection=status['collection']['status'],sourceRequests=status['collection']['requests'],run=runs[0]['html_url'] if runs else None,runConclusion=runs[0]['conclusion'] if runs else None)
+                  try:
+                      published=get(shard['pagesBaseUrl']+'shard-status.json')
+                      result['pagesVerified']=published.get('shardId')==shard['id'] and published.get('migration',{}).get('sourceCommit')==config['bootstrapSourceRef']
+                  except (urllib.error.HTTPError,urllib.error.URLError,TimeoutError):result['pagesVerified']=False
+              except Exception as error:
+                  result.update(verified=False,error=str(error));errors.append(shard['id']+': '+str(error))
+              rows.append(result)
+          assert observed==expected,'National migration hash union differs from source'
+          report={'checkedAt':datetime.now(timezone.utc).isoformat(),'sourceCommit':config['bootstrapSourceRef'],'shards':rows,'verifiedRepositories':sum(r.get('verified',False) for r in rows),'totalSegments':len(observed),'totalRecords':sum(r.get('records',0) for r in rows),'totalPublishedBytes':sum(r.get('publishedBytes',0) for r in rows),'pagesVerified':sum(r.get('pagesVerified',False) for r in rows),'sourceDataDeleted':False,'serviceRoutesChanged':False,'errors':errors}
+          Path('test-results').mkdir(exist_ok=True)
+          Path('test-results/regional-install-audit.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          lines=['# 분산 레포 설치 검증','', '확인 시각: '+report['checkedAt'], '원본 체크포인트: `'+report['sourceCommit']+'`','', '| 레포 | 담당 | 검증 거래 | 구간 | 게시 산출물(bytes) | 첫 실행 | Pages 확인 |','|---|---|---:|---:|---:|---|---|']
+          for r in rows:lines.append('| '+r['id']+' | '+r['label']+' | '+str(r.get('records','미확인'))+' | '+str(r.get('segments','미확인'))+' | '+str(r.get('publishedBytes','미확인'))+' | '+str(r.get('runConclusion','미확인'))+' | '+('성공' if r.get('pagesVerified') else '미확인')+' |')
+          lines+=['','검증된 저장소: '+str(report['verifiedRepositories'])+'/10','전국 원본과 대조된 구간: '+str(report['totalSegments']),'거래 합계: '+str(report['totalRecords']),'게시 산출물 합계: '+str(report['totalPublishedBytes'])+' bytes','', '검증 내용: 세그먼트 해시 전체 일치, 시군구 담당 중복 없음, 원본 구간 누락 없음, 레포별 1GB 미만.','기존 데이터 삭제: 실행하지 않음. 기존 실거래 조회 경로 변경: 실행하지 않음.','현재 단계는 기존 자료의 지역별 복제 및 수집·배포 구조 검증이다. API 본수집 담당 이관과 Pages 게시 성공은 별도이다.']
+          Path('docs/DISTRIBUTED_INSTALL_VERIFICATION.md').write_text('\n'.join(lines)+'\n')
+          print(json.dumps(report,ensure_ascii=False))
+          if errors:raise SystemExit(1)
+          PY
+      - name: Commit verification report only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/DISTRIBUTED_INSTALL_VERIFICATION.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'test: record ten-repository migration integrity verification'
+            git push origin HEAD:main
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: regional-install-audit
+          path: test-results/regional-install-audit.json
+          retention-days: 3
