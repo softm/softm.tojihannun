@@ -1,4 +1,4 @@
-/* Collection-aware presentation. This module never requests a source API. */
+/* Transaction presentation. Collection diagnostics stay in the operations page. */
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -13,6 +13,7 @@
   }
   const months = values => [...new Set((values || []).filter(v => /^\d{4}(0[1-9]|1[0-2])$/.test(v)))].sort();
   const monthLabel = value => `${value.slice(0,4)}.${value.slice(4)}`;
+  // Keep coverage semantics available internally; do not render operational metadata.
   function coverage(group) {
     const keys = months(group.coveredMonthKeys);
     const expected = group.savedOnly ? null : Number(group.totalMonths || 0);
@@ -52,19 +53,17 @@
       const typeLabel = controls.querySelector('label[for="transactionType"]');
       if(typeLabel) typeLabel.textContent = '부동산 유형';
       const refresh = $('refreshTransactions');
-      if (refresh) {refresh.setAttribute('aria-label','최신 수집 자료 다시 불러오기');refresh.title='수집 자료 새로고침';refresh.insertAdjacentHTML('beforeend','<span>새로고침</span>');}
+      if (refresh) {refresh.setAttribute('aria-label','실거래 내역 새로고침');refresh.title='실거래 내역 새로고침';refresh.insertAdjacentHTML('beforeend','<span>새로고침</span>');}
       const saved = $('transactionRange')?.querySelector('[value="saved"]');
-      if (saved) saved.textContent = '수집된 전체 기간';
-      for (const option of $('transactionRange')?.options || []) if (option.value.startsWith('year-')) option.textContent = `${option.value.slice(5)}년 · 수집 자료`;
+      if (saved) saved.textContent = '전체 기간';
+      for (const option of $('transactionRange')?.options || []) if (option.value.startsWith('year-')) option.textContent = `${option.value.slice(5)}년`;
       const listCaption = $('transactionListSection')?.querySelector('.market-section-head span');
       if (listCaption) listCaption.textContent = '계약일 기준 · 취소 제외';
       const disclaimer = panel.querySelector('.market-disclaimer');
-      if (disclaimer) disclaimer.textContent = '수집된 계약월의 공개 거래만 표시합니다. 미수집·읽기 실패·지번 비공개는 거래 없음이 아닙니다. 같은 지번의 다른 호실이 포함될 수 있으며 현재 시세나 동일 호실의 연속 거래를 뜻하지 않습니다.';
+      if (disclaimer) disclaimer.textContent = '계약 신고 기준의 매매 내역입니다. 같은 지번의 여러 호실 거래가 포함될 수 있습니다.';
     }
-    if (!$('transactionCollection')) {
-      const section = document.createElement('section'); section.id='transactionCollection';section.className='trade-collection';section.setAttribute('aria-label','실거래 수집 범위');
-      panel.querySelector('.market-panel-head').after(section);
-    }
+    // Remove the legacy coverage card rather than hiding an operational link with CSS.
+    $('transactionCollection')?.remove();
     if (!$('transactionChartToggle') && $('transactionChartCard')) {
       const details=document.createElement('details');details.id='transactionChartToggle';details.className='trade-chart-toggle';
       details.innerHTML='<summary>월별 거래단가 차트 보기 <small>면적·층·호실 구성에 따라 달라집니다</small></summary>';
@@ -75,7 +74,6 @@
   function reset() {
     const panel=mount(); if(!panel)return;
     current=null;lastKey='';limit=20;order='date-desc';
-    $('transactionCollection').hidden=true;
     if($('transactionChartToggle'))$('transactionChartToggle').hidden=true;
     $('transactionEmpty')?.remove();$('transactionSortRow')?.remove();
     $('refreshTransactions').disabled=false;panel.removeAttribute('aria-busy');
@@ -102,36 +100,36 @@
     const {group,definition,view,type,period,onView,onReload,onStop}=props;
     const key=[group.scope,type,period,view].join('|');
     if(key!==lastKey){lastKey=key;limit=20;order='date-desc';}
-    const nearby=view==='nearby', items=nearby?group.comparable:group.items, cov=coverage(group);
+    const nearby=view==='nearby', items=nearby?group.comparable:group.items;
+    const failed=Boolean(group.error || group.staticError);
     panel.setAttribute('aria-busy',String(Boolean(group.loading)));
     $('refreshTransactions').disabled=Boolean(group.loading);
     $('transactionHeading').textContent=`${definition.label} 매매 실거래`;
     $('transactionAreaLabel').textContent=`${group.scope} · ${nearby?'같은 법정동 비교':'선택 지번 기준'}`;
-    const collected=$('transactionCollection');collected.hidden=false;
-    const source=group.staticLoaded?'국토교통부 수집 자료':group.snapshotAt?'개별 검증 저장 자료':'수집 자료';
-    const stamp=group.snapshotAt?text(group.snapshotAt).slice(0,10):'미확인';
-    collected.innerHTML=`<div class="trade-collection-head"><strong>${esc(source)}</strong><span class="trade-state${group.staticError?' error':''}">${esc(cov.label)}</span></div>
-      <div class="trade-coverage-main">${esc(cov.range)} <b>${cov.expected==null?`${cov.count}개 계약월 확보`:`${cov.count}/${cov.expected}개 계약월 확보`}</b></div>
-      <div class="trade-collection-foot"><span>자료 갱신 ${esc(stamp)} · 전체 이력 아님</span><a href="./data-status.html" target="_blank" rel="noopener">수집 현황 ↗</a></div>
-      ${cov.count?`<details class="trade-month-details"><summary>확보한 계약월 확인${cov.partial?' · 중간 미수집 기간 확인':''}</summary><p>${cov.keys.map(monthLabel).map(esc).join(' · ')}</p></details>`:''}`;
     const scope=$('transactionScopeSwitch');
-    if(scope){scope.className='transaction-scope-switch';scope.replaceChildren();for(const [mode,label,list]of[['parcel','해당 지번',group.items],['nearby','같은 법정동 비교',group.comparable]]){const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',String(view===mode));b.textContent=`${label} · ${list.length?number(list.length)+'건':group.loading?'조회 중':'미확인'}`;b.onclick=()=>onView(mode);scope.append(b);}}
+    if(scope){scope.className='transaction-scope-switch';scope.replaceChildren();for(const [mode,label,list]of[['parcel','해당 지번',group.items],['nearby','같은 법정동 비교',group.comparable]]){const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',String(view===mode));b.textContent=label+(list.length?' · '+number(list.length)+'건':group.loading?' · 조회 중':'');b.onclick=()=>onView(mode);scope.append(b);}}
     const disclosure=$('transactionDisclosure');
     if(disclosure){disclosure.hidden=!nearby&&!group.undisclosedCount;disclosure.textContent=nearby?'같은 법정동의 비교 자료입니다. 선택 필지의 거래나 거리순 주변 거래가 아닙니다.':`같은 법정동 ${number(group.undisclosedCount)}건은 지번 식별이 불가능해 해당 필지 거래에 포함하지 않았습니다.`;}
-    const paging=$('transactionPaging');if(paging){paging.className='transaction-paging trade-help';paging.replaceChildren();const note=document.createElement('small');note.textContent='기간·유형 변경은 수집 자료를 필터링합니다. 미수집 기간은 자동 수집 후 반영됩니다.';paging.append(note);if(group.loading){const stop=document.createElement('button');stop.type='button';stop.textContent='조회 중단';stop.onclick=onStop;paging.append(stop);}else if(group.staticError){const retry=document.createElement('button');retry.type='button';retry.textContent='수집 자료 다시 불러오기';retry.onclick=onReload;paging.append(retry);}}
+    // Keep actionable loading/error controls only, with no collection-progress prose.
+    const paging=$('transactionPaging');
+    if(paging){
+      paging.className='transaction-paging trade-help';paging.replaceChildren();paging.hidden=!group.loading&&!failed;paging.style.display=paging.hidden?'none':'';
+      if(group.loading){const stop=document.createElement('button');stop.type='button';stop.textContent='조회 중단';stop.onclick=onStop;paging.append(stop);}
+      else if(failed){const retry=document.createElement('button');retry.type='button';retry.textContent='다시 불러오기';retry.onclick=onReload;paging.append(retry);}
+    }
     const status=$('transactionStatus');
-    status.dataset.tone=group.error||group.staticError?'error':group.loading?'loading':items.length?'success':'';
-    status.textContent=group.error || (group.loading?'수집 자료를 불러오고 있습니다.':items.length?`${number(items.length)}건 확인 · ${nearby?'비교 거래':'공개 지번 일치'} · 취소 제외`:'확보한 범위에서 지번 일치 거래를 확인하지 못했습니다.');
+    status.dataset.tone=failed?'error':group.loading?'loading':items.length?'success':'';
+    status.textContent=failed?'거래 정보를 불러오지 못했습니다. 다시 시도해 주세요.':group.loading?'거래 내역을 불러오는 중입니다.':items.length?`${number(items.length)}건 · ${nearby?'비교 거래':'공개 지번 일치'} · 취소 제외`:'조회 조건에 맞는 거래 내역을 찾지 못했습니다.';
     const newest=sorted(items)[0];
     $('transactionStats').innerHTML=newest?[
-      ['확인된 매매',number(items.length)+'건',nearby?'같은 법정동 비교':'해당 지번 · 여러 호실 포함 가능'],
-      ['최근 계약금액',money(newest.amount),'현재 시세·감정가 아님'],
+      ['매매 거래',number(items.length)+'건',nearby?'같은 법정동 비교':'해당 지번 기준'],
+      ['최근 계약금액',money(newest.amount),'매매 신고금액'],
       ['최근 계약일',text(newest.date).replaceAll('-','.'),`${definition.areaKind} ${number(newest.area,2)}㎡${newest.floor?' · '+newest.floor+'층':''}`]
     ].map(([a,b,c])=>`<div class="market-stat"><span>${esc(a)}</span><strong>${esc(b)}</strong><small>${esc(c)}</small></div>`).join(''):'';
     let empty=$('transactionEmpty');if(!empty){empty=document.createElement('div');empty.id='transactionEmpty';empty.className='trade-empty';$('transactionStats').after(empty);}
     empty.hidden=Boolean(items.length);
-    const emptyTitle=group.loading?'거래 자료 확인 중':group.staticError?'수집 자료를 읽지 못했습니다':!cov.count?'선택 조건의 수집 자료 미확보':'해당 지번 거래 미확인';
-    empty.innerHTML=`<strong>${esc(emptyTitle)}</strong><p>${esc(group.loading?'확인 중에는 거래 건수를 0건으로 확정하지 않습니다.':group.staticError?'네트워크 상태를 확인한 뒤 새로고침해 주세요. 거래가 없다는 뜻은 아닙니다.':!cov.count?'아직 수집하지 않은 지역·유형·기간일 수 있습니다. 다른 기간·유형과 수집 현황을 확인해 주세요.':nearby?'확보한 기간에 확인된 비교 거래가 없습니다. 다른 기간을 확인해 주세요.':'미수집 기간이나 지번 비공개 거래가 있을 수 있습니다. 해당 필지의 전체 거래 이력이 없다는 뜻은 아닙니다.')}</p>`;
+    const emptyTitle=group.loading?'거래 내역 조회 중':failed?'거래 정보를 읽지 못했습니다':'조회된 거래 내역이 없습니다';
+    empty.innerHTML=`<strong>${esc(emptyTitle)}</strong><p>${esc(group.loading?'거래 내역을 불러오고 있습니다.':failed?'네트워크 상태를 확인한 뒤 다시 불러오기를 눌러 주세요.':'조회 기간이나 부동산 유형을 변경해 보세요.')}</p>`;
     let sortRow=$('transactionSortRow');if(!sortRow){sortRow=document.createElement('div');sortRow.id='transactionSortRow';sortRow.className='trade-sort';sortRow.innerHTML='<label for="transactionSort">거래 정렬</label><select id="transactionSort"><option value="date-desc">최신 계약순</option><option value="date-asc">과거 계약순</option><option value="amount-desc">금액 높은순</option><option value="amount-asc">금액 낮은순</option><option value="unit-desc">단가 높은순</option></select>';$('transactionList').before(sortRow);$('transactionSort').onchange=e=>{order=e.target.value;limit=20;drawList();};}
     $('transactionSort').value=order;
     drawList();

@@ -41,6 +41,12 @@ try{
     if(/apis\.data\.go\.kr|api\.vworld\.kr/.test(url))apiCalls.push(url);
     return url.startsWith(origin)?route.continue():route.abort();
   });
+  const assertCleanPanel=async()=>{
+    const panel=page.locator('#detailPanelTransactions');
+    assert.equal(await panel.locator('#transactionCollection').count(),0,'collection card must not be rendered');
+    assert.equal(await panel.locator('a[href*="data-status"]').count(),0,'no collection-status link in transaction panel');
+    assert.doesNotMatch(await panel.innerText(),/수집 현황|데이터\s*수집|수집중|수집 중|수집 자료|일부 기간 확보|계약월 확보|자료 갱신|전체 이력 아님|확보한 계약월|미수집 기간/);
+  };
   await page.goto(origin,{waitUntil:'domcontentloaded'});
   await page.evaluate(p=>{
     const sheet=document.getElementById('detailSheet');sheet.classList.add('open');sheet.hidden=false;
@@ -51,8 +57,10 @@ try{
   const expected=actual.filter(r=>r.lot===sample.lot).length;
   assert.match(await page.locator('#transactionListCount').textContent(),new RegExp(expected.toLocaleString('ko-KR')+'건'));
   assert.equal(await page.locator('#transactionChartToggle').getAttribute('open'),null);
-  assert.match(await page.locator('#transactionCollection').textContent(),/전체 이력 아님/);
-  proof.checks.push('published exact-lot records rendered with coverage; chart collapsed');
+  await assertCleanPanel();
+  assert.equal(await page.locator('#transactionPaging').isVisible(),false,'no empty diagnostics gap');
+  assert.equal(await page.locator('#transactionRange option[value="saved"]').textContent(),'전체 기간');
+  proof.checks.push('published exact-lot records rendered without collection card or operational links; chart collapsed');
   for(const width of [320,360,390,768,1280]){
     await page.setViewportSize({width,height:850});
     const dimensions=await page.locator('#detailPanelTransactions').evaluate(e=>({client:e.clientWidth,scroll:e.scrollWidth}));
@@ -66,7 +74,7 @@ try{
     proof.checks.push(`no transaction-panel horizontal overflow at ${width}px`);
   }
   await page.setViewportSize({width:360,height:800});
-  await page.locator('#transactionCollection').scrollIntoViewIfNeeded();
+  await page.locator('#detailPanelTransactions .market-panel-head').scrollIntoViewIfNeeded();
   await page.screenshot({path:'test-results/transaction-ui-mobile.png'});
   await page.locator('#transactionScopeSwitch button').nth(1).click();
   assert.match(await page.locator('#transactionDisclosure').textContent(),/선택 필지의 거래/);
@@ -78,25 +86,31 @@ try{
   if(total>200)assert.ok(await page.locator('.trade-row').count()>200,'no old 200-record cutoff');
   await page.locator('.trade-row').last().scrollIntoViewIfNeeded();
   const last=await page.locator('.trade-row').last().boundingBox();assert.ok(last&&last.y<800&&last.y+last.height>0,'last record can be scrolled into view');
+  await assertCleanPanel();
   proof.checks.push('comparison separated; local sorting; pagination beyond 200; last row reachable');
   await page.locator('#transactionRange').selectOption('12');
   await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false');
   assert.equal(apiCalls.length,0,'filtering must not initiate government requests');
-  proof.checks.push('period filter reads collected files only');
+  await assertCleanPanel();
+  proof.checks.push('period filter reads collected files only, without progress notices');
   await page.route('**/data/transactions/published/index.json',r=>r.fulfill({status:503,body:'unavailable'}));
   await page.locator('#refreshTransactions').click();
   await page.waitForFunction(()=>document.getElementById('transactionStatus').textContent.includes('불러오지 못'));
   assert.match(await page.locator('#transactionEmpty').textContent(),/읽지 못/);
   assert.doesNotMatch(await page.locator('#transactionEmpty').textContent(),/거래가 없습니다/);
-  proof.checks.push('failed file is an error, not zero transactions');
+  await assertCleanPanel();
+  assert.equal(await page.locator('#transactionPaging button').textContent(),'다시 불러오기');
+  proof.checks.push('failed file has a concise retry state, not zero transactions');
   await page.unroute('**/data/transactions/published/index.json');
   await page.evaluate(()=>{
     window.TojihannunMarketData.setParcel({id:'uncollected-fixture',pnu:'9999910100100010001',address:'검증시 검증동 1-1',number:'1-1',buildings:[{use:'연립주택'}]});
     window.TojihannunMarketData.activate('transactions');
   });
   await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false');
-  assert.match(await page.locator('#transactionEmpty').textContent(),/미확보/);
-  proof.checks.push('uncollected fixture distinguished from no transactions');
+  assert.match(await page.locator('#transactionEmpty').textContent(),/조회된 거래 내역이 없습니다/);
+  assert.doesNotMatch(await page.locator('#transactionEmpty').textContent(),/읽지 못|거래가 없습니다/);
+  await assertCleanPanel();
+  proof.checks.push('empty lookup shows filter guidance without collection diagnostics or complete-history claims');
   assert.deepEqual(errors,[]);assert.equal(apiCalls.length,0);
   proof.status='passed';fs.writeFileSync('test-results/transaction-ui-browser.json',JSON.stringify(proof,null,2));
   console.log(JSON.stringify(proof));
