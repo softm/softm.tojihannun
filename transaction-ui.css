@@ -67,3 +67,78 @@
 }
 
 #detailPanelTransactions.collection-trades .market-panel-head > div:first-child { flex:0 1 auto;width:auto; }
+
+/* Dense trade history rows: one date/price line, one wrapping detail line.
+   The list keeps original record values; only the presentation changes. */
+#detailPanelTransactions.collection-trades .transaction-list {gap:5px;}
+#detailPanelTransactions.collection-trades .trade-row.trade-row--compact {
+  padding:8px 10px;
+  border-radius:10px;
+}
+.trade-row--compact .trade-row-top {
+  flex-wrap:nowrap;
+  gap:8px;
+  line-height:1.2;
+}
+.trade-row--compact .trade-row-top time {
+  flex:0 0 auto;
+  font-size:11px;
+  font-variant-numeric:tabular-nums;
+}
+.trade-row--compact .trade-row-top > strong {
+  min-width:0;
+  font-size:16px;
+  line-height:1.2;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+.trade-row--compact .trade-row-inline {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:baseline;
+  gap:2px 8px;
+  min-width:0;
+  margin-top:4px;
+  color:#5f736a;
+  font-size:11px;
+  line-height:1.25;
+}
+.trade-row--compact .trade-row-name {
+  min-width:0;
+  max-width:50%;
+  margin:0;
+  overflow:hidden;
+  color:#273e35;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.25;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.trade-row--compact .trade-row-address {
+  min-width:0;
+  max-width:46%;
+  overflow:hidden;
+  color:#536c61;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.trade-row--compact .trade-row-fact {white-space:nowrap;}
+.trade-row--compact .trade-row-scope-chip {
+  flex:0 0 auto;
+  padding:1px 5px;
+  border-radius:5px;
+  background:#e8f5ed;
+  color:#24654c;
+  font-size:10px;
+  font-weight:750;
+  white-space:nowrap;
+}
+.trade-row--compact .trade-row-scope-chip.neutral {background:#eef1ef;color:#596a61;}
+@media(max-width:420px){
+  #detailPanelTransactions.collection-trades .trade-row.trade-row--compact {padding:7px 9px;}
+  .trade-row--compact .trade-row-top > strong {font-size:15px;}
+  .trade-row--compact .trade-row-inline {gap:2px 7px;font-size:10px;}
+  .trade-row--compact .trade-row-name {font-size:11px;max-width:62%;}
+  .trade-row--compact .trade-row-scope-chip {font-size:9px;}
+}
