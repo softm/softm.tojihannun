@@ -587,23 +587,28 @@
     const items = state.transactionItems;
     const definition = TRANSACTION_TYPES[state.transactionType] || TRANSACTION_TYPES.land;
     const limit = state.transactionShowAll ? Math.min(items.length, 200) : Math.min(items.length, 30);
-    $("#transactionList").innerHTML = items.slice(0, limit).map((item) => `
-      <article class="transaction-item${item.exact ? " exact" : ""}">
-        <div class="market-item-head">
-          <div>
-            <span>${escapeHtml(item.date.replaceAll("-", "."))} 계약</span>
-            <strong>${escapeHtml(item.buildingName || [item.umdNm, item.jibun || "지번 비공개"].filter(Boolean).join(" "))}</strong>
-            <small>${escapeHtml([item.buildingName ? [item.umdNm, item.jibun].filter(Boolean).join(" ") : "", item.jimok, item.landUse, item.buildingType, item.buildingUse, item.floor ? `${item.floor}층` : "", item.dealType].filter(Boolean).join(" · ") || "세부 항목 미제공")}</small>
-          </div>
-          <span class="market-badge${item.exact ? "" : " neutral"}">${item.exact ? "공개 지번 일치" : !normalizeLot(item.jibun) ? "지번 일부공개 · 필지 미확정" : "같은 법정동 비교"}</span>
+    $("#transactionList").innerHTML = items.slice(0, limit).map((item) => {
+      const title = item.buildingName || [item.umdNm, item.jibun || "지번 비공개"].filter(Boolean).join(" ");
+      const address = item.buildingName ? [item.umdNm, item.jibun || "지번 비공개"].filter(Boolean).join(" ") : "";
+      const extra = [item.jimok, item.landUse, item.buildingType, item.buildingUse, item.dealType].filter(Boolean);
+      const disclosure = item.exact ? "공개 지번 일치" : !normalizeLot(item.jibun) ? "지번 일부공개 · 필지 미확정" : "같은 법정동 비교";
+      return `
+      <article class="transaction-item transaction-item--compact${item.exact ? " exact" : ""}" aria-label="${escapeHtml([item.date, title, formatDealAmount(item.amount), disclosure].join(" · "))}">
+        <div class="transaction-compact-top">
+          <time datetime="${escapeHtml(item.date)}">${escapeHtml(item.date.replaceAll("-", "."))}</time>
+          <strong class="transaction-compact-price">${escapeHtml(formatDealAmount(item.amount))}</strong>
         </div>
-        <dl class="market-item-facts">
-          <div><dt>거래금액</dt><dd>${escapeHtml(formatDealAmount(item.amount))}</dd></div>
-          <div><dt>${escapeHtml(definition.areaKind)}</dt><dd>${escapeHtml(formatNumber(item.area, 2))}㎡</dd></div>
-          <div><dt>거래단가</dt><dd>${escapeHtml(formatNumber(item.unitPrice, 1))}만원/㎡</dd></div>
-          <div><dt>공개 지번</dt><dd>${escapeHtml(item.jibun || "미공개")}</dd></div>
-        </dl>
-      </article>`).join("") + (items.length > 30 ? `<button class="auction-item-action" type="button" data-toggle-transaction-list>${state.transactionShowAll ? "목록 접기" : `전체 ${formatNumber(Math.min(items.length, 200))}건 보기`}<span aria-hidden="true">${state.transactionShowAll ? "↑" : "↓"}</span></button>` : "");
+        <div class="transaction-compact-details">
+          <strong class="transaction-compact-name" title="${escapeHtml(title)}">${escapeHtml(title)}</strong>
+          ${address ? `<span class="transaction-compact-address" title="${escapeHtml(address)}">${escapeHtml(address)}</span>` : ""}
+          <span class="transaction-compact-fact">${escapeHtml(definition.areaKind)} ${escapeHtml(formatNumber(item.area, 2))}㎡</span>
+          ${item.floor ? `<span class="transaction-compact-fact">${escapeHtml(item.floor)}층</span>` : ""}
+          <span class="transaction-compact-fact">${escapeHtml(formatNumber(item.unitPrice, 1))}만원/㎡</span>
+          ${extra.map((text) => `<span class="transaction-compact-fact">${escapeHtml(text)}</span>`).join("")}
+          <span class="transaction-compact-disclosure${item.exact ? "" : " neutral"}" title="${escapeHtml(disclosure)}">${escapeHtml(item.exact ? "지번 일치" : !normalizeLot(item.jibun) ? "지번 미확정" : "같은 동 비교")}</span>
+        </div>
+      </article>`;
+    }).join("") + (items.length > 30 ? `<button class="auction-item-action" type="button" data-toggle-transaction-list>${state.transactionShowAll ? "목록 접기" : `전체 ${formatNumber(Math.min(items.length, 200))}건 보기`}<span aria-hidden="true">${state.transactionShowAll ? "↑" : "↓"}</span></button>` : "");
     $("[data-toggle-transaction-list]")?.addEventListener("click", () => {
       state.transactionShowAll = !state.transactionShowAll;
       renderTransactionList();
