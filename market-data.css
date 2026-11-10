@@ -571,3 +571,86 @@
   #detailPanelTransactions .market-panel-head > div:first-child {width:100%;}
   #detailPanelTransactions .transaction-market-controls {width:100%;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) 34px;}
 }
+
+/* Compact transaction history: date/price + one wrapping metadata line.
+   Keep auction cards untouched and never remove important disclosure text. */
+.transaction-list {gap: 5px;}
+.transaction-item.transaction-item--compact {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff;
+}
+.transaction-item--compact .transaction-compact-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  line-height: 1.25;
+}
+.transaction-item--compact .transaction-compact-top time {
+  flex: 0 0 auto;
+  color: #687a73;
+  font-size: 10px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.transaction-item--compact .transaction-compact-price {
+  min-width: 0;
+  color: #175c46;
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1.2;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.transaction-item--compact .transaction-compact-details {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 9px;
+  min-width: 0;
+  margin-top: 4px;
+  color: #62756d;
+  font-size: 10px;
+  line-height: 1.3;
+}
+.transaction-item--compact .transaction-compact-name {
+  min-width: 0;
+  max-width: 44%;
+  overflow: hidden;
+  color: #263e35;
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.transaction-item--compact .transaction-compact-address {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.transaction-item--compact .transaction-compact-fact {
+  white-space: nowrap;
+}
+.transaction-item--compact .transaction-compact-disclosure {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: #edf7f1;
+  color: #26664e;
+  font-size: 9px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.transaction-item--compact .transaction-compact-disclosure.neutral {
+  background: #f1f2f2;
+  color: #57675f;
+}
+@media (max-width: 420px) {
+  .transaction-item.transaction-item--compact {padding: 7px 9px;}
+  .transaction-item--compact .transaction-compact-price {font-size: 14px;}
+  .transaction-item--compact .transaction-compact-details {column-gap: 7px;}
+  .transaction-item--compact .transaction-compact-name {max-width: 65%;}
+}
