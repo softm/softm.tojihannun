@@ -10,5 +10,10 @@ test("exact parcel transactions are never replaced by nearby comparables", () =>
 test("user can explicitly switch transaction scope", () => {
   assert.match(source, /transactionScopeSwitch/);
   assert.match(source, /state\.transactionView = mode/);
-  assert.match(fs.readFileSync(new URL("../index.html", import.meta.url), "utf8"), /지번 비공개 거래는 일치 여부를 확인할 수 없습니다/);
+  // Scope guidance is rendered by the transaction UI, not the static footer.
+  const ui=fs.readFileSync(new URL("../transaction-ui.js", import.meta.url), "utf8");
+  assert.match(ui, /onView\(mode\)/);
+  assert.match(ui, /같은 법정동 비교/);
+  assert.match(ui, /지번 식별이 불가능해 해당 필지 거래에 포함하지 않았습니다/);
+  assert.match(ui, /선택 필지의 거래나 거리순 주변 거래가 아닙니다/);
 });

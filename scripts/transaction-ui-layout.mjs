@@ -8,6 +8,7 @@ fs.writeFileSync(cssPath,css);
 let html=fs.readFileSync('index.html','utf8').replace(/transaction-ui\.(js|css)\?v=[^"']+/g,'transaction-ui.$1?v=20261110.3');
 // Keep the initial markup consistent with the transaction renderer (no diagnostic flash).
 html=html.replace(/(<section\b[^>]*\bid="detailPanelTransactions"[\s\S]*?)(?=<section\b[^>]*\bid="detailPanelAuctions")/, panel=>panel
+  .replace('<label for="transactionType">거래유형</label>','<label for="transactionType">부동산 유형</label>')
   .replace('<option value="saved" selected>저장된 거래 (전체 이력 아님)</option>','<option value="saved" selected>전체 기간</option>')
   .replace(/<p class="market-disclaimer">[^<]*<\/p>/,'<p class="market-disclaimer">계약 신고 기준의 매매 내역입니다. 같은 지번의 여러 호실 거래가 포함될 수 있습니다.</p>'));
 fs.writeFileSync('index.html',html);
