@@ -1,0 +1,52 @@
+name: Verify distributed data structure
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-data-shards.yml'
+      - 'scripts/distribution/**'
+      - 'data/transactions/storage-registry.json'
+      - 'distributed-transactions.js'
+      - 'distributed-status.js'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: distributed-data-verification
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Regression tests and production build
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          npm ci
+          npm test | tee test-results/node-tests.txt
+          python3 -m unittest discover -s scripts/rtms -p 'test_*.py'
+          if test -d scripts/distribution; then
+            python3 -m unittest discover -s scripts/distribution -p 'test_*.py'
+          fi
+          npm run build
+      - name: Preserve exact tracked source for reproducible verification
+        if: always()
+        run: |
+          mkdir -p test-results
+          git rev-parse HEAD > test-results/source-commit.txt
+          git archive --format=tar.gz HEAD > test-results/source.tar.gz
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: distributed-data-verification
+          path: test-results/
+          retention-days: 3
