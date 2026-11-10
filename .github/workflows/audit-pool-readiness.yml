@@ -1,0 +1,94 @@
+name: Audit twenty data repositories
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit-pool-readiness.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: audit-data-pool-readiness
+  cancel-in-progress: true
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read public operational reports without secret access
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64,json,os,urllib.request,urllib.error
+          from pathlib import Path
+          from datetime import datetime,timezone
+          def get(route):
+              request=urllib.request.Request('https://api.github.com/repos/'+route,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(request,timeout=20) as response:return json.load(response)
+          def file(repo,path):
+              try:
+                  value=get(repo+'/contents/'+path+'?ref=main')
+                  return json.loads(base64.b64decode(value['content']))
+              except (urllib.error.HTTPError,KeyError,ValueError):return None
+          registry=json.loads(Path('data/transactions/storage-registry.json').read_text())
+          rows=[]
+          for shard in registry['shards']:
+              repo=shard['repository'];metadata=get(repo)
+              ready=file(repo,'readiness.json');status=file(repo,'shard-status.json')
+              if ready and ready.get('repository')!=repo:raise ValueError('Readiness identity mismatch')
+              if status and (status.get('shardId')!=shard['id'] or sorted(status.get('districtCodes',[]))!=sorted(shard['districtCodes'])):raise ValueError('Status identity mismatch')
+              runs=get(repo+'/actions/runs?per_page=3').get('workflow_runs',[])
+              run=next((r for r in runs if r.get('event')=='push'),runs[0] if runs else {})
+              row={'repository':repo,'keyConfigured':ready.get('apiKeyConfigured') if ready else None,
+                   'keyAccessVerified':False,'hasPages':metadata.get('has_pages'),
+                   'pagesWorkflowConfigured':ready.get('pagesConfigured') if ready else None,
+                   'readinessCheckedAt':ready.get('checkedAt') if ready else None,
+                   'workflowStatus':run.get('status'),'workflowConclusion':run.get('conclusion'),
+                   'runUrl':run.get('html_url'),'reserved':not bool(shard['districtCodes']),
+                   'collectionOwner':shard['collectionOwner'],'serving':shard['serving'],
+                   'prepared':bool(status),'records':status.get('summary',{}).get('records') if status else None,
+                   'segments':status.get('summary',{}).get('completedTasks') if status else None,
+                   'apiRequests':status.get('collection',{}).get('requests') if status else None,
+                   'publishedBytes':status.get('capacity',{}).get('publishedBytes') if status else None}
+              rows.append(row)
+          summary={'repositories':len(rows),'keysConfigured':sum(x['keyConfigured'] is True for x in rows),
+                   'pagesEnabled':sum(x['hasPages'] is True for x in rows),'prepared':sum(x['prepared'] for x in rows),
+                   'workflowsSucceeded':sum(x['workflowConclusion']=='success' for x in rows),
+                   'mirroredRecords':sum(x['records'] or 0 for x in rows),'verifiedSegments':sum(x['segments'] or 0 for x in rows),
+                   'reserved':sum(x['reserved'] for x in rows)}
+          report={'checkedAt':datetime.now(timezone.utc).isoformat(),'summary':summary,'repositories':rows}
+          Path('test-results').mkdir(exist_ok=True)
+          Path('test-results/pool-readiness.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          def label(value):return '확인' if value is True else '미설정' if value is False else '미확인'
+          lines=['# 20개 데이터 저장소 준비 상태','', '확인 시각: '+report['checkedAt'],'',
+                 '| 저장소 | 키 등록 | Pages 생성 | 준비 실행 | 상태 | 거래 | 구간 |', '|---|---|---|---|---|---:|---:|']
+          for x in rows:
+              lines.append('| '+x['repository'].split('/')[1]+' | '+label(x['keyConfigured'])+' | '+label(x['hasPages'])+' | '+str(x['workflowConclusion'] or x['workflowStatus'])+' | '+('증설 대기' if x['reserved'] else '기존 지역 사본')+' | '+str(x['records'] or 0)+' | '+str(x['segments'] or 0)+' |')
+          lines+=['','집계: '+json.dumps(summary,ensure_ascii=False),'',
+                  '키 존재 확인은 API 활용승인 성공을 뜻하지 않습니다. API 본수집 이관 및 서비스 조회 전환은 하지 않았습니다.',
+                  '기존 JSON과 체크포인트는 삭제하지 않았습니다. 011~020은 지역 미배정 증설 대기이며 API 요청은 0회입니다.']
+          Path('docs/DATA_POOL_READINESS.md').write_text('\n'.join(lines)+'\n')
+          print(json.dumps(summary,ensure_ascii=False))
+          PY
+      - name: Persist audit summary only
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/DATA_POOL_READINESS.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'ops: record twenty-repository key and Pages readiness audit'
+            git push origin HEAD:main
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: twenty-repository-readiness
+          path: test-results/pool-readiness.json
+          retention-days: 7
