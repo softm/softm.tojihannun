@@ -46,7 +46,7 @@
     <link rel="stylesheet" href="./styles.css?v=20261108.3" />
     <link rel="stylesheet" href="./market-data.css?v=20261108.9" />
     <link rel="stylesheet" href="./districts.css?v=20261108.4" />
-      <link rel="stylesheet" href="./transaction-ui.css?v=20261110.2" />
+      <link rel="stylesheet" href="./transaction-ui.css?v=20261110.3" />
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
@@ -273,7 +273,7 @@
               <small id="transactionAreaLabel">선택 필지 주변 거래를 확인합니다.</small>
             </div>
             <div class="market-panel-controls transaction-market-controls">
-              <label for="transactionType">거래유형</label>
+              <label for="transactionType">부동산 유형</label>
               <label for="transactionRange">조회기간</label>
               <select id="transactionType" aria-label="실거래 유형">
                 <option value="land">토지</option>
@@ -285,7 +285,7 @@
                 <option value="factory">공장·창고</option>
               </select>
               <select id="transactionRange">
-                <option value="saved" selected>저장된 거래 (전체 이력 아님)</option>
+                <option value="saved" selected>전체 기간</option>
                 <option value="3">최근 3개월</option>
                 <option value="12">최근 12개월</option>
                 <option value="24">최근 24개월</option>
@@ -333,7 +333,7 @@
             </div>
             <div class="transaction-list" id="transactionList"></div>
           </section>
-          <p class="market-disclaimer">공개 지번이 일치하는 거래와 같은 법정동 비교 거래를 분리합니다. 전체 거래이력은 별도 데이터 공급 연결이 필요합니다. 저장된 자료를 먼저 보여주며, 기간 선택 시 최대 3개월씩 확인합니다. 지번 비공개 거래는 일치 여부를 확인할 수 없습니다. 다세대 거래는 같은 지번의 여러 호실이 포함되며 동일 호실 이력으로 확정하지 않습니다.</p>
+          <p class="market-disclaimer">계약 신고 기준의 매매 내역입니다. 같은 지번의 여러 호실 거래가 포함될 수 있습니다.</p>
           <div class="market-source">
             <span>출처</span>
             <strong>국토교통부 실거래가 공개시스템 · 공공데이터포털</strong>
@@ -558,7 +558,7 @@
     <script src="./report-export.js?v=20261013.5"></script>
     <script src="./runtime-config.js"></script>
     <script src="./static-transactions.js?v=20261110.1"></script>
-    <script src="./transaction-ui.js?v=20261110.2"></script>
+    <script src="./transaction-ui.js?v=20261110.3"></script>
     <script src="./market-data.js?v=20261110.1"></script>
     <script src="./app.js?v=20261108.3"></script>
     <script defer src="./districts-core.js?v=20261108.1"></script>
