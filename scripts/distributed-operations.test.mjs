@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+const env={window:{},document:{}};
+for(const f of ['distributed-status.js','collection-status.js'])vm.runInNewContext(fs.readFileSync(new URL('../'+f,import.meta.url),'utf8'),env);
+const api=env.window.TojiDistributedStatus;
+const legacy={summary:{records:10,completedTasks:2},collection:{},regions:[{districts:[{code:'41210',records:10,completed:2,expected:100}]}]};
+const shard={id:'realestate-data-003',districtCodes:['41210'],repository:'softm/realestate-data-003',collectionOwner:'shard',serving:'legacy',handoverCommit:'a'.repeat(40)};
+const data={collectionOwner:'shard',migration:{sourceCommit:shard.handoverCommit},collection:{status:'success'},summary:{records:15},regions:[{districts:[{code:'41210',records:15,completed:3,expected:100}]}]};
+test('collection totals update before Pages without double counting',()=>{const r=api.merge(legacy,{mode:'collecting',shards:[shard]},{[shard.id]:{source:'repository',data}});assert.equal(r.summary.records,15);assert.equal(r.operational.verified,1);assert.equal(shard.serving,'legacy');});
+test('wrong handover checkpoint cannot replace verified baseline',()=>{const d={...data,migration:{sourceCommit:'b'.repeat(40)}};const r=api.merge(legacy,{mode:'collecting',shards:[shard]},{[shard.id]:{source:'repository',data:d}});assert.equal(r.summary.records,10);assert.equal(r.operational.stale,1);});
+test('missing worker status preserves baseline and marks snapshot stale',()=>{const r=api.merge(legacy,{mode:'collecting',shards:[shard]},{});assert.equal(r.summary.records,10);assert.equal(r.operational.stale,1);});

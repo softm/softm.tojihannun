@@ -1,0 +1,57 @@
+name: Activate verified regional collection
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/activate-collection.yml', 'scripts/distribution/activate.py']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: rtms-collection
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate final snapshot and activate non-overlapping owners
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          python3 scripts/distribution/activate.py | tee test-results/activation.json
+          npm ci
+          npm test | tee test-results/node-tests.txt
+          python3 -m unittest discover -s scripts/rtms -p 'test_*.py'
+          python3 -m unittest discover -s scripts/distribution -p 'test_*.py'
+          npm run build
+      - name: Persist tested ownership and dashboard
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/transactions/storage-registry.json data-status.js data-status.html scripts/build-pages.mjs scripts/distribution/test_shards.py scripts/distribution/expand_pool.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'ops: hand over verified checkpoint to ten regional collectors and aggregate their live snapshots'
+            git push origin HEAD:main
+          fi
+          git rev-parse HEAD > test-results/activation-commit.txt
+      - name: Deploy collection dashboard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: collection-activation-proof
+          path: test-results/
+          retention-days: 7

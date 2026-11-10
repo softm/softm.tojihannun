@@ -1,90 +1,17 @@
 name: Collect transaction sources
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/rtms/**'
-      - 'data/transactions/inbox/**'
-      - '.github/workflows/collect-transactions.yml'
   workflow_dispatch:
-    inputs:
-      mode:
-        description: 'import: Excel/CSV 반입, refresh: 최근 3개월, backfill: 공식 API 미확보 구간'
-        type: choice
-        options: [import, refresh, backfill]
-        default: import
-      max_tasks:
-        description: '이번 실행 구간 상한 (전체 완료를 뜻하지 않음)'
-        default: '96'
-      districts:
-        description: '시군구 코드 쉼표 구분. 비어 있으면 현행 공식 코드 전국'
-        default: ''
-  schedule:
-    - cron: '0 19 * * *'
-    - cron: '*/10 * * * *'
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: rtms-collection
   cancel-in-progress: false
 jobs:
-  collect:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 20
+  retired:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: main
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - name: Test collection behavior before any source requests
+      - name: Legacy source collection is disabled
         run: |
-          python3 -m unittest discover -s scripts/rtms -p 'test_*.py'
-          npm test
-      - name: Collect approved sources and import supplied files
-        id: collect
-        continue-on-error: true
-        env:
-          MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
-          INPUT_MODE: ${{ inputs.mode }}
-          INPUT_TASKS: ${{ inputs.max_tasks }}
-          INPUT_DISTRICTS: ${{ inputs.districts }}
-          EVENT_NAME: ${{ github.event_name }}
-          SCHEDULE: ${{ github.event.schedule }}
-        run: |
-          MODE="${INPUT_MODE:-backfill}"
-          DISTRICTS="$INPUT_DISTRICTS"
-          if [ "$EVENT_NAME" = "schedule" ] && [ "$SCHEDULE" = "0 19 * * *" ]; then MODE=refresh; fi
-          # A source change validates every category across eight registered districts first.
-          # Scheduled/manual empty-region jobs cover the entire official active registry.
-          if [ "$EVENT_NAME" = "push" ]; then DISTRICTS="41210,44210,11110,26110,27110,28125,30110,31110"; fi
-          python3 scripts/rtms/collector.py --mode "$MODE" --max-tasks "${INPUT_TASKS:-96}" --max-requests 160 --max-seconds 600 --districts "$DISTRICTS"
-      - name: Persist validated data and failure status
-        if: always() && steps.collect.outcome != 'skipped'
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/transactions/collection-state.json data/transactions/status-manifest.json data/transactions/registry.json
-          for directory in segments published status; do
-            if [ -d "data/transactions/$directory" ]; then git add "data/transactions/$directory"; fi
-          done
-          if ! git diff --cached --quiet; then
-            git commit -m 'data: update validated transaction segments and collection dashboard'
-            git pull --rebase origin main
-            git push origin HEAD:main
-          fi
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: transaction-collection-proof
-          path: |
-            data/transactions/status-manifest.json
-            data/transactions/collection-state.json
-          retention-days: 7
-      - name: Keep source failures visible in Actions
-        if: steps.collect.outcome == 'failure'
-        run: exit 1
+          echo 'Source collection has moved to realestate-data-001 through 010.'
+          echo 'Original JSON and checkpoints are preserved. Use each regional Collect regional transactions workflow.'
+          echo 'This legacy workflow does not call the source API.'
