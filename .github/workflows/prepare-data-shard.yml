@@ -1,0 +1,58 @@
+name: Prepare regional data repository
+on:
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        default: bootstrap
+    secrets:
+      MOLIT_API_KEY:
+        required: false
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: regional-readiness-check
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v4
+        with:
+          repository: softm/softm.tojihannun
+          ref: 24ce807a6fbede42faacb756ef0c5063dbe02787
+          path: _engine
+          persist-credentials: false
+          sparse-checkout: scripts/distribution
+      - name: Check key presence and Pages configuration without exposing secrets
+        env:
+          MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 _engine/scripts/distribution/readiness.py
+      - name: Persist non-secret prerequisite report
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add readiness.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'ops: verify key presence and Pages setup without recording secret values'
+            git push origin HEAD:main
+          fi
+  regional:
+    needs: readiness
+    uses: softm/softm.tojihannun/.github/workflows/realestate-shard.yml@24ce807a6fbede42faacb756ef0c5063dbe02787
+    with:
+      engine_ref: 24ce807a6fbede42faacb756ef0c5063dbe02787
+      mode: ${{ inputs.mode }}
+    secrets:
+      MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
