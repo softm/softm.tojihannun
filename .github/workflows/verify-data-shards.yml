@@ -31,6 +31,12 @@ jobs:
       - name: Apply reviewed distributed integration
         run: |
           if test -f scripts/distribution/integrate.py; then python3 scripts/distribution/integrate.py; fi
+          python3 scripts/distribution/expand_pool.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('data-status.html')
+          p.write_text(p.read_text().replace('distributed-status.js?v=20261110.5','distributed-status.js?v=20261110.pool20'))
+          PY
       - name: Regression tests and production build
         run: |
           set -euo pipefail
@@ -38,9 +44,7 @@ jobs:
           npm ci
           npm test | tee test-results/node-tests.txt
           python3 -m unittest discover -s scripts/rtms -p 'test_*.py'
-          if test -d scripts/distribution; then
-            python3 -m unittest discover -s scripts/distribution -p 'test_*.py'
-          fi
+          python3 -m unittest discover -s scripts/distribution -p 'test_*.py'
           npm run build
       - name: Commit verified integration without touching transaction data
         run: |
@@ -49,7 +53,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add data/transactions/storage-registry.json scripts/rtms/collector.py data-status.js data-status.html scripts/build-pages.mjs
           if ! git diff --cached --quiet; then
-            git commit -m 'feat: activate ten regional assignments and safe collector handover guards'
+            git commit -m 'feat: register twenty data repositories without changing region ownership'
             git push origin HEAD:main
           fi
       - name: Deploy verified dashboard

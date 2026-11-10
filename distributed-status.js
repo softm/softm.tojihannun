@@ -21,15 +21,21 @@
       catch{return {data:null,source:'unavailable',error:'구조 설치 또는 게시 상태 확인 필요'};}
     }
   }
+  async function readiness(shard) {
+    try {
+      const value=await read('https://raw.githubusercontent.com/softm/'+shard.id+'/main/readiness.json');
+      if(value.schemaVersion!==1||value.repository!==shard.repository||typeof value.apiKeyConfigured!=='boolean')throw Error('Readiness identity mismatch');
+      return {apiKeyConfigured:value.apiKeyConfigured,pagesConfigured:value.pagesConfigured===true?true:value.pagesConfigured===false?false:null,checkedAt:value.checkedAt};
+    } catch { return null; }
+  }
   async function load(registry) {
     const queue=[...(registry.shards||[])], reports={};
-    async function worker(){while(queue.length){const s=queue.shift();try{reports[s.id]=await inspect(s);}catch(e){reports[s.id]={source:'unavailable',data:null,error:e.message};}}}
+    async function worker(){while(queue.length){const s=queue.shift();try{const [report,ready]=await Promise.all([inspect(s),readiness(s)]);reports[s.id]={...report,readiness:ready};}catch(e){reports[s.id]={source:'unavailable',data:null,error:e.message};}}}
     await Promise.all(Array.from({length:Math.min(3,queue.length)},worker));return reports;
   }
   function merge(legacy, registry, reports) {
     const result=JSON.parse(JSON.stringify(legacy));const replacements=new Map();
     for(const s of registry.shards||[]) {
-      // Mirror copies never inflate national totals. A committed handover is required.
       const r=reports[s.id];
       if(s.collectionOwner!=='shard'||s.serving!=='pages'||r?.source!=='pages')continue;
       for(const region of r.data.regions||[])for(const d of region.districts||[]){
@@ -48,7 +54,6 @@
     result.summary.records=ds.some(d=>d.records!=null)?ds.reduce((n,d)=>n+(d.records||0),0):null;
     result.summary.completedTasks=ds.reduce((n,d)=>n+(d.completed||0),0);
     result.summary.expectedTasks=ds.reduce((n,d)=>n+(d.expected||0),0);
-    // Global diagnostics from a legacy-only manifest cannot be presented as integrated.
     for(const k of ['sourceRows','cancelled','identifiable','failedTasks','cooldownStreams','cooldownTasks','sourceBytes','fileImports'])result.summary[k]=null;
     result.distributed=true;return result;
   }
@@ -57,12 +62,16 @@
     const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;};
     const fmt=n=>n==null?'미확인':Number(n).toLocaleString('ko-KR');
     const kv=(host,k,v)=>{const line=el('div',null,'key-value');line.append(el('strong',k),el('span',v));host.append(line);};
-    for(const shard of storage.shards||[]){
+    const entries=storage.shards||[],reserved=entries.filter(s=>!s.districtCodes.length).length;
+    host.append(el('p',`${entries.length}개 레포 · 게시 상한 합계 ${entries.length}GB · 900MB 분할 기준 ${(entries.length*.9).toFixed(1)}GB · 증설 대기 ${reserved}개`,'hint'));
+    for(const shard of entries){
       const report=reports[shard.id],data=report?.data,card=el('article',null,'shard');
       card.append(el('strong',shard.label||shard.id));kv(card,'저장소',shard.repository);
-      kv(card,'담당 시군구',fmt(shard.activeDistrictCount)+'개 · 현행 코드');
+      kv(card,'담당 시군구',shard.districtCodes.length?fmt(shard.activeDistrictCount)+'개 · 현행 코드':'증설 대기 · 아직 지역 미배정');
       kv(card,'설치·게시',report?.source==='pages'?'Pages 게시 확인':report?.source==='repository'?'복제 검증 완료 · Pages 미확인':report?'설치·게시 확인 필요':'확인 중');
-      kv(card,'수집 담당',shard.collectionOwner==='shard'?'지역 저장소':shard.collectionOwner==='paused'?'이관 일시 정지':'기존 중앙 수집기');
+      kv(card,'API 키 등록',report?.readiness?report.readiness.apiKeyConfigured?'등록 확인 (API 권한 별도)':'미등록':'실행 확인 전');
+      kv(card,'Pages 설정',report?.readiness?.pagesConfigured===true?'GitHub Actions 설정 확인':report?.readiness?.pagesConfigured===false?'GitHub Actions 방식으로 전환 필요':'확인 전 또는 조회 권한 부족');
+      kv(card,'수집 담당',!shard.districtCodes.length?'증설 대기 (중복 호출 없음)':shard.collectionOwner==='shard'?'지역 저장소':shard.collectionOwner==='paused'?'이관 일시 정지':'기존 중앙 수집기');
       kv(card,'복제·수집 거래',data?fmt(data.summary.records)+'건':'미확인');
       const used=data?.capacity?.publishedBytes;
       kv(card,'게시 산출물',used==null?'미측정 / 최대 1GB':(used/1000000).toFixed(2)+' MB / 최대 1GB');

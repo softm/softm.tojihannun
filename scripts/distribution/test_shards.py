@@ -14,7 +14,8 @@ class DistributionTests(unittest.TestCase):
         m=s.shard_map(self.config)
         self.assertTrue(all(d['code'] in m for d in self.official['districts'] if d['active']))
         self.assertEqual(len(m),len(self.official['districts']))
-        self.assertEqual(len(self.config['shards']),10)
+        self.assertEqual(len(self.config['shards']),20)
+        self.assertEqual(sum(bool(x['districtCodes']) for x in self.config['shards']),10)
     def test_duplicate_ownership_rejected(self):
         self.config['shards'][1]['districtCodes'].append(self.config['shards'][0]['districtCodes'][0])
         with self.assertRaises(ValueError):s.shard_map(self.config)
