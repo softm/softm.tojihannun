@@ -40,3 +40,10 @@ test('status transitions preserve loading, failure and empty-result guidance',()
   context.items=[];assert.match(render(),/조회 조건에 맞는 거래 내역을 찾지 못/);
   context.items=[{}];assert.equal(render(),'');
 });
+test('UI integration preserves the current transaction asset cache version',()=>{
+  const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+  const layout=fs.readFileSync(new URL('./transaction-ui-layout.mjs',import.meta.url),'utf8');
+  const version=html.match(/transaction-ui\.js\?v=([\d.]+)/)[1];
+  assert.ok(layout.includes('transaction-ui.$1?v='+version));
+  assert.ok(html.includes('transaction-ui.css?v='+version));
+});
