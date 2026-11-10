@@ -1,0 +1,44 @@
+name: Verify collection operations
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/collection-ops-verify.yml', '.github/workflows/collection-worker.yml', 'scripts/distribution/operations.py', 'scripts/distribution/test_operations.py', 'scripts/distribution/activate.py', 'distributed-status.js', 'scripts/distributed-operations.test.mjs']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: collection-ops-verification
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify collector, routing and production build
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          npm ci
+          npm test | tee test-results/node-tests.txt
+          python3 -m unittest discover -s scripts/rtms -p 'test_*.py' 2>&1 | tee test-results/collector-tests.txt
+          python3 -m unittest discover -s scripts/distribution -p 'test_*.py' 2>&1 | tee test-results/distribution-tests.txt
+          npm run build
+      - name: Save reproducible source and test results
+        if: always()
+        run: |
+          mkdir -p test-results
+          git rev-parse HEAD > test-results/source-commit.txt
+          git archive --format=tar.gz HEAD > test-results/source.tar.gz
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: collection-operations-proof
+          path: test-results/
+          retention-days: 3
