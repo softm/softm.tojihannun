@@ -91,4 +91,4 @@ jobs:
         with:
           name: twenty-repository-readiness
           path: test-results/pool-readiness.json
-          retention-days: 7
+          retention-days: 1
