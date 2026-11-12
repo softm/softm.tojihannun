@@ -56,12 +56,16 @@ jobs:
           config=json.loads(Path('_control/data/transactions/storage-registry.json').read_text())
           shard=next(s for s in config['shards'] if s['repository']==os.environ['GITHUB_REPOSITORY'])
           source=shard.get('handoverCommit') or config['bootstrapSourceRef']
+          source_repo=shard.get('handoverSourceRepository','softm/softm.tojihannun')
           assert re.fullmatch('[0-9a-f]{40}',source)
-          with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('source_ref='+source+'\n')
+          assert re.fullmatch(r'softm/(?:softm\.tojihannun|realestate-data-\d{3})',source_repo)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:
+              out.write('source_ref='+source+'\n')
+              out.write('source_repo='+source_repo+'\n')
           PY
       - uses: actions/checkout@v4
         with:
-          repository: softm/softm.tojihannun
+          repository: ${{ steps.plan.outputs.source_repo }}
           ref: ${{ steps.plan.outputs.source_ref }}
           path: _legacy
           persist-credentials: false
