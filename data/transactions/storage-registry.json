@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "revision": "twenty-shard-collecting-v2",
+  "revision": "twenty-shard-phased-collecting-v3",
   "mode": "collecting",
   "bootstrapSourceRef": "f328c729eece4fe45f1b403a1af1fcd62fa5de46",
   "note": "20개 지역 수집기 가동. 001~010에서 011~020으로 검증된 체크포인트를 분할 이관했고, 대상 handover 영수증과 source commit을 일치시킴. 원본 세그먼트 파일은 보존.",
@@ -13,10 +13,10 @@
     "verifyBeforeDelete": true
   },
   "requestBudget": {
-    "perRun": 4,
-    "perHour": 4,
-    "perDay": 80,
-    "scope": "per-shard; twenty activated shards total at most 80 requests/hour and 1600/day, matching the previous aggregate ceiling"
+    "perRun": 24,
+    "perHour": 24,
+    "perDay": 450,
+    "scope": "per-shard; 20 active shards => max 9000 requests/24h, reserving 1000 from the current approved aggregate daily traffic 10000"
   },
   "naming": {
     "owner": "softm",
@@ -1049,5 +1049,42 @@
     "verifiedAt": "2026-11-12T13:19:06.287Z",
     "sourceFilesDeleted": false,
     "aggregateRequestCeilingPerDay": 1600
-  }
+  },
+  "apiTraffic": {
+    "approvedDaily": 10000,
+    "operationalDaily": 9000,
+    "reserveDaily": 1000,
+    "source": "user-confirmed current data.go.kr account limit",
+    "increasePolicy": "Do not raise operationalDaily until the user confirms a higher approved production-account limit."
+  },
+  "collectionPhases": [
+    {
+      "id": 1,
+      "label": "2020~2026",
+      "start": "2020-01",
+      "end": "2026-12",
+      "priority": 1
+    },
+    {
+      "id": 2,
+      "label": "2015~2019",
+      "start": "2015-01",
+      "end": "2019-12",
+      "priority": 2
+    },
+    {
+      "id": 3,
+      "label": "2010~2014",
+      "start": "2010-01",
+      "end": "2014-12",
+      "priority": 3
+    },
+    {
+      "id": 4,
+      "label": "2006~2009",
+      "start": "2006-01",
+      "end": "2009-12",
+      "priority": 4
+    }
+  ]
 }
