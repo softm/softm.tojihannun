@@ -82,7 +82,7 @@ jobs:
           Path('test-results/regional-install-audit.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
           lines=['# 분산 레포 설치 검증','', '확인 시각: '+report['checkedAt'], '원본 체크포인트: `'+report['sourceCommit']+'`','', '| 레포 | 담당 | 검증 거래 | 구간 | 게시 산출물(bytes) | 첫 실행 | Pages 확인 |','|---|---|---:|---:|---:|---|---|']
           for r in rows:lines.append('| '+r['id']+' | '+r['label']+' | '+str(r.get('records','미확인'))+' | '+str(r.get('segments','미확인'))+' | '+str(r.get('publishedBytes','미확인'))+' | '+str(r.get('runConclusion','미확인'))+' | '+('성공' if r.get('pagesVerified') else '미확인')+' |')
-          lines+=['','검증된 저장소: '+str(report['verifiedRepositories'])+'/'+str(len(config['shards']))','전국 원본과 대조된 구간: '+str(report['totalSegments']),'거래 합계: '+str(report['totalRecords']),'게시 산출물 합계: '+str(report['totalPublishedBytes'])+' bytes','', '검증 내용: 20개 레포 수집 소유권·지역 배정·handover 체크포인트·registry revision·레포별 1GB 한도를 검증.','기존 데이터 삭제: 실행하지 않음. 기존 실거래 조회 경로 변경: 실행하지 않음.','현재 단계는 20개 shard가 API 본수집을 소유하며 체크포인트에서 지속 수집하는 운영 구조다. Pages 게시 성공은 수집 성공과 별도이다.']
+          lines+=['','검증된 저장소: '+str(report['verifiedRepositories'])+'/'+str(len(config['shards'])), '전국 원본과 대조된 구간: '+str(report['totalSegments']),'거래 합계: '+str(report['totalRecords']),'게시 산출물 합계: '+str(report['totalPublishedBytes'])+' bytes','', '검증 내용: 20개 레포 수집 소유권·지역 배정·handover 체크포인트·registry revision·레포별 1GB 한도를 검증.','기존 데이터 삭제: 실행하지 않음. 기존 실거래 조회 경로 변경: 실행하지 않음.','현재 단계는 20개 shard가 API 본수집을 소유하며 체크포인트에서 지속 수집하는 운영 구조다. Pages 게시 성공은 수집 성공과 별도이다.']
           Path('docs/DISTRIBUTED_INSTALL_VERIFICATION.md').write_text('\n'.join(lines)+'\n')
           print(json.dumps(report,ensure_ascii=False))
           if errors:raise SystemExit(1)
