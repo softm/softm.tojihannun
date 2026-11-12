@@ -98,6 +98,9 @@ def main():
     # The receipt is a staging proof, not an activation receipt.
     write(state_path,state)
     write(root/"rebalance-stage.json",receipt)
+    migration={**receipt,"phase":"handover","sourceRows":sum(v.get("sourceRows",0) for v in selected.values()),"verifiedAt":receipt.get("verifiedAt") or None}
+    migration["verifiedAt"]=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+    write(root/"migration-receipt.json",migration)
     print(json.dumps({"target":a.target,"phase":"staged","sourceCommit":source_ref,
                       "districts":len(codes),"verifiedSegments":copied,
                       "pendingSegments":receipt["pendingSegments"],"apiRequests":0},ensure_ascii=False))
