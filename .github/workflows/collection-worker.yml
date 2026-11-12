@@ -124,7 +124,7 @@ jobs:
             shard-status.json
             migration-receipt.json
             split-plan.json
-          retention-days: 3
+          retention-days: 1
       - name: Mark source failures accurately
         if: steps.worker.outcome == 'failure'
         run: exit 1
