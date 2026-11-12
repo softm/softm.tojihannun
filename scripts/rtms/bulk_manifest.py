@@ -31,7 +31,7 @@ def main():
  ap.add_argument("--source-url",default="https://rt.molit.go.kr/pt/xls/xls.do?mobileAt=")
  ap.add_argument("--output",required=True)
  a=ap.parse_args();p=pathlib.Path(a.file)
- if p.suffix.lower() not in (".csv",".xlsx"):raise SourceError("UNSUPPORTED_FILE_USE_XLSX_OR_CSV")
+ if p.suffix.lower() not in (".xlsx",".csv"):raise SourceError("UNSUPPORTED_FILE_USE_XLSX_OR_CSV")\n file_format="xlsx" if p.suffix.lower()==".xlsx" else "csv"
  if not re.fullmatch(r"20\d\d-\d\d-\d\d",a.start) or not re.fullmatch(r"20\d\d-\d\d-\d\d",a.end) or a.start>a.end:raise SourceError("INVALID_SCOPE")
  rows=0;months=set();district_labels=set()
  for row in table_rows(p):
@@ -41,7 +41,7 @@ def main():
   if len(digits)>=6:months.add(digits[:6])
   if addr:district_labels.add(addr.split()[0] if addr.split() else addr)
  out={"schemaVersion":1,"kind":"official-rtms-bulk-export","sourceUrl":a.source_url,
-      "file":p.name,"bytes":p.stat().st_size,"sha256":sha(p),"stream":a.stream,
+      "file":p.name,"format":file_format,"preferredFormat":"xlsx","bytes":p.stat().st_size,"sha256":sha(p),"stream":a.stream,
       "transaction":STREAMS[a.stream][0],"propertyType":STREAMS[a.stream][1],
       "province":a.province,"contractStart":a.start,"contractEnd":a.end,
       "parsedRows":rows,"months":sorted(months),"districtLabelCount":len(district_labels),
