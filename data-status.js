@@ -88,6 +88,29 @@
   let actions=readStore(ACTION_KEY)||{checkedAt:0,reports:{},ledger:[]};
   if(!Array.isArray(actions.ledger)||typeof actions.reports!=='object'||!actions.reports)actions={checkedAt:0,reports:{},ledger:[]};
   async function get(url){const r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error('HTTP '+r.status);const text=await r.text();if(text.length>2000000)throw Error('현황 파일 크기 초과');return JSON.parse(text);}
+  async function refreshLiveFiles(){
+    if(liveBusy||!registry||document.hidden)return;
+    liveBusy=true;
+    const queue=(registry.shards||[]).filter(s=>s.districtCodes?.length&&trusted(s));
+    async function worker(){
+      while(queue.length){
+        const shard=queue.shift();
+        try{
+          const url='https://raw.githubusercontent.com/'+shard.repository+'/main/live-status.json?v='+Math.floor(Date.now()/LIVE_POLL);
+          const d=await get(url);
+          if(d.schemaVersion!==1||d.repository!==shard.repository||!['running','stopped','deferred','failed'].includes(d.status))throw Error('잘못된 live 상태');
+          if(!Number.isFinite(Date.parse(d.updatedAt)))throw Error('live 시각 오류');
+          liveFiles[shard.id]={data:d,checkedAt:Date.now()};
+        }catch(e){
+          const previous=liveFiles[shard.id];
+          liveFiles[shard.id]=previous?.data?{...previous,error:null,lastReadError:e.message}:{error:e.message,checkedAt:Date.now()};
+        }
+      }
+    }
+    await Promise.all(Array.from({length:Math.min(5,queue.length)},worker));
+    liveBusy=false;
+    if(snapshot){renderLive();renderShards();}
+  }
   function card(label,value,note){const node=el('article',null,'card');node.append(el('span',label),el('strong',value),el('small',note));return node;}
   function addAlert(text,kind=''){const d=el('div',text,'alert '+kind);$('alerts').append(d);}
   function renderLive(){
