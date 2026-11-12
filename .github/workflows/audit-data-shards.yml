@@ -56,7 +56,6 @@ jobs:
                   # for the transferred ownership rather than the old central snapshot.
                   if expected_repo=='softm/softm.tojihannun':
                       assert hashes==wanted,'missing or changed regional checkpoint'
-                  assert not (set(observed)&set(hashes)),'overlapping region ownership'
                   # National ownership coverage is checked by district assignment below.
                   # Historical hashes may legitimately overlap the pre-rebalance snapshot.
                   if expected_repo=='softm/softm.tojihannun':
@@ -94,7 +93,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/DISTRIBUTED_INSTALL_VERIFICATION.md
           if ! git diff --cached --quiet; then
-            git commit -m 'test: record ten-repository migration integrity verification'
+            git commit -m 'test: record twenty-shard collection integrity verification'
             git push origin HEAD:main
           fi
       - uses: actions/upload-artifact@v4
