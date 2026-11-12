@@ -1,98 +1,174 @@
+/* Read-only operations dashboard. It never dispatches workflows or calls MOLIT. */
 (() => {
   'use strict';
-  const $ = id => document.getElementById(id);
-  const fmt = value => value == null ? '미확인' : Number(value).toLocaleString('ko-KR');
-  const names={not_collected:'미수집',not_started:'미시작',partial:'부분 확보',complete:'확보 완료',success:'실행 성공',failed:'실행 실패',failure:'실행 실패',error:'오류',running:'수집 중',in_progress:'수집 중',queued:'실행 대기',pending:'실행 대기',cancelled:'취소',deferred:'요청 보류',idle:'대기 중'};
-  const stamp=value=>value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour12:false})+' KST':'미확인';
-  const bytes=n=>n==null?'미확인':n>1048576?(n/1048576).toFixed(1)+' MB':(n/1024).toFixed(1)+' KB';
-  function el(tag,text,cls){const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;}
-  function badge(status){return el('span',names[status]||status||'미확인','badge '+status);}
-  let model=null, storage=null, shardReports={}, loadVersion=0;
-  async function get(url){const r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error('HTTP '+r.status);return r.json();}
-  function kv(host,k,v){const line=el('div',null,'key-value');line.append(el('strong',k),el('span',v));host.append(line);}
-  function storageFor(code){
-    return (storage?.shards||[]).find(shard=>(shard.districtCodes||[]).includes(code)||(shard.regionCodes||[]).some(prefix=>code.startsWith(prefix)))||null;
+  const HOUR = 3600000, STALE = 2 * HOUR, ACTION_TTL = 15 * 60000;
+  const SNAPSHOT_KEY = 'toji.collection.observation.v1', ACTION_KEY = 'toji.collection.actions.v1';
+  const names = {not_collected:'미수집',not_started:'미시작',partial:'일부 성공',complete:'계획 구간 완료',success:'수집 성공',failed:'수집 실패',failure:'실행 실패',error:'오류',running:'실행 중 기록',in_progress:'실행 중 기록',queued:'실행 대기',pending:'실행 대기',cancelled:'취소',deferred:'재시도·예산 대기',idle:'이번 대상 없음',blocked:'접근·설정 확인',capacity_paused:'용량 분할 필요',ready:'준비',paused:'이관 대기',mirroring:'기존 자료 복제',reserved:'증설 대기'};
+  const integer = n => Number.isSafeInteger(n) && n >= 0;
+  const fmt = n => n == null ? '미확인' : Number(n).toLocaleString('ko-KR');
+  const stamp = value => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour12:false})+' KST' : '미확인';
+  const bytes = n => n == null ? '미확인' : n >= 1e9 ? (n/1e9).toFixed(2)+' GB' : (n/1e6).toFixed(2)+' MB';
+  const age = (value, now=Date.now()) => {const t=Date.parse(value);if(!Number.isFinite(t))return '시각 미확인';const m=Math.max(0,Math.floor((now-t)/60000));return m<1?'방금':m<60?m+'분 전':m<1440?Math.floor(m/60)+'시간 '+m%60+'분 전':Math.floor(m/1440)+'일 전';};
+  function formatPercent(done, expected) {
+    if (!integer(done) || !integer(expected) || !expected || done > expected) return '—';
+    if (done === expected) return '100%';
+    return Math.min(99.999,done/expected*100).toLocaleString('ko-KR',{minimumFractionDigits:3,maximumFractionDigits:3})+'%';
+  }
+  function trusted(shard) { return /^realestate-data-\d{3}$/.test(shard?.id||'') && shard.repository==='softm/'+shard.id && shard.pagesBaseUrl==='https://softm.github.io/'+shard.id+'/'; }
+  function verified(shard, report) {
+    const d=report?.data;
+    return trusted(shard) && shard.collectionOwner==='shard' && d?.collectionOwner==='shard' && d.shardId===shard.id && d.repository===shard.repository && !!shard.handoverCommit && d.migration?.sourceCommit===shard.handoverCommit && Array.isArray(d.districtCodes) && JSON.stringify([...d.districtCodes].sort())===JSON.stringify([...shard.districtCodes].sort()) && integer(d.summary?.records) && integer(d.summary?.completedTasks) && integer(d.summary?.expectedTasks) && d.summary.completedTasks<=d.summary.expectedTasks && Number.isFinite(Date.parse(d.generatedAt)) && Date.parse(d.generatedAt)<=Date.now()+300000;
+  }
+  function lastSuccess(data) {
+    return data?.collection?.lastSuccessfulCollectionAt || (data?.collection?.success>0?data.collection.finishedAt:null) || (data?.regions||[]).flatMap(r=>(r.districts||[]).map(d=>d.lastSuccessAt)).filter(Boolean).sort().at(-1) || null;
+  }
+  function derive(registry, reports, model, now=Date.now()) {
+    const rows=(registry?.shards||[]).map(shard=>{
+      const report=reports[shard.id], assigned=!!shard.districtCodes?.length, valid=verified(shard,report), data=valid?report.data:null;
+      const at=lastSuccess(data), stale=!!data && (!at || now-Date.parse(at)>STALE);
+      const attention=assigned && (!valid || stale || ['failed','partial','blocked','capacity_paused'].includes(data?.collection?.status) || (data?.summary?.cooldownStreams||0)>0 || data?.capacity?.needsSplit);
+      return {shard,report,assigned,valid,data,at,stale,attention};
+    });
+    const owned=rows.filter(r=>r.assigned&&r.shard.collectionOwner==='shard'), good=owned.filter(r=>r.valid), data=good.map(r=>r.data);
+    const all=owned.length>0 && good.length===owned.length && !rows.some(r=>r.assigned&&r.shard.collectionOwner!=='shard');
+    const sum=k=>data.reduce((n,d)=>n+(integer(d.summary[k])?d.summary[k]:0),0);
+    const runSum=k=>data.reduce((n,d)=>n+(integer(d.collection?.[k])?d.collection[k]:0),0);
+    const expected=all?sum('expectedTasks'):integer(model?.summary?.expectedTasks)?model.summary.expectedTasks:null;
+    const records=data.length?sum('records'):null, done=data.length?sum('completedTasks'):null;
+    const latest=data.map(lastSuccess).filter(Boolean).sort().at(-1)||null;
+    const errors={};for(const d of data)for(const [key,count]of Object.entries(d.collection?.errors||{}))if(integer(count))errors[key]=(errors[key]||0)+count;
+    const fingerprint=JSON.stringify([registry?.revision,expected,rows.filter(r=>r.assigned).map(r=>[r.shard.id,r.shard.districtCodes,r.shard.handoverCommit])]);
+    const signature=data.map(d=>d.shardId+':'+d.generatedAt).sort().join('|');
+    return {rows,owned,good,all,records,done,expected,remaining:integer(done)&&integer(expected)?Math.max(0,expected-done):null,latest,fingerprint,signature,errors,requests:runSum('requests'),success:runSum('success'),failed:runSum('failed'),pending:runSum('pendingSegments'),cooldowns:sum('cooldownStreams'),sourceBytes:sum('sourceBytes'),cancelled:sum('cancelled'),stale:good.filter(r=>r.stale).length,reserved:rows.filter(r=>!r.assigned).length,enabled:rows.filter(r=>r.assigned&&r.shard.collectionEnabled).length};
+  }
+  function observation(current, previous, now=Date.now()) {
+    if(!current.all)return {next:previous||null,delta:null,reason:'partial'};
+    const next={fingerprint:current.fingerprint,signature:current.signature,records:current.records,done:current.done,at:new Date(now).toISOString()};
+    if(!previous||previous.fingerprint!==next.fingerprint||!integer(previous.records)||!integer(previous.done))return {next,delta:null,reason:'baseline'};
+    return {next,delta:{records:next.records-previous.records,done:next.done-previous.done,from:previous.at},reason:previous.signature===next.signature?'unchanged':'changed'};
+  }
+  function selectedRun(body, repo) {
+    return (body?.workflow_runs||[]).filter(r=>r.head_branch==='main' && r.path?.split('@')[0]==='.github/workflows/collect.yml' && r.repository?.full_name===repo && /^\d+$/.test(String(r.id)) && r.html_url==='https://github.com/'+repo+'/actions/runs/'+r.id).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at))[0]||null;
+  }
+  window.TojiStatusDashboard={derive,verified,formatPercent,observation,selectedRun};
+  if(typeof document==='undefined'||!document.getElementById?.('shards'))return;
+  const $=id=>document.getElementById(id);
+  const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;};
+  const badge=(text,cls)=>el('span',text,'badge '+(cls||''));
+  function link(text,url){const a=el('a',text);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;}
+  function kv(host,key,value){const d=el('div',null,'key-value');d.append(el('strong',key),el('span',value));host.append(d);}
+  function readStore(key){try{return JSON.parse(localStorage.getItem(key)||'null');}catch{return null;}}
+  function writeStore(key,data){try{localStorage.setItem(key,JSON.stringify(data));}catch{/* Private browsing must not break live data. */}}
+  let model=null, registry=null, reports={}, snapshot=null, loading=false, ready=false, checked=null, detailVersion=0, observed=null;
+  let actionBusy=false, actionMessage='', autoActionsStarted=false;
+  let actions=readStore(ACTION_KEY)||{checkedAt:0,reports:{},ledger:[]};
+  if(!Array.isArray(actions.ledger)||typeof actions.reports!=='object'||!actions.reports)actions={checkedAt:0,reports:{},ledger:[]};
+  async function get(url){const r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error('HTTP '+r.status);const text=await r.text();if(text.length>2000000)throw Error('현황 파일 크기 초과');return JSON.parse(text);}
+  function card(label,value,note){const node=el('article',null,'card');node.append(el('span',label),el('strong',value),el('small',note));return node;}
+  function addAlert(text,kind=''){const d=el('div',text,'alert '+kind);$('alerts').append(d);}
+  function renderLive(){
+    if(!snapshot)return;
+    const entries=snapshot.owned.map(r=>actions.reports[r.shard.id]);
+    const fresh=entries.filter(r=>r&&Date.now()-r.checkedAt<120000&&!r.error);
+    const running=fresh.filter(r=>r.run?.status==='in_progress').length;
+    const queued=fresh.filter(r=>['queued','waiting','pending','requested'].includes(r.run?.status)).length;
+    $('liveState').textContent=actionBusy?'GitHub 실행 기록 조회 중':fresh.length?`GitHub 조회: 실행 중 ${running}개 · 대기 ${queued}개`:'실시간 실행 상태 미확인';
+    $('liveDetail').textContent=actionBusy?'저장된 거래 수와 현재 실행 기록을 따로 확인하고 있습니다.':fresh.length?`확인 ${fresh.length}/${snapshot.owned.length}개 · ${stamp(Math.max(...fresh.map(r=>r.checkedAt))?new Date(Math.max(...fresh.map(r=>r.checkedAt))).toISOString():null)}. GitHub 상태 기록이며 저장 성공은 아래 배치 결과로 확인합니다.`:`마지막 정상 수집 ${stamp(snapshot.latest)} (${age(snapshot.latest)}). 예약 활성화만으로 현재 실행 중이라고 판단하지 않습니다.`;
+    $('liveState').closest('.live').classList.toggle('active',running>0);
+    $('actionsNote').textContent=actionMessage||'실행 상태 확인은 읽기 전용입니다. GitHub 공개 API 조회 보호를 위해 15분 간격, 이 브라우저 기준 시간당 30회 이하로 제한합니다.';
+  }
+  function renderOverview(){
+    if(!snapshot)return;const s=snapshot;
+    $('progressPercent').textContent=formatPercent(s.done,s.expected);
+    $('totalProgress').max=s.expected||100;$('totalProgress').value=s.done||0;
+    $('progressCount').textContent=`${s.all?'완료':'확인된 완료'} ${fmt(s.done)} / ${fmt(s.expected)}개 구간`;
+    $('progressRemaining').textContent=`${s.all?'남은 구간':'미완료·미확인 구간'} ${fmt(s.remaining)}개`;
+    $('progressBasis').textContent=`시군구 × 거래유형 × 계약월 기준 · 수집 결과 확인 ${s.good.length}/${s.owned.length}개 담당 레포. ${s.done===s.expected&&s.all?'계획 구간 100%이며 전체 이력 검증은 별도입니다.':'거래 건수의 완료율이 아닙니다.'}`;
+    $('summary').replaceChildren(card(s.all?'누적 유효 거래':'확인된 유효 거래',fmt(s.records)+'건',s.all?'검증된 담당 레포 합계 · 취소 제외':'미확인 레포는 합산하지 않음'),card('완료 / 남은 구간',fmt(s.done),`미완료·미확인 ${fmt(s.remaining)}개`),card('수집 예약 / 예비 레포',s.enabled+' / '+s.reserved,'실제 실행 중 개수와는 별개'),card('마지막 정상 수집 후 경과',age(s.latest),stamp(s.latest)));
+    if(observed?.delta){const d=observed.delta;const signed=n=>(n>0?'+':'')+fmt(n);$('delta').textContent=`이 브라우저 직전 확인 대비 거래 ${signed(d.records)}건 · 완료 구간 ${signed(d.done)}개 | 비교 기준 ${stamp(d.from)}`;}
+    else $('delta').textContent=s.all?'첫 확인값을 저장했습니다. 다음 갱신부터 이 브라우저의 관측값과 비교합니다.':'일부 레포가 미확인이라 증가량 비교를 보류합니다. 조회 실패를 거래 감소로 계산하지 않습니다.';
+    $('alerts').replaceChildren();
+    if(!s.all)addAlert(`담당 레포 ${s.owned.length}개 중 ${s.good.length}개만 검증했습니다. 현재 합계는 확인된 범위이며 전체 최신 합계가 아닐 수 있습니다.`);
+    if(s.stale)addAlert(`담당 레포 ${s.stale}개에서 정상 수집 시각이 미확인이거나 2시간 이상 지났습니다. 예약 지연·실패·예산 대기는 실행 로그에서 구분해 확인하세요.`);
+    if(s.cooldowns)addAlert(`API 접근 보류 ${s.cooldowns}개 레포·유형 조합이 남아 있습니다. 같은 유형이 레포별로 중복 집계된 값이며 전체 수집 완료로 처리하지 않습니다.`);
+    if(s.failed||s.pending)addAlert(`레포별 마지막 배치 합계: 요청 ${fmt(s.requests)}회 · 성공 ${fmt(s.success)}개 · 실패 ${fmt(s.failed)}개 · 이어받기 대기 ${fmt(s.pending)}개 구간. ${Object.entries(s.errors).map(([k,n])=>k+' '+n+'건').join(' · ')}`);
+    if(s.good.some(r=>r.data.capacity?.needsSplit))addAlert('900MB 분할 기준에 도달한 레포가 있습니다. 기존 정상 자료를 보존하고 분할 상태를 확인하세요.');
+    const legacy=s.owned.filter(r=>r.shard.serving!=='pages').length;
+    if(legacy)addAlert(`수집 담당 ${s.owned.length}개 중 ${legacy}개는 서비스 조회 설정이 기존 중앙 데이터입니다. 수집 증가와 실거래 화면 갱신은 별개입니다.`,'info');
+    $('poolSummary').textContent=`총 ${s.rows.length}개 · 수집 예약 ${s.enabled}개 · 예비 ${s.reserved}개 · 확인 ${s.good.length}/${s.owned.length}개 · 레포당 게시 상한 1GB`;
+    renderLive();
   }
   function renderShards(){
-    if(storage?.schemaVersion===3&&window.TojiDistributedStatus)return window.TojiDistributedStatus.render(storage,shardReports);
-    const host=$('shards');if(!host)return;host.replaceChildren();
-    if(!storage){host.append(el('p','저장소 구성 정보를 불러오지 못했습니다.'));return;}
-    const shards=storage.shards||[];
-    if(!shards.length){host.append(el('p','연결된 외부 데이터 저장소가 없습니다. 현재 수집 데이터는 기존 저장소에서 관리합니다.'));return;}
-    for(const shard of shards){
-      const card=el('article',null,'shard');const head=el('div',null,'shard-head');head.append(el('strong',shard.label||shard.id),badge(shard.status==='active'?'complete':'not_collected'));card.append(head);
-      card.append(el('p',(shard.regions||[]).join(' · ')||'담당 지역 미지정'));
-      const matched=(model?.regions||[]).flatMap(r=>r.districts||[]).filter(d=>storageFor(d.code)?.id===shard.id);
-      kv(card,'담당 시군구',fmt(matched.length)+'개');kv(card,'수집된 거래',fmt(matched.reduce((sum,d)=>sum+(Number(d.records)||0),0))+'건');
-      kv(card,'저장소 상태',shard.status==='active'?'연결됨':'연결 전 · 기존 저장소 사용');
-      const cap=storage?.allocation?.maxPublishedBytes;const used=shard.publishedBytes;
-      kv(card,'게시 용량',used==null?'미측정 / 최대 1GB':bytes(used)+' / '+bytes(cap));
-      if(used!=null&&cap){const meter=el('progress');meter.max=cap;meter.value=used;meter.setAttribute('aria-label','저장소 게시 용량 사용률');card.append(meter);}
-      if(shard.status==='active' && shard.pagesBaseUrl){try{const url=new URL(shard.pagesBaseUrl);if(url.protocol==='https:'){const a=el('a','게시 데이터 확인 ↗');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';card.append(a);}}catch{}}
-      host.append(card);
+    if(!snapshot)return;const filter=$('shardFilter').value;
+    const rows=snapshot.rows.filter(r=>filter==='all'||filter==='active'&&r.assigned||filter==='reserved'&&!r.assigned||filter==='attention'&&r.attention||filter==='stale'&&r.stale);
+    const table=el('table'),thead=el('thead'),head=el('tr');for(const name of ['레포 · 담당','진행률 / 완료 구간','유효 거래','마지막 정상 수집','마지막 수집 배치','GitHub 실행 확인','게시 산출물','서비스 조회'])head.append(el('th',name));thead.append(head);table.append(thead);const body=el('tbody');
+    for(const r of rows){const {shard:s,data:d}=r, tr=el('tr',null,!r.assigned?'reserved':r.attention?'attention':'');
+      const td=()=>{const x=el('td');tr.append(x);return x;};
+      const identity=td();identity.append(link(s.id.replace('realestate-data-','DATA '),'https://github.com/'+s.repository),el('small',s.label?.replace(/^\d+\s*·\s*/, '')||s.id),el('small',r.assigned?fmt(s.activeDistrictCount)+'개 현행 시군구':'지역 미배정'));
+      const progress=td();if(r.valid){progress.append(el('strong',formatPercent(d.summary.completedTasks,d.summary.expectedTasks)),el('small',fmt(d.summary.completedTasks)+' / '+fmt(d.summary.expectedTasks)));const p=el('progress');p.max=d.summary.expectedTasks||1;p.value=d.summary.completedTasks;p.setAttribute('aria-label',s.id+' 수집 진행률');progress.append(p);}else progress.append(badge(!r.assigned?'증설 대기':'미확인',!r.assigned?'reserved':'error'));
+      td().append(el('span',r.valid?fmt(d.summary.records)+'건':r.assigned?'미확인':'—','num'));
+      const time=td();time.append(el('span',r.valid?age(r.at):'—'),el('small',r.valid?stamp(r.at):r.assigned?'검증된 최신 저장 기록 없음':'담당 배정 전'));if(r.stale)time.append(badge('저장 지연','stale'));
+      const batch=td();if(d){const c=d.collection||{};batch.append(badge(names[c.status]||c.status,c.status),el('small',`요청 ${fmt(c.requests)} · 성공 ${fmt(c.success)} · 실패 ${fmt(c.failed)}`));if(d.summary.cooldownStreams)batch.append(el('small','접근 보류 '+d.summary.cooldownStreams+'개 유형'));}else batch.textContent=r.assigned?'확인 전':'수집하지 않음';
+      const action=td(),a=actions.reports[s.id];if(!r.assigned)action.textContent='예비';else if(a&&!a.error&&a.run){action.append(badge(a.run.status==='completed'&&a.run.conclusion==='success'?'워크플로 성공':names[a.run.status==='completed'?a.run.conclusion:a.run.status]||a.run.status,a.run.status==='in_progress'?'running':''),el('small','조회 '+age(new Date(a.checkedAt).toISOString())));if(Date.now()-a.checkedAt>=120000)action.append(el('small','지난 조회값 · 현재 상태 아님'));}else action.append(el('span',a?.error?'조회 실패':a?'최근 20건에 수집 실행 없음':'조회 전'));action.append(link('실행 로그 ↗','https://github.com/'+s.repository+'/actions/workflows/collect.yml'));
+      td().append(el('span',d?bytes(d.capacity?.publishedBytes):'미측정'),el('small','최대 1GB / 900MB 분할'));
+      const service=td();service.append(badge(!r.assigned?'조회 미배정':s.serving==='pages'?'지역 Pages':'기존 중앙',s.serving==='pages'?'success':''),el('small',r.report?.pagesVerified?'Pages 응답 확인':'Pages 응답 미확인'));
+      body.append(tr);
     }
+    table.append(body);$('shards').replaceChildren(rows.length?table:el('p','조건에 맞는 레포가 없습니다.','empty'));
   }
   function renderRegions(){
-    const query=$('search').value.trim(),filter=$('filter').value;const host=$('regions');host.replaceChildren();
-    for(const region of model.regions||[]){
-      const ds=(region.districts||[]).filter(d=>(!query||[d.name,region.name].some(n=>n.includes(query)))&&(!filter||d.status===filter));
-      if(!ds.length)continue;
-      const section=el('details',null,'province');if(query)section.open=true;
-      const heading=el('summary');heading.append(el('span',region.name),el('span',(region.records==null?'미수집':fmt(region.records)+'건')+' · '+ds.length+'개 지역'));section.append(heading);
-      const grid=el('div',null,'districts');
-      for(const d of ds){const b=el('button');b.type='button';b.append(el('span',d.name),badge(d.status),el('small',d.records==null?'거래 건수 미확인':fmt(d.records)+'건'));const shard=storageFor(d.code);if(shard)b.append(el('small','담당: '+(shard.label||shard.id)));b.onclick=()=>showDistrict(d);grid.append(b);}
-      section.append(grid);host.append(section);
+    const opened=new Set([...$('regions').querySelectorAll('details[open]')].map(d=>d.dataset.code));
+    const query=$('search').value.trim(),filter=$('filter').value,host=$('regions');host.replaceChildren();
+    for(const region of model?.regions||[]){const districts=(region.districts||[]).filter(d=>(!query||[d.name,region.name].some(n=>n?.includes(query)))&&(!filter||d.status===filter));if(!districts.length)continue;
+      const section=el('details',null,'province');section.dataset.code=region.code;section.open=!!query||opened.has(region.code);const heading=el('summary');const done=(region.districts||[]).reduce((n,d)=>n+(d.completed||0),0),expected=(region.districts||[]).reduce((n,d)=>n+(d.expected||0),0);heading.append(el('span',region.name),el('span',fmt(region.records)+'건 · '+formatPercent(done,expected)+' · '+districts.length+'개 지역'));section.append(heading);const grid=el('div',null,'districts');
+      for(const d of districts){const b=el('button');b.type='button';const owner=(registry?.shards||[]).find(s=>s.districtCodes?.includes(d.code));b.append(el('span',d.name),badge(d.status==='complete'?'계획 구간 완료':d.status==='partial'?'부분 확보':names[d.status]||d.status,d.status),el('small',fmt(d.records)+'건 · '+fmt(d.completed)+' / '+fmt(d.expected)+'개 구간'),el('small',owner?owner.label:'중앙'));b.onclick=()=>showDistrict(d,owner);grid.append(b);}section.append(grid);host.append(section);
     }
-    if(!host.childElementCount)host.append(el('p','조건에 맞는 지역이 없습니다.'));
+    if(!host.childElementCount)host.append(el('p','조건에 맞는 지역이 없습니다.','empty'));
   }
-  async function showDistrict(d){
-    $('detailTitle').textContent=d.name+' 상세';const sh=storageFor(d.code),st=$('districtStorage');if(st)st.textContent=sh?'데이터 저장소: '+(sh.label||sh.id)+(sh.status==='active'?' · 연결됨':' · 연결 준비 중 (현재 기존 저장소 조회)'):'데이터 저장소: 기존 토지한눈 저장소';const host=$('detail');host.textContent='상세 현황 확인 중';
-    if(!d.completed && d.records==null && d.status!=='error'){host.textContent='아직 수집 완료한 구간이 없습니다. 거래가 없다는 뜻이 아닙니다.';return;}
-    try{
-      if(!/^\d{5}$/.test(d.code))throw Error('잘못된 지역 코드');
-      const owner=storageFor(d.code),remote=owner?.serving==='pages'&&shardReports[owner.id]?.source==='pages';
-      const collected=window.TojiCollectionOps?.authoritative(owner,shardReports[owner?.id]);
-      const data=await get(collected?'https://raw.githubusercontent.com/'+owner.repository+'/main/data/transactions/status/'+d.code+'.json':remote?owner.pagesBaseUrl+'status-'+d.code+'.json':'./data/transactions/status/'+d.code+'.json');host.replaceChildren();
-      kv(host,'최근 정상 수집',stamp(data.lastSuccessAt));kv(host,'확보 구간',fmt(data.completed)+' / '+fmt(data.expected)+' 지역·유형·계약월');
-      for(const type of data.types||[]){const details=el('details');const head=el('summary');head.append(el('span',type.label),badge(type.status),el('span',type.records==null?'미확인':fmt(type.records)+'건'));details.append(head);
-        const wrap=el('div',null,'table-wrap'),table=el('table'),thead=el('thead'),tr=el('tr');for(const t of ['계약연도','상태','유효 거래','확보 / 대상 월'])tr.append(el('th',t));thead.append(tr);table.append(thead);
-        const body=el('tbody');for(const y of type.years||[]){const row=el('tr');for(const t of [y.year,names[y.status]||y.status,fmt(y.records),y.completedMonths+' / '+y.expectedMonths])row.append(el('td',t));body.append(row);}table.append(body);wrap.append(table);details.append(wrap);host.append(details);
-      }
-    }catch(e){host.textContent='상세 현황을 읽지 못했습니다. 기존 거래자료와 별개입니다. '+e.message;}
+  async function showDistrict(d,owner){
+    const token=++detailVersion,host=$('detail');$('detailTitle').textContent=d.name+' 상세';$('districtStorage').hidden=false;const remote=owner&&verified(owner,reports[owner.id]);$('districtStorage').textContent=(owner?.label||'중앙')+' · '+(remote?'지역 수집 체크포인트':'중앙 마지막 자료');host.textContent='거래유형·연도별 현황 확인 중';
+    try{if(!/^\d{5}$/.test(d.code))throw Error('잘못된 지역 코드');if(!d.completed&&d.records==null&&d.status!=='error'){host.textContent='아직 완료된 수집 구간이 없습니다. 거래가 없다는 뜻이 아닙니다.';return;}
+      const url=remote?'https://raw.githubusercontent.com/'+owner.repository+'/main/data/transactions/status/'+d.code+'.json':'./data/transactions/status/'+d.code+'.json';const data=await get(url);if(token!==detailVersion)return;if(data.code!==d.code)throw Error('지역 코드 불일치');host.replaceChildren();kv(host,'최근 정상 수집',stamp(data.lastSuccessAt));kv(host,'완료 구간',fmt(data.completed)+' / '+fmt(data.expected));
+      for(const type of data.types||[]){const details=el('details'),head=el('summary');head.append(el('span',type.label),badge(names[type.status]||type.status,type.status),el('span',fmt(type.records)+'건'));details.append(head);const wrap=el('div',null,'table-wrap'),table=el('table'),thead=el('thead'),tr=el('tr');for(const name of ['계약연도','상태','유효 거래','완료 / 대상 월'])tr.append(el('th',name));thead.append(tr);table.append(thead);const body=el('tbody');for(const y of type.years||[]){const row=el('tr');for(const v of [y.year,names[y.status]||y.status,fmt(y.records),y.completedMonths+' / '+y.expectedMonths])row.append(el('td',v));body.append(row);}table.append(body);wrap.append(table);details.append(wrap);host.append(details);}
+    }catch(e){if(token===detailVersion)host.textContent='상세 현황을 읽지 못했습니다. '+e.message;}
   }
-  function render(){
-    const c=model.collection||{},s=model.summary||{};const cards=[['전국 기반자료 수집',storage?.mode==='collecting'?'지역별 매시간':'매 10분','미수집 구간 이어서 수집'],['정기 최신화',storage?.mode==='collecting'?'수집 배치마다':'매일 04:00','최근 3개월 재확인 · 과거 수집 병행'],['마지막 정상 수집',stamp(c.lastSuccessAt),'원본을 정상 수신한 시각'],['유효 거래',fmt(s.records),'취소 제외 · 확보 범위 내'],['완료 구간',fmt(s.completedTasks)+' / '+fmt(s.expectedTasks),'시군구 × 유형 × 계약월'],['지번 식별 가능',fmt(s.identifiable),'가려진 지번은 포함하지 않음'],['취소 기록',fmt(s.cancelled),'취소 정보를 별도 보존'],['접근 보류 레포·유형',fmt(s.cooldownStreams),'재시도 시각 적용 · 레포별 합계'],['재시도 대기',fmt(s.cooldownTasks),'실패한 구간 재시도 예약'],['파일 반입',fmt(s.fileImports),'검증 완료한 Excel/CSV'],['저장 용량',bytes(s.sourceBytes),'정규화 원본 gzip 합계']];
-    $('summary').replaceChildren();for(const [label,value,note]of cards){const box=el('div',null,'card');box.append(el('span',label),el('strong',value),el('small',note));$('summary').append(box);}
-    $('notice').textContent=model.sourcePolicy?.note||'실제 확보 범위를 확인하세요. 전국 수집 완료를 뜻하지 않습니다.';renderShards();renderRegions();
-    const ops=$('operations');ops.replaceChildren();for(const [k,v]of [['자동 수집',c.schedule||'미설정'],['마지막 시도',stamp(c.lastAttemptAt)],['API 호출 제한 해제 예정',s.apiCooldownUntil?stamp(s.apiCooldownUntil):'호출 제한 보류 없음'],['자료 생성',stamp(model.generatedAt)],['검증 범위',(model.verification?.level||'미확인')+' · '+fmt(model.verification?.segmentsChecked)+'개 원본'],['운영 게시파일 별도 검증',stamp(model.deployment?.lastVerifiedAt)],['웹 다운로드 자동화',model.sourcePolicy?.excelAutomation==='permission_required'?'승인 필요 · 자동 크롤링 비활성':'미확인'],['수집 오류 현황',(c.recentErrors||[]).map(x=>(x.code==='403'?'API 접근 거부(403)':x.code==='NETWORK_TIMEOUT'?'네트워크 지연':x.code==='429'||x.code==='22'?'호출 제한':x.code)+' '+fmt(x.count)+'개 구간').join(' · ')||'기록된 오류 없음']])kv(ops,k,v);for(const x of c.blockedSources||[])kv(ops,'접근 보류 · '+x.label,(x.reason||'재시도 대기')+' · 다음 재시도 '+stamp(x.nextRetryAt));
-    const history=$('history');history.replaceChildren();const rows=(c.history||[]).slice(0,500);
-    if(!rows.length)history.append(el('p','수집 실행 이력이 없습니다.'));
-    for(const run of rows){const item=el('article',null,'history-item');item.append(badge(run.status),el('strong',' '+stamp(run.finishedAt||run.at||run.startedAt)));if(run.status==='partial'&&run.success>0)item.append(el('small',' · 일부 성공: 정상 자료 저장됨, 실패 유형 별도 기록'));item.append(el('p',run.message||'성공 '+fmt(run.success)+' / 실패 '+fmt(run.failed)+' · 요청 '+fmt(run.requests)+'회'));if(run.added!=null)item.append(el('small','원본 비교: 추가 '+fmt(run.added)+' · 사라짐 '+fmt(run.removed)+' · 취소표시 '+fmt(run.cancelled)));history.append(item);}
-    $('sources').replaceChildren();for(const source of model.source||[]){try{const url=new URL(source.url);if(url.protocol!=='https:')continue;const p=el('p'),a=el('a',source.name+' ↗');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';p.append(a);$('sources').append(p);}catch{}}
+  function renderHistory(){
+    const host=$('history');host.replaceChildren();const rows=snapshot.good.map(r=>({row:r,run:r.data.collection})).sort((a,b)=>String(b.run.finishedAt).localeCompare(String(a.run.finishedAt))).slice(0,500);
+    for(const {row,run}of rows){const article=el('article',null,'history-item');article.append(el('strong',row.shard.label),badge(names[run.status]||run.status,run.status),el('p',stamp(run.finishedAt)),el('p',`API ${fmt(run.requests)}회 · 구간 성공 ${fmt(run.success)} / 실패 ${fmt(run.failed)}`));if(run.currentTask)article.append(el('small','최근 작업 '+run.currentTask));if(/^\d+$/.test(String(run.runId)))article.append(link(' 해당 실행 ↗','https://github.com/'+row.shard.repository+'/actions/runs/'+run.runId));host.append(article);}
+    if(!rows.length)host.append(el('p','검증된 지역별 실행 결과가 없습니다.','empty'));
+    const ops=$('operations');ops.replaceChildren();for(const [k,v]of [['현황 조회',stamp(checked)],['수집 결과 확인',snapshot.good.length+' / '+snapshot.owned.length+'개 담당 레포'],['수집 기준','시군구 × 거래유형 × 계약월 · 페이지 검증 완료 후 반영'],['자동 실행 설정',registry?.mode==='collecting'?'지역별 매시간 예약 (실제 실행은 GitHub 기록으로 확인)':'분산 담당 이관 전'],['레포별 요청 한도',`실행당 ${fmt(registry?.requestBudget?.perRun)}회 · 시간당 ${fmt(registry?.requestBudget?.perHour)}회 · 24시간당 ${fmt(registry?.requestBudget?.perDay)}회`],['원본 gzip 합계',bytes(snapshot.sourceBytes)],['재개 대기 구간',fmt(snapshot.pending)],['미수집·실패 처리','정상 0건 응답과 구분 · 기존 정상 데이터 보존'],['배포·조회','Pages 공개와 사용자 실거래 화면 연결은 수집과 별도']])kv(ops,k,v);
+    $('sources').replaceChildren();for(const source of model?.source||[]){try{const u=new URL(source.url);if(u.protocol==='https:'){const p=el('p');p.append(link(source.name+' ↗',u.href));$('sources').append(p);}}catch{}}
   }
-  async function live(){
-    if(!storage)return;
-    if(window.TojiCollectionOps?.live(storage,shardReports))return;
-    try{
-      const data=await get('https://api.github.com/repos/softm/softm.tojihannun/actions/runs?per_page=15');
-      const runs=(data.workflow_runs||[]).filter(r=>r.name==='Collect transaction sources');const running=runs.find(r=>['queued','pending','in_progress','waiting'].includes(r.status));const last=running||runs[0];
-      if(!last){$('liveState').textContent='등록된 본수집 실행 없음';return;}
-      $('liveState').textContent=running?(names[last.status]||last.status):(names[last.conclusion]||'종료');
-      $('liveDetail').textContent=(running?'현재 실행은 GitHub에서 확인했습니다. 세부 건수는 작업 게시 시 갱신됩니다.':'현재 실행 중이 아닙니다. 마지막 실행 결과이며 전국 수집 완료를 뜻하지 않습니다.')+' · 확인 '+stamp(new Date().toISOString());
-      if(last.html_url?.startsWith('https://github.com/softm/softm.tojihannun/actions/runs/'))$('runLink').href=last.html_url;
-    }catch{$('liveState').textContent='실시간 실행 상태 미확인';$('liveDetail').textContent='GitHub 조회 제한 또는 연결 오류입니다. 아래는 마지막 게시된 수집 결과입니다.';}
-  }
+  function render(){if(!model||!registry)return;snapshot=derive(registry,reports,model);renderOverview();renderShards();renderRegions();renderHistory();}
   async function load(){
-    const version=++loadVersion;
-    try{
-      const [manifest,registry]=await Promise.all([get('./data/transactions/status-manifest.json'),get('./data/transactions/storage-registry.json').catch(()=>null)]);
-      if(version!==loadVersion)return;model=manifest;storage=registry;render();
-      if(storage?.schemaVersion===3&&window.TojiDistributedStatus){
-        const reports=await window.TojiDistributedStatus.load(storage);if(version!==loadVersion)return;
-        shardReports=reports;model=window.TojiDistributedStatus.merge(manifest,storage,reports);render();
-      }
-    }catch(e){if(version===loadVersion)$('notice').textContent='수집 현황 조회 실패: '+e.message;}
+    if(loading)return;loading=true;$('refresh').disabled=true;$('refreshNote').textContent='현황 조회 중 · 원본 API 호출 없음';
+    try{const [base,config]=await Promise.all([get('./data/transactions/status-manifest.json'),get('./data/transactions/storage-registry.json')]);if(config.schemaVersion!==3||!Array.isArray(config.shards))throw Error('지원하지 않는 저장소 구성');
+      const next=await window.TojiDistributedStatus.load(config);const merged=window.TojiDistributedStatus.merge(base,config,next);registry=config;reports=next;model=merged;ready=true;checked=new Date().toISOString();snapshot=derive(config,next,merged);observed=observation(snapshot,readStore(SNAPSHOT_KEY));if(observed.next&&snapshot.all)writeStore(SNAPSHOT_KEY,observed.next);
+      $('checkedAt').textContent='현황 확인 '+stamp(checked);$('notice').textContent=snapshot.all?'지역별 검증된 저장 결과를 통합했습니다. 사본은 중복 합산하지 않습니다.':'일부 수집 결과를 확인하지 못했습니다. 확인된 범위와 미확인 레포를 구분합니다.';render();
+      if(!autoActionsStarted){autoActionsStarted=true;void checkRuns();}
+    }catch(e){$('notice').textContent='수집 현황 조회 실패: '+e.message+' · 이전 표시가 있으면 마지막 확인값입니다.';$('checkedAt').textContent='최신 현황 확인 실패'+(checked?' · 마지막 확인 '+stamp(checked):'');}
+    finally{loading=false;$('refresh').disabled=false;$('refreshNote').textContent=$('autoRefresh').checked?'현황 자동 갱신 · 60초 (수집 실행 주기와 별개)':'현황 자동 갱신 일시 정지';}
   }
-  $('search').oninput=()=>model&&renderRegions();$('filter').onchange=()=>model&&renderRegions();$('refresh').onclick=()=>{void load();void live();};
-  void load();void live();setInterval(()=>{if(!document.hidden){void load();void live();}},60000);
+  async function checkRuns(){
+    if(actionBusy||!registry||!snapshot)return;
+    const now=Date.now(),targets=snapshot.owned.filter(r=>trusted(r.shard));
+    const cached=readStore(ACTION_KEY);if(cached&&Array.isArray(cached.ledger)&&cached.reports){actions=cached;}
+    if(now-(actions.checkedAt||0)<ACTION_TTL){actionMessage='실행 상태는 '+stamp(new Date(actions.checkedAt).toISOString())+'의 조회값입니다. 공개 API 보호를 위해 15분 뒤 다시 확인합니다.';renderLive();renderShards();return;}
+    actions.ledger=actions.ledger.filter(t=>Number.isFinite(t)&&t>now-HOUR);
+    if(actions.blockedUntil>now||actions.ledger.length+targets.length>30){actionMessage='GitHub 실행 조회 한도 보호로 잠시 대기합니다. 데이터 현황 갱신과 수집기는 계속 동작할 수 있으며, 현재 실행 여부는 개별 로그에서 확인하세요.';renderLive();return;}
+    actionBusy=true;$('checkRuns').disabled=true;renderLive();const queue=[...targets];let stop=false;
+    async function worker(){while(queue.length&&!stop){const {shard}=queue.shift();const at=Date.now();actions.ledger.push(at);writeStore(ACTION_KEY,actions);
+      try{const response=await fetch('https://api.github.com/repos/'+shard.repository+'/actions/runs?per_page=20',{cache:'no-store',headers:{Accept:'application/vnd.github+json'},signal:AbortSignal.timeout(8000)});
+        const remaining=response.headers.get('x-ratelimit-remaining');if(remaining!=null&&Number(remaining)<5)stop=true;
+        if(!response.ok){if([403,429].includes(response.status)){stop=true;const reset=Number(response.headers.get('x-ratelimit-reset'))*1000;actions.blockedUntil=Number.isFinite(reset)&&reset>at?reset:at+ACTION_TTL;}throw Error('HTTP '+response.status);}
+        const body=await response.json();actions.reports[shard.id]={checkedAt:Date.now(),run:selectedRun(body,shard.repository)};
+      }catch(e){actions.reports[shard.id]={checkedAt:Date.now(),error:e.message};}
+    }}
+    await Promise.all(Array.from({length:Math.min(3,queue.length)},worker));actions.checkedAt=Date.now();writeStore(ACTION_KEY,actions);actionBusy=false;$('checkRuns').disabled=false;
+    const failures=targets.filter(r=>actions.reports[r.shard.id]?.error).length;actionMessage=`실행 기록 조회 ${stamp(new Date(actions.checkedAt).toISOString())} · 조회 실패 ${failures}개${stop?' · 조회 한도 보호로 일부 대기':''}. 버튼은 읽기 전용이며 재실행하지 않습니다.`;renderLive();renderShards();
+  }
+  $('search').oninput=()=>model&&renderRegions();$('filter').onchange=()=>model&&renderRegions();$('shardFilter').onchange=renderShards;
+  $('refresh').onclick=()=>void load();$('checkRuns').onclick=()=>void checkRuns();
+  $('autoRefresh').onchange=()=>{$('refreshNote').textContent=$('autoRefresh').checked?'현황 자동 갱신 · 60초':'현황 자동 갱신 일시 정지';};
+  void load();setInterval(()=>{if(!document.hidden&&$('autoRefresh').checked)void load();else if(ready)renderLive();},60000);
 })();
