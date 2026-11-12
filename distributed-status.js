@@ -20,10 +20,16 @@
       try{return {data:validate(await read('https://raw.githubusercontent.com/softm/'+shard.id+'/main/shard-status.json'),shard),source:'repository',checkedAt:new Date().toISOString(),pagesError:error.message};}
       catch(statusError){
         try{
-          const raw=await read('https://raw.githubusercontent.com/softm/'+shard.id+'/main/collection-result.json');
+          const [raw,receipt]=await Promise.all([
+            read('https://raw.githubusercontent.com/softm/'+shard.id+'/main/collection-result.json'),
+            read('https://raw.githubusercontent.com/softm/'+shard.id+'/main/migration-receipt.json')
+          ]);
           if(raw.schemaVersion!==1||raw.repository!==shard.repository||!raw.summary)throw Error('Collection result identity mismatch');
+          if(receipt.schemaVersion!==1||receipt.sourceCommit!==shard.handoverCommit||receipt.sourceRepository!==shard.handoverSourceRepository)throw Error('Handover receipt mismatch');
           const data={schemaVersion:1,shardId:shard.id,repository:shard.repository,districtCodes:[...shard.districtCodes],
-            collection:raw.run||{},summary:raw.summary,regions:[],capacity:raw.capacity||{publishedBytes:0}};
+            collectionOwner:shard.collectionOwner,collection:raw.run||{},summary:raw.summary,regions:[],
+            migration:{...receipt,hashes:undefined},generatedAt:raw.run?.finishedAt||new Date().toISOString(),
+            capacity:raw.capacity||{publishedBytes:0}};
           return {data:validate(data,shard),source:'collection-result',checkedAt:new Date().toISOString(),pagesError:error.message,statusError:statusError.message};
         }catch{return {data:null,source:'unavailable',error:'수집 결과 확인 필요'};}
       }
