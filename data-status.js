@@ -208,9 +208,9 @@
     try{const [base,config]=await Promise.all([get('./data/transactions/status-manifest.json'),get('./data/transactions/storage-registry.json')]);if(config.schemaVersion!==3||!Array.isArray(config.shards))throw Error('지원하지 않는 저장소 구성');
       const next=await window.TojiDistributedStatus.load(config);const merged=window.TojiDistributedStatus.merge(base,config,next);registry=config;reports=next;model=merged;ready=true;checked=new Date().toISOString();snapshot=derive(config,next,merged);observed=observation(snapshot,readStore(SNAPSHOT_KEY));if(observed.next&&snapshot.all)writeStore(SNAPSHOT_KEY,observed.next);
       $('checkedAt').textContent='현황 확인 '+stamp(checked);$('notice').textContent=snapshot.all?'지역별 검증된 저장 결과를 통합했습니다. 사본은 중복 합산하지 않습니다.':'일부 수집 결과를 확인하지 못했습니다. 확인된 범위와 미확인 레포를 구분합니다.';render();
-      if(!autoActionsStarted){autoActionsStarted=true;void checkRuns();}
+      if(!autoActionsStarted){autoActionsStarted=true;void refreshLiveFiles();}
     }catch(e){$('notice').textContent='수집 현황 조회 실패: '+e.message+' · 이전 표시가 있으면 마지막 확인값입니다.';$('checkedAt').textContent='최신 현황 확인 실패'+(checked?' · 마지막 확인 '+stamp(checked):'');}
-    finally{loading=false;$('refresh').disabled=false;$('refreshNote').textContent=$('autoRefresh').checked?'현황 자동 갱신 · 60초 (수집 실행 주기와 별개)':'현황 자동 갱신 일시 정지';}
+    finally{loading=false;$('refresh').disabled=false;$('refreshNote').textContent=$('autoRefresh').checked?'현황 60초 · 실행상태 30초 자동 갱신':'현황 자동 갱신 일시 정지';}
   }
   async function checkRuns(){
     if(actionBusy||!registry||!snapshot)return;
@@ -232,6 +232,9 @@
   }
   $('search').oninput=()=>model&&renderRegions();$('filter').onchange=()=>model&&renderRegions();$('shardFilter').onchange=renderShards;
   $('refresh').onclick=()=>void load();$('checkRuns').onclick=()=>void checkRuns();
-  $('autoRefresh').onchange=()=>{$('refreshNote').textContent=$('autoRefresh').checked?'현황 자동 갱신 · 60초':'현황 자동 갱신 일시 정지';};
-  void load();setInterval(()=>{if(!document.hidden&&$('autoRefresh').checked)void load();else if(ready)renderLive();},60000);
+  $('autoRefresh').onchange=()=>{$('refreshNote').textContent=$('autoRefresh').checked?'현황 60초 · 실행상태 30초 자동 갱신':'자동 갱신 일시 정지';};
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&$('autoRefresh').checked){void refreshLiveFiles();void load();}});
+  void load();
+  setInterval(()=>{if(!document.hidden&&$('autoRefresh').checked)void load();else if(ready)renderLive();},60000);
+  setInterval(()=>{if(!document.hidden&&$('autoRefresh').checked)void refreshLiveFiles();},LIVE_POLL);
 })();
