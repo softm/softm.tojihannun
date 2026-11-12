@@ -25,3 +25,17 @@
 @keyframes collectionPulse{0%,100%{opacity:.35;transform:translateY(-50%) scale(.8)}50%{opacity:1;transform:translateY(-50%) scale(1.35)}}
 @keyframes collectionBadgePulse{0%,100%{box-shadow:0 0 0 0 rgba(32,166,111,.35)}50%{box-shadow:0 0 0 6px rgba(32,166,111,0)}}
 @media(prefers-reduced-motion:reduce){.live-pulse::before,.badge.running{animation:none!important}}
+
+
+.live-legend{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:12px 0 10px;font-size:12px;font-weight:650}
+.live-legend span{white-space:nowrap}
+.legend-running{color:#14704b}
+.legend-deferred{color:#8a651d}
+.legend-stopped{color:#607169}
+.legend-failed{color:#963f31}
+#shards tr.stopped-row{background:#f8faf9}
+#shards tr.stopped-row td:first-child{border-left:4px solid #91a198}
+#shards tr.deferred-row:not(.running-row) td:first-child{border-left:4px solid #d49a2f}
+#shards tr.running-row td:first-child{animation:runningEdgePulse 1s ease-in-out infinite}
+@keyframes runningEdgePulse{0%,100%{border-left-color:#9edfc1}50%{border-left-color:#15945f}}
+@media(prefers-reduced-motion:reduce){#shards tr.running-row td:first-child{animation:none!important}}
