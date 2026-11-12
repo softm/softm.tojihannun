@@ -122,7 +122,7 @@ jobs:
             shard-status.json
             migration-receipt.json
             split-plan.json
-          retention-days: 3
+          retention-days: 1
   deploy:
     if: needs.collect.outputs.pages_ready == 'true'
     needs: collect
