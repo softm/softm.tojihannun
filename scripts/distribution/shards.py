@@ -82,8 +82,11 @@ def bootstrap(root, source_root, codes, source_commit):
 
 def check_handover(root, shard):
     receipt = read_json(Path(root)/'migration-receipt.json', {})
-    if not shard.get('handoverCommit') or receipt.get('sourceCommit') != shard['handoverCommit']:
-        raise ValueError('Verified final checkpoint required before shard collection')
+    expected_repo = shard.get('handoverSourceRepository', 'softm/softm.tojihannun')
+    if (not shard.get('handoverCommit') or
+        receipt.get('sourceCommit') != shard['handoverCommit'] or
+        receipt.get('sourceRepository') != expected_repo):
+        raise ValueError('Verified final checkpoint and source repository required before shard collection')
 
 def request_budget(state, config, now=None):
     now = now or datetime.now(timezone.utc)
