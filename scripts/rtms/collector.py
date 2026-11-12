@@ -169,7 +169,7 @@ class Pipeline:
             for month,rows in monthly.items():self.put(f'{dc}/{stream_id}/{month}',rows,'official_file',scope_end=min(str(end),f'{month[:4]}-{month[4:]}-{calendar.monthrange(int(month[:4]),int(month[4:]))[1]:02}'))
         self.state['imports'][import_id]={'file':file.name,'sha256':digest,'sourceRows':count,'scope':meta,'at':utc()};self.save()
         return count
-    def plan(self,mode='refresh',codes=None,streams=None):
+    def plan(self,mode='refresh',codes=None,streams=None,month_start=None,month_end=None):
         codes=codes or [x['code'] for x in self.registry['districts'] if x['active']]
         streams=streams or list(STREAMS)
         owners=collection_owners(self.base)
@@ -183,8 +183,10 @@ class Pipeline:
                 if i<len(provinces[ps]):ordered.append(provinces[ps][i])
         for c in reversed(['41210','44210']):
             if c in ordered:ordered.remove(c);ordered.insert(0,c)
-        all_months=month_range('2006-01-01',self.asof)[::-1]
-        if mode=='refresh':all_months=all_months[:3]
+        range_start = month_start or '2006-01-01'
+        range_end = month_end or self.asof
+        all_months=month_range(range_start,range_end)[::-1]
+        if mode=='refresh' and month_start is None and month_end is None:all_months=all_months[:3]
         candidates=[]
         now=datetime.now(timezone.utc)
         blocked_streams={sid for sid,entry in self.state.get('streamCooldowns',{}).items() if cooldown_active(entry,now)}
