@@ -37,6 +37,16 @@ jobs:
           ref: ${{ inputs.engine_ref }}
           path: _engine
           persist-credentials: false
+      - name: Publish live running state
+        run: |
+          set -euo pipefail
+          python3 _engine/scripts/distribution/write_live_status.py --state running
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add live-status.json
+          git commit -m 'ops: mark regional collector running'
+          git pull --rebase origin main
+          git push origin HEAD:main
       - uses: actions/checkout@v4
         with:
           repository: softm/softm.tojihannun
@@ -129,6 +139,21 @@ jobs:
             migration-receipt.json
             split-plan.json
           retention-days: 1
+      - name: Publish live final state
+        if: always()
+        env:
+          WORKER_OUTCOME: ${{ steps.worker.outcome }}
+        run: |
+          set -euo pipefail
+          python3 _engine/scripts/distribution/write_live_status.py --state final --worker-outcome "$WORKER_OUTCOME"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add live-status.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'ops: mark regional collector finished'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
       - name: Mark source failures accurately
         if: steps.worker.outcome == 'failure'
         run: exit 1
