@@ -53,21 +53,57 @@ class BudgetedClient(ResumableMonths, s.Client):
                 self.pipe.save()
 
 
+COLLECTION_PHASES = (
+    {'id':1,'label':'2020~2026','start':'2020-01-01','end':'2026-12-31'},
+    {'id':2,'label':'2015~2019','start':'2015-01-01','end':'2019-12-31'},
+    {'id':3,'label':'2010~2014','start':'2010-01-01','end':'2014-12-31'},
+    {'id':4,'label':'2006~2009','start':'2006-01-01','end':'2009-12-31'},
+)
+
+def phase_tasks(pipe, phase):
+    end = min(phase['end'], pipe.asof)
+    if phase['start'] > end:
+        return iter(())
+    return pipe.plan('backfill', month_start=phase['start'], month_end=end)
+
+def phase_complete(pipe, phase):
+    # Completion is based on persisted segments; unsupported/access-blocked streams
+    # remain incomplete and visible rather than being silently skipped.
+    return next(phase_tasks(pipe, phase), None) is None
+
+def current_phase(pipe):
+    for phase in COLLECTION_PHASES:
+        if not phase_complete(pipe, phase):
+            return phase
+    return None
+
 def task_queue(pipe, mode):
     seen = set()
     if mode in ('auto', 'backfill'):
         for task in pending_tasks(pipe):
             seen.add(task)
             yield task
-    if mode != 'auto':
+    if mode not in ('auto','backfill'):
         for task in pipe.plan(mode):
             if task not in seen:
                 seen.add(task)
                 yield task
         return
-    # Refresh recent reports/cancellations without starving historical backfill.
-    queues = {'refresh': iter(pipe.plan('refresh')), 'backfill': iter(pipe.plan('backfill'))}
-    for kind in itertools.cycle(('backfill', 'backfill', 'backfill', 'refresh')):
+    phase = current_phase(pipe)
+    if mode == 'backfill':
+        if phase:
+            for task in phase_tasks(pipe, phase):
+                if task not in seen:
+                    seen.add(task)
+                    yield task
+        return
+    # Auto: spend most calls on the current historical phase while reserving
+    # regular turns for recent corrections/cancellations.
+    queues = {'refresh': iter(pipe.plan('refresh'))}
+    if phase:
+        queues['backfill'] = phase_tasks(pipe, phase)
+    pattern = ('backfill','backfill','backfill','refresh') if phase else ('refresh',)
+    for kind in itertools.cycle(pattern):
         if not queues:
             return
         queue = queues.get(kind)
@@ -161,11 +197,9 @@ def worker(args):
     if any(key[:5] not in set(shard['districtCodes']) for key in pipe.state['segments']):
         raise ValueError('Out-of-assignment checkpoint')
     if result['status'] == 'ready' and args.mode not in ('bootstrap','build'):
-        # Historical baseline comes from official MOLIT Excel/CSV bulk exports.
-        # Scheduled/auto workers only refresh recent periods; explicit backfill is retained
-        # for diagnostics/recovery and must not be the nationwide historical acquisition path.
-        if args.mode == 'auto':
-            args.mode = 'refresh'
+        # Staged API collection prioritizes the newest historical phase first while
+        # retaining recent refreshes for corrections/cancellations. Official XLSX imports
+        # can fill the same canonical segments faster without changing this checkpoint model.
         # Measure the current artifact before ANY new source request.
         preflight = s.publish(pipe, root, config, shard, result)
         if preflight['capacity']['needsSplit']:
