@@ -15,5 +15,5 @@ test("regional registry is data driven; collected data is not required to remain
 });
 test("timestamps, real run state and bounded history are distinct",()=>{
  assert.ok("lastSuccessAt" in manifest.collection);assert.ok(Array.isArray(manifest.collection.history));
- assert.match(js,/slice\(0,500\)/);assert.match(js,/in_progress/);assert.match(js,/실시간 실행 상태 미확인/);
+ assert.match(js,/slice\(0,500\)/);assert.match(js,/in_progress/);assert.match(js,/실시간 실행 상태 확인 중/);assert.match(js,/live-status\.json/);assert.match(js,/LIVE_POLL = 30000/);
 });
