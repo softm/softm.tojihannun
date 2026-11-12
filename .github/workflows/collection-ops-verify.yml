@@ -35,10 +35,9 @@ jobs:
         run: |
           mkdir -p test-results
           git rev-parse HEAD > test-results/source-commit.txt
-          git archive --format=tar.gz HEAD > test-results/source.tar.gz
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: collection-operations-proof
           path: test-results/
-          retention-days: 3
+          retention-days: 1
