@@ -189,9 +189,18 @@ def worker(args):
         if args.source_commit != shard.get('handoverCommit'):
             raise ValueError('Final checkpoint mismatch')
         receipt = s.read_json(root/'migration-receipt.json', {})
-        if receipt.get('sourceCommit') != args.source_commit:
+        expected_repo = shard.get('handoverSourceRepository', 'softm/softm.tojihannun')
+        if receipt.get('sourceCommit') != args.source_commit or receipt.get('sourceRepository') != expected_repo:
+            # Never replace a verified cross-shard handover receipt with a legacy
+            # central bootstrap merely because the local state migration marker is stale.
+            if receipt:
+                raise ValueError('Existing migration receipt does not match registered handover')
             s.bootstrap(root, source, set(shard['districtCodes']), args.source_commit)
         s.check_handover(root, shard)
+        # Keep the public/state migration marker aligned with the authoritative receipt.
+        pipe_state = s.read_json(root/'data/transactions/collection-state.json', {})
+        pipe_state['migration'] = {k:v for k,v in receipt.items() if k != 'hashes'}
+        s.write_json(root/'data/transactions/collection-state.json', pipe_state)
         result = {'status':'ready','requests':0,'finishedAt':s.utc()}
     pipe = s.Pipeline(root, registry)
     if any(key[:5] not in set(shard['districtCodes']) for key in pipe.state['segments']):
