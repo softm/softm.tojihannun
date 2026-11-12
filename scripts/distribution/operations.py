@@ -161,6 +161,11 @@ def worker(args):
     if any(key[:5] not in set(shard['districtCodes']) for key in pipe.state['segments']):
         raise ValueError('Out-of-assignment checkpoint')
     if result['status'] == 'ready' and args.mode not in ('bootstrap','build'):
+        # Historical baseline comes from official MOLIT Excel/CSV bulk exports.
+        # Scheduled/auto workers only refresh recent periods; explicit backfill is retained
+        # for diagnostics/recovery and must not be the nationwide historical acquisition path.
+        if args.mode == 'auto':
+            args.mode = 'refresh'
         # Measure the current artifact before ANY new source request.
         preflight = s.publish(pipe, root, config, shard, result)
         if preflight['capacity']['needsSplit']:
