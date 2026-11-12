@@ -115,20 +115,30 @@
   function addAlert(text,kind=''){const d=el('div',text,'alert '+kind);$('alerts').append(d);}
   function renderLive(){
     if(!snapshot)return;
-    const entries=snapshot.owned.map(r=>actions.reports[r.shard.id]);
-    const fresh=entries.filter(r=>r&&Date.now()-r.checkedAt<120000&&!r.error);
-    const running=fresh.filter(r=>r.run?.status==='in_progress').length;
-    const queued=fresh.filter(r=>['queued','waiting','pending','requested'].includes(r.run?.status)).length;
-    const failed=fresh.filter(r=>r.run?.status==='completed'&&['failure','cancelled','timed_out','action_required'].includes(r.run?.conclusion)).length;
-    $('liveState').textContent=actionBusy?'GitHub 실행 기록 조회 중':fresh.length?`현재 실행 ${running}개 · 대기 ${queued}개 · 오류 ${failed}개`:'실시간 실행 상태 미확인';
-    $('liveDetail').textContent=actionBusy?'저장된 거래 수와 현재 실행 기록을 따로 확인하고 있습니다.':fresh.length?`확인 ${fresh.length}/${snapshot.owned.length}개 · ${stamp(Math.max(...fresh.map(r=>r.checkedAt))?new Date(Math.max(...fresh.map(r=>r.checkedAt))).toISOString():null)}. GitHub 상태 기록이며 저장 성공은 아래 배치 결과로 확인합니다.`:`마지막 정상 수집 ${stamp(snapshot.latest)} (${age(snapshot.latest)}). 예약 활성화만으로 현재 실행 중이라고 판단하지 않습니다.`;
+    const states=snapshot.owned.map(r=>liveVisual(r.shard.id)).filter(Boolean);
+    const running=states.filter(x=>x.key==='running').length;
+    const deferred=states.filter(x=>x.key==='deferred').length;
+    const stopped=states.filter(x=>x.key==='stopped').length;
+    const failed=states.filter(x=>['failed','stale'].includes(x.key)).length;
+    const latest=states.map(x=>Date.parse(x.updatedAt)).filter(Number.isFinite).sort((x,y)=>y-x)[0];
+    if(states.length){
+      $('liveState').textContent=`현재 실행 ${running}개 · 대기 ${deferred}개 · 정지 ${stopped}개 · 오류 ${failed}개`;
+      $('liveDetail').textContent=`live-status 30초 자동 갱신 · 확인 ${states.length}/${snapshot.owned.length}개${latest?' · 최근 상태 '+age(new Date(latest).toISOString()):''}. 실행 중일 때만 초록색으로 점멸합니다.`;
+    }else{
+      const entries=snapshot.owned.map(r=>actions.reports[r.shard.id]);
+      const fresh=entries.filter(r=>r&&Date.now()-r.checkedAt<120000&&!r.error);
+      const apiRunning=fresh.filter(r=>r.run?.status==='in_progress').length;
+      const queued=fresh.filter(r=>['queued','waiting','pending','requested'].includes(r.run?.status)).length;
+      $('liveState').textContent=actionBusy?'실행 상태 확인 중':fresh.length?`GitHub 조회: 실행 ${apiRunning}개 · 대기 ${queued}개`:'실시간 실행 상태 확인 중';
+      $('liveDetail').textContent=fresh.length?'live-status가 아직 생성되지 않은 레포는 GitHub 실행 기록을 보조로 표시합니다.':'첫 live-status 파일을 기다리고 있습니다.';
+    }
     const liveBox=$('liveState').closest('.live');
     liveBox.classList.toggle('active',running>0);
-    liveBox.classList.toggle('waiting',running===0&&queued>0);
-    liveBox.classList.toggle('stopped',running===0&&queued===0&&fresh.length>0);
+    liveBox.classList.toggle('waiting',running===0&&deferred>0);
+    liveBox.classList.toggle('stopped',running===0&&deferred===0&&failed===0&&states.length>0);
     liveBox.classList.toggle('failed',failed>0);
     $('liveState').classList.toggle('live-pulse',running>0);
-    $('actionsNote').textContent=actionMessage||'실행 상태 확인은 읽기 전용입니다. GitHub 공개 API 조회 보호를 위해 15분 간격, 이 브라우저 기준 시간당 30회 이하로 제한합니다.';
+    $('actionsNote').textContent=actionMessage||'실행 상태는 각 수집 레포의 live-status.json을 30초마다 읽어 갱신합니다. “실행 상태 확인” 버튼은 GitHub Actions 기록을 별도로 확인하는 보조 기능입니다.';
   }
   function renderOverview(){
     if(!snapshot)return;const s=snapshot;
