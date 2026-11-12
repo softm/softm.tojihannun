@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Production collection entrypoint. Secrets never enter public reports.
-Every attempted API page is budgeted durably BEFORE the request. Pages setup
-is deliberately independent from collection and checkpoint persistence.
+Every attempted API page is recorded locally BEFORE the request and persisted
+by the workflow. Pages setup is independent from collection and checkpoints.
 """
 import argparse
 import itertools
@@ -12,9 +12,12 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import shards as s
+from resumable import ResumableMonths, pending_tasks
 
 
 def finish(pipe, run):
+    run['pendingSegments'] = len(pipe.state.get('pendingSegments', {}))
+    run['pendingPages'] = sum(len(x.get('pages', [])) for x in pipe.state.get('pendingSegments', {}).values())
     run['finishedAt'] = s.utc()
     pipe.state['lastRun'] = run
     pipe.state['history'] = [run, *pipe.state.get('history', [])][:100]
@@ -24,7 +27,7 @@ def finish(pipe, run):
     return run
 
 
-class BudgetedClient(s.Client):
+class BudgetedClient(ResumableMonths, s.Client):
     def __init__(self, pipe, budget):
         super().__init__(os.environ.get('MOLIT_API_KEY', ''), max_requests=budget,
                          interval=1.5, deadline=time.monotonic()+480)
@@ -33,7 +36,8 @@ class BudgetedClient(s.Client):
     def page(self, stream, code, month, page):
         if self.calls >= self.max_requests:
             raise s.SourceError('REQUEST_BUDGET')
-        # A terminated runner keeps a conservative reservation, never a free retry.
+        # This is local until the workflow persists the checkpoint; do not claim
+        # remote crash durability before that commit succeeds.
         cutoff = datetime.now(timezone.utc)-timedelta(days=2)
         ledger = [x for x in self.pipe.state.get('requestLedger', [])
                   if datetime.fromisoformat(x['at']) > cutoff]
@@ -50,12 +54,19 @@ class BudgetedClient(s.Client):
 
 
 def task_queue(pipe, mode):
+    seen = set()
+    if mode in ('auto', 'backfill'):
+        for task in pending_tasks(pipe):
+            seen.add(task)
+            yield task
     if mode != 'auto':
-        yield from pipe.plan(mode)
+        for task in pipe.plan(mode):
+            if task not in seen:
+                seen.add(task)
+                yield task
         return
     # Refresh recent reports/cancellations without starving historical backfill.
     queues = {'refresh': iter(pipe.plan('refresh')), 'backfill': iter(pipe.plan('backfill'))}
-    seen = set()
     for kind in itertools.cycle(('backfill', 'backfill', 'backfill', 'refresh')):
         if not queues:
             return
@@ -96,6 +107,8 @@ def collect(pipe, config, mode, client_factory=BudgetedClient):
             try:
                 rows = client.month(s.STREAMS[sid], pipe.districts[code], month)
                 meta = pipe.put(task, rows, 'public_api')
+                if hasattr(client, 'finish_segment'):
+                    client.finish_segment(s.STREAMS[sid], pipe.districts[code], month)
                 run['success'] += 1
                 for key in ('added', 'removed', 'cancelled'):
                     run[key] += meta[key]
