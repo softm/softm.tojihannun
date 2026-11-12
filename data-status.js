@@ -1,7 +1,7 @@
 /* Read-only operations dashboard. It never dispatches workflows or calls MOLIT. */
 (() => {
   'use strict';
-  const HOUR = 3600000, STALE = 2 * HOUR, ACTION_TTL = 15 * 60000;
+  const HOUR = 3600000, STALE = 2 * HOUR, ACTION_TTL = 15 * 60000, LIVE_POLL = 30000;
   const SNAPSHOT_KEY = 'toji.collection.observation.v1', ACTION_KEY = 'toji.collection.actions.v1';
   const names = {not_collected:'미수집',not_started:'미시작',partial:'일부 성공',complete:'계획 구간 완료',success:'수집 성공',failed:'수집 실패',failure:'실행 실패',error:'오류',running:'실행 중 기록',in_progress:'실행 중 기록',queued:'실행 대기',pending:'실행 대기',cancelled:'취소',deferred:'재시도·예산 대기',idle:'이번 대상 없음',blocked:'접근·설정 확인',capacity_paused:'용량 분할 필요',ready:'준비',paused:'이관 대기',mirroring:'기존 자료 복제',reserved:'증설 대기'};
   const integer = n => Number.isSafeInteger(n) && n >= 0;
@@ -63,12 +63,28 @@
     if(run.status==='completed' && ['failure','cancelled','timed_out','action_required'].includes(run.conclusion)) return {key:'failed',label:'● 실행 실패·중단',live:false};
     return {key:'stopped',label:'● '+(names[run.status]||run.status||'실행 종료'),live:false};
   };
+  function liveVisual(id, now=Date.now()){
+    const item=liveFiles[id], d=item?.data;
+    if(!d||item.error||d.schemaVersion!==1||!Number.isFinite(Date.parse(d.updatedAt)))return null;
+    const updated=Date.parse(d.updatedAt);
+    if(updated>now+300000)return {key:'failed',label:'● 상태 시각 오류',live:false,data:d,updatedAt:d.updatedAt};
+    if(d.status==='running'){
+      const expiry=Date.parse(d.expiresAt);
+      if(!Number.isFinite(expiry)||expiry<=now)return {key:'stale',label:'● 실행 상태 만료',live:false,data:d,updatedAt:d.updatedAt};
+      return {key:'running',label:'● 실제 수집 실행 중',live:true,data:d,updatedAt:d.updatedAt};
+    }
+    if(now-updated>STALE)return {key:'stale',label:'● 상태 오래됨',live:false,data:d,updatedAt:d.updatedAt};
+    if(d.status==='deferred')return {key:'deferred',label:'● 호출 예산·재시도 대기',live:false,data:d,updatedAt:d.updatedAt};
+    if(d.status==='failed')return {key:'failed',label:'● 오류·점검 필요',live:false,data:d,updatedAt:d.updatedAt};
+    if(d.status==='stopped')return {key:'stopped',label:'● 수집 정지·종료',live:false,data:d,updatedAt:d.updatedAt};
+    return {key:'unknown',label:'● 상태 미확인',live:false,data:d,updatedAt:d.updatedAt};
+  }
   function link(text,url){const a=el('a',text);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;}
   function kv(host,key,value){const d=el('div',null,'key-value');d.append(el('strong',key),el('span',value));host.append(d);}
   function readStore(key){try{return JSON.parse(localStorage.getItem(key)||'null');}catch{return null;}}
   function writeStore(key,data){try{localStorage.setItem(key,JSON.stringify(data));}catch{/* Private browsing must not break live data. */}}
   let model=null, registry=null, reports={}, snapshot=null, loading=false, ready=false, checked=null, detailVersion=0, observed=null;
-  let actionBusy=false, actionMessage='', autoActionsStarted=false;
+  let actionBusy=false, actionMessage='', autoActionsStarted=false, liveBusy=false, liveFiles={};
   let actions=readStore(ACTION_KEY)||{checkedAt:0,reports:{},ledger:[]};
   if(!Array.isArray(actions.ledger)||typeof actions.reports!=='object'||!actions.reports)actions={checkedAt:0,reports:{},ledger:[]};
   async function get(url){const r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error('HTTP '+r.status);const text=await r.text();if(text.length>2000000)throw Error('현황 파일 크기 초과');return JSON.parse(text);}
