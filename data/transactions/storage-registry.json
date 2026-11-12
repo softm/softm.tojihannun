@@ -1,9 +1,9 @@
 {
   "schemaVersion": 3,
-  "revision": "collection-operations-v3",
+  "revision": "twenty-shard-rebalance-paused-v1",
   "mode": "collecting",
   "bootstrapSourceRef": "f328c729eece4fe45f1b403a1af1fcd62fa5de46",
-  "note": "10개 지역 수집기 가동; 10개 증설 대기. 기존 웹 조회와 Pages 전환은 별도 관리.",
+  "note": "20개 수집기 전환을 위한 최종 체크포인트 고정 단계. 기존 001~010 API 호출 일시 정지; 데이터 삭제 없음.",
   "allocation": {
     "unit": "bytes",
     "maxPublishedBytes": 1000000000,
@@ -53,7 +53,7 @@
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-001/",
       "publishedBytes": null,
-      "collectionEnabled": true
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-002",
@@ -83,7 +83,7 @@
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-002/",
       "publishedBytes": null,
-      "collectionEnabled": true
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-003",
@@ -144,7 +144,7 @@
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-003/",
       "publishedBytes": null,
-      "collectionEnabled": true
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-004",
@@ -205,7 +205,7 @@
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-004/",
       "publishedBytes": null,
-      "collectionEnabled": true
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-005",
@@ -289,7 +289,7 @@
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-005/",
       "publishedBytes": null,
-      "collectionEnabled": true
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-006",
@@ -375,7 +375,7 @@
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-006/",
       "publishedBytes": null,
-      "collectionEnabled": true
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-007",
@@ -504,7 +504,7 @@
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-007/",
       "publishedBytes": null,
-      "collectionEnabled": true
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-008",
@@ -563,7 +563,7 @@
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-008/",
       "publishedBytes": null,
-      "collectionEnabled": true
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-009",
@@ -645,7 +645,7 @@
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-009/",
       "publishedBytes": null,
-      "collectionEnabled": true
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-010",
@@ -719,7 +719,7 @@
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-010/",
       "publishedBytes": null,
-      "collectionEnabled": true
+      "collectionEnabled": false
     },
     {
       "id": "realestate-data-011",
