@@ -55,6 +55,14 @@
   const $=id=>document.getElementById(id);
   const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;};
   const badge=(text,cls)=>el('span',text,'badge '+(cls||''));
+  const actionState = run => {
+    if(!run) return {key:'unknown',label:'상태 미확인',live:false};
+    if(run.status==='in_progress') return {key:'running',label:'● 실제 수집 실행 중',live:true};
+    if(['queued','waiting','pending','requested'].includes(run.status)) return {key:'queued',label:'● 실행 대기',live:false};
+    if(run.status==='completed' && run.conclusion==='success') return {key:'stopped',label:'● 실행 종료',live:false};
+    if(run.status==='completed' && ['failure','cancelled','timed_out','action_required'].includes(run.conclusion)) return {key:'failed',label:'● 실행 실패·중단',live:false};
+    return {key:'stopped',label:'● '+(names[run.status]||run.status||'실행 종료'),live:false};
+  };
   function link(text,url){const a=el('a',text);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;}
   function kv(host,key,value){const d=el('div',null,'key-value');d.append(el('strong',key),el('span',value));host.append(d);}
   function readStore(key){try{return JSON.parse(localStorage.getItem(key)||'null');}catch{return null;}}
@@ -72,9 +80,15 @@
     const fresh=entries.filter(r=>r&&Date.now()-r.checkedAt<120000&&!r.error);
     const running=fresh.filter(r=>r.run?.status==='in_progress').length;
     const queued=fresh.filter(r=>['queued','waiting','pending','requested'].includes(r.run?.status)).length;
-    $('liveState').textContent=actionBusy?'GitHub 실행 기록 조회 중':fresh.length?`GitHub 조회: 실행 중 ${running}개 · 대기 ${queued}개`:'실시간 실행 상태 미확인';
+    const failed=fresh.filter(r=>r.run?.status==='completed'&&['failure','cancelled','timed_out','action_required'].includes(r.run?.conclusion)).length;
+    $('liveState').textContent=actionBusy?'GitHub 실행 기록 조회 중':fresh.length?`현재 실행 ${running}개 · 대기 ${queued}개 · 오류 ${failed}개`:'실시간 실행 상태 미확인';
     $('liveDetail').textContent=actionBusy?'저장된 거래 수와 현재 실행 기록을 따로 확인하고 있습니다.':fresh.length?`확인 ${fresh.length}/${snapshot.owned.length}개 · ${stamp(Math.max(...fresh.map(r=>r.checkedAt))?new Date(Math.max(...fresh.map(r=>r.checkedAt))).toISOString():null)}. GitHub 상태 기록이며 저장 성공은 아래 배치 결과로 확인합니다.`:`마지막 정상 수집 ${stamp(snapshot.latest)} (${age(snapshot.latest)}). 예약 활성화만으로 현재 실행 중이라고 판단하지 않습니다.`;
-    $('liveState').closest('.live').classList.toggle('active',running>0);
+    const liveBox=$('liveState').closest('.live');
+    liveBox.classList.toggle('active',running>0);
+    liveBox.classList.toggle('waiting',running===0&&queued>0);
+    liveBox.classList.toggle('stopped',running===0&&queued===0&&fresh.length>0);
+    liveBox.classList.toggle('failed',failed>0);
+    $('liveState').classList.toggle('live-pulse',running>0);
     $('actionsNote').textContent=actionMessage||'실행 상태 확인은 읽기 전용입니다. GitHub 공개 API 조회 보호를 위해 15분 간격, 이 브라우저 기준 시간당 30회 이하로 제한합니다.';
   }
   function renderOverview(){
@@ -102,14 +116,14 @@
     if(!snapshot)return;const filter=$('shardFilter').value;
     const rows=snapshot.rows.filter(r=>filter==='all'||filter==='active'&&r.assigned||filter==='reserved'&&!r.assigned||filter==='attention'&&r.attention||filter==='stale'&&r.stale);
     const table=el('table'),thead=el('thead'),head=el('tr');for(const name of ['레포 · 담당','진행률 / 완료 구간','유효 거래','마지막 정상 수집','마지막 수집 배치','GitHub 실행 확인','게시 산출물','서비스 조회'])head.append(el('th',name));thead.append(head);table.append(thead);const body=el('tbody');
-    for(const r of rows){const {shard:s,data:d}=r, tr=el('tr',null,!r.assigned?'reserved':r.attention?'attention':'');
+    for(const r of rows){const {shard:s,data:d}=r, a=actions.reports[s.id], action=actionState(a&&!a.error?a.run:null), batchStatus=d?.collection?.status||'';const rowClasses=[!r.assigned?'reserved':r.attention?'attention':'',action.key==='running'?'running-row':action.key==='queued'?'queued-row':'',action.key==='failed'?'failed-row':'',batchStatus==='deferred'?'deferred-row':''].filter(Boolean).join(' '), tr=el('tr',null,rowClasses);
       const td=()=>{const x=el('td');tr.append(x);return x;};
       const identity=td();identity.append(link(s.id.replace('realestate-data-','DATA '),'https://github.com/'+s.repository),el('small',s.label?.replace(/^\d+\s*·\s*/, '')||s.id),el('small',r.assigned?fmt(s.activeDistrictCount)+'개 현행 시군구':'지역 미배정'));
       const progress=td();if(r.valid){progress.append(el('strong',formatPercent(d.summary.completedTasks,d.summary.expectedTasks)),el('small',fmt(d.summary.completedTasks)+' / '+fmt(d.summary.expectedTasks)));const p=el('progress');p.max=d.summary.expectedTasks||1;p.value=d.summary.completedTasks;p.setAttribute('aria-label',s.id+' 수집 진행률');progress.append(p);}else progress.append(badge(!r.assigned?'증설 대기':'미확인',!r.assigned?'reserved':'error'));
       td().append(el('span',r.valid?fmt(d.summary.records)+'건':r.assigned?'미확인':'—','num'));
       const time=td();time.append(el('span',r.valid?age(r.at):'—'),el('small',r.valid?stamp(r.at):r.assigned?'검증된 최신 저장 기록 없음':'담당 배정 전'));if(r.stale)time.append(badge('저장 지연','stale'));
       const batch=td();if(d){const c=d.collection||{};batch.append(badge(names[c.status]||c.status,c.status),el('small',`요청 ${fmt(c.requests)} · 성공 ${fmt(c.success)} · 실패 ${fmt(c.failed)}`));if(d.summary.cooldownStreams)batch.append(el('small','접근 보류 '+d.summary.cooldownStreams+'개 유형'));}else batch.textContent=r.assigned?'확인 전':'수집하지 않음';
-      const action=td(),a=actions.reports[s.id];if(!r.assigned)action.textContent='예비';else if(a&&!a.error&&a.run){action.append(badge(a.run.status==='completed'&&a.run.conclusion==='success'?'워크플로 성공':names[a.run.status==='completed'?a.run.conclusion:a.run.status]||a.run.status,a.run.status==='in_progress'?'running':''),el('small','조회 '+age(new Date(a.checkedAt).toISOString())));if(Date.now()-a.checkedAt>=120000)action.append(el('small','지난 조회값 · 현재 상태 아님'));}else action.append(el('span',a?.error?'조회 실패':a?'최근 20건에 수집 실행 없음':'조회 전'));action.append(link('실행 로그 ↗','https://github.com/'+s.repository+'/actions/workflows/collect.yml'));
+      const actionCell=td();if(!r.assigned)actionCell.textContent='예비';else if(a&&!a.error&&a.run){const visual=actionState(a.run);actionCell.append(badge(visual.label,visual.key),el('small','조회 '+age(new Date(a.checkedAt).toISOString())));if(visual.live)actionCell.append(el('small','현재 실행 중 · 완료되면 점멸이 멈춥니다','running-note'));if(Date.now()-a.checkedAt>=120000)actionCell.append(el('small','지난 조회값 · 현재 상태 아님'));}else actionCell.append(el('span',a?.error?'조회 실패':a?'최근 20건에 수집 실행 없음':'조회 전'));actionCell.append(link('실행 로그 ↗','https://github.com/'+s.repository+'/actions/workflows/collect.yml'));
       td().append(el('span',d?bytes(d.capacity?.publishedBytes):'미측정'),el('small','최대 1GB / 900MB 분할'));
       const service=td();service.append(badge(!r.assigned?'조회 미배정':s.serving==='pages'?'지역 Pages':'기존 중앙',s.serving==='pages'?'success':''),el('small',r.report?.pagesVerified?'Pages 응답 확인':'Pages 응답 미확인'));
       body.append(tr);
