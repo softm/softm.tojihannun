@@ -99,7 +99,13 @@ def request_budget(state, config, now=None):
             except (ValueError, KeyError, TypeError): raise ValueError('Invalid request ledger')
         return total
     q = config['requestBudget']
-    return max(0, min(int(q['perRun']), int(q['perHour']) - recent(1), int(q['perDay']) - recent(24)))
+    shard_id = os.environ.get('GITHUB_REPOSITORY','').split('/')[-1]
+    allocations = q.get('perShardDaily', {})
+    daily = int(allocations.get(shard_id, q.get('perDay', 0)))
+    per_run = int(q.get('perRun', daily))
+    # Continuous mode deliberately has no hourly throttle. Each independent shard
+    # owns a fixed daily allocation; all allocations sum below the account limit.
+    return max(0, min(per_run, daily - recent(24)))
 
 def collect(pipe, config, mode):
     budget = request_budget(pipe.state, config)
