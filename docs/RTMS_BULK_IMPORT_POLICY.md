@@ -2,7 +2,7 @@
 
 ## Authoritative sources
 
-Historical baseline MUST come from the official MOLIT Real Transaction Price Disclosure System bulk export:
+Historical baseline MUST come from the official MOLIT Real Transaction Price Disclosure System bulk export. **Prefer XLSX; CSV is a fallback input only when XLSX is unavailable.**
 
 - Public Data Portal dataset: https://www.data.go.kr/data/3050988/fileData.do
 - Official export UI: https://rt.molit.go.kr/pt/xls/xls.do?mobileAt=
@@ -11,7 +11,7 @@ The official dataset describes roughly 20,000,000 rows and allows selecting buil
 
 ## Fixed ingestion strategy
 
-1. Historical baseline: official Excel/CSV bulk export.
+1. Historical baseline: official **XLSX-first** bulk export. CSV is fallback only.
 2. Normalize each official row into the same stream schema used by the API collector.
 3. Split by legal district, stream and contract month.
 4. Store canonical service segments as gzip JSON: `<district>/<stream>/<YYYYMM>.json.gz`.
@@ -47,6 +47,7 @@ For every imported source file keep a manifest containing:
 - province / district scope
 - contract-date start/end
 - original filename
+- original format (XLSX preferred; CSV fallback)
 - byte size
 - SHA-256
 - parsed row count
