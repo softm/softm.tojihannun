@@ -88,4 +88,4 @@ jobs:
         with:
           name: regional-install-audit
           path: test-results/regional-install-audit.json
-          retention-days: 3
+          retention-days: 1
