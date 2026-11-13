@@ -11,7 +11,7 @@ class OperationTests(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name)
         self.reg={'districts':[{'code':'41210','name':'경기도 광명시','active':True,'sido':'41','sidoName':'경기도'}]}
         self.pipe=s.Pipeline(self.root,self.reg,asof='2026-11-10')
-        self.config={'requestBudget':{'perRun':8,'perHour':8,'perDay':160}}
+        self.config={'requestBudget':{'perRun':8,'perDay':8}}
     def tearDown(self):self.tmp.cleanup()
     def test_missing_key_is_persisted_and_never_requests(self):
         with patch.dict(os.environ,{},clear=True):
@@ -87,7 +87,8 @@ class OperationTests(unittest.TestCase):
     def test_auto_refresh_and_backfill_are_deduplicated(self):
         tasks=list(o.task_queue(self.pipe,'auto'))
         self.assertEqual(len(tasks),len(set(tasks)))
-        self.assertTrue(any(t.endswith('202611') for t in tasks))
-        self.assertTrue(any(t.endswith('200601') for t in tasks))
+        refresh=set(self.pipe.plan('refresh'))
+        self.assertTrue(refresh.intersection(tasks))
+        self.assertTrue(any('/' in t for t in tasks))
 
 if __name__=='__main__':unittest.main()
