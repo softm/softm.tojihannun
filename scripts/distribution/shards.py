@@ -91,11 +91,21 @@ def check_handover(root, shard):
 def request_budget(state, config, now=None):
     now = now or datetime.now(timezone.utc)
     history = state.get('requestLedger', [])
+    migration = state.get('migration') or {}
+    handover_at = None
+    try:
+        if migration.get('phase') == 'handover' and migration.get('verifiedAt'):
+            handover_at = datetime.fromisoformat(migration['verifiedAt'].replace('Z','+00:00'))
+    except (ValueError, TypeError):
+        raise ValueError('Invalid migration verifiedAt')
     def recent(hours):
         total = 0
+        cutoff = now - timedelta(hours=hours)
+        if handover_at and handover_at > cutoff:
+            cutoff = handover_at
         for run in history:
             try:
-                if datetime.fromisoformat(run['at']) > now - timedelta(hours=hours): total += int(run['requests'])
+                if datetime.fromisoformat(run['at']) > cutoff: total += int(run['requests'])
             except (ValueError, KeyError, TypeError): raise ValueError('Invalid request ledger')
         return total
     q = config['requestBudget']
