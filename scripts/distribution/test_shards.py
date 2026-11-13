@@ -1,4 +1,4 @@
-import gzip, json, shutil, sys, tempfile, unittest
+import gzip, json, os, shutil, sys, tempfile, unittest
 from pathlib import Path
 from datetime import datetime, timezone
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -15,7 +15,7 @@ class DistributionTests(unittest.TestCase):
         self.assertTrue(all(d['code'] in m for d in self.official['districts'] if d['active']))
         self.assertEqual(len(m),len(self.official['districts']))
         self.assertEqual(len(self.config['shards']),20)
-        self.assertEqual(sum(bool(x['districtCodes']) for x in self.config['shards']),10)
+        self.assertEqual(sum(bool(x['districtCodes']) for x in self.config['shards']),20)
     def test_duplicate_ownership_rejected(self):
         self.config['shards'][1]['districtCodes'].append(self.config['shards'][0]['districtCodes'][0])
         with self.assertRaises(ValueError):s.shard_map(self.config)
@@ -37,11 +37,21 @@ class DistributionTests(unittest.TestCase):
         shard={**self.config['shards'][0],'handoverCommit':'a'*40}
         s.write_json(self.root/'migration-receipt.json',{'sourceCommit':'b'*40})
         with self.assertRaises(ValueError):s.check_handover(self.root,shard)
-        s.write_json(self.root/'migration-receipt.json',{'sourceCommit':'a'*40});s.check_handover(self.root,shard)
-    def test_hourly_request_budget_shared_by_manual_reruns(self):
-        now=datetime.now(timezone.utc);state={'requestLedger':[{'at':now.isoformat(),'requests':6}]}
-        self.assertEqual(s.request_budget(state,self.config,now),2)
-        state['requestLedger'][0]['requests']=8;self.assertEqual(s.request_budget(state,self.config,now),0)
+        s.write_json(self.root/'migration-receipt.json',{'sourceCommit':'a'*40,'sourceRepository':'softm/softm.tojihannun'});s.check_handover(self.root,shard)
+    def test_rolling_daily_request_budget_shared_by_manual_reruns(self):
+        now=datetime.now(timezone.utc)
+        shard_id='realestate-data-001'
+        daily=self.config['requestBudget']['perShardDaily'][shard_id]
+        state={'requestLedger':[{'at':now.isoformat(),'requests':daily-2}]}
+        previous=os.environ.get('GITHUB_REPOSITORY')
+        os.environ['GITHUB_REPOSITORY']='softm/'+shard_id
+        try:
+            self.assertEqual(s.request_budget(state,self.config,now),2)
+            state['requestLedger'][0]['requests']=daily
+            self.assertEqual(s.request_budget(state,self.config,now),0)
+        finally:
+            if previous is None: os.environ.pop('GITHUB_REPOSITORY',None)
+            else: os.environ['GITHUB_REPOSITORY']=previous
     def test_one_gb_means_decimal_and_includes_all_files(self):
         self.config['allocation'].update(maxPublishedBytes=100,rotateAtBytes=90)
         (self.root/'data.gz').write_bytes(b'a'*80);(self.root/'index.json').write_bytes(b'a'*10)
