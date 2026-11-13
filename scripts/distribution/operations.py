@@ -161,9 +161,14 @@ def collect(pipe, config, mode, client_factory=BudgetedClient):
                     break
                 if error.code in ('401', '403', '20', '30', '31', '12', '404'):
                     blocked.add(sid)
-        run['status'] = ('partial' if run['success'] and run['failed'] else
-                         'failed' if run['failed'] else 'success' if run['success'] else
-                         'deferred' if run.get('stopReason') else 'idle')
+        timeout_only = bool(run['failed']) and not run['success'] and set(run.get('errors', {})) == {'NETWORK_TIMEOUT'}
+        if timeout_only:
+            run['status'] = 'deferred'
+            run.setdefault('stopReason', 'NETWORK_TIMEOUT')
+        else:
+            run['status'] = ('partial' if run['success'] and run['failed'] else
+                             'failed' if run['failed'] else 'success' if run['success'] else
+                             'deferred' if run.get('stopReason') else 'idle')
     except Exception as error:
         run.update(status='failed', stopReason='INTERNAL_VALIDATION_ERROR', errorType=type(error).__name__)
         # Do not expose exception messages containing URLs or credential values.
