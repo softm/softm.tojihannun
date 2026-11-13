@@ -1,9 +1,14 @@
-.district-controls{position:fixed;right:16px;top:126px;z-index:80;font-family:inherit;font-size:13px;color:#193b34}
-.district-toolbar{display:flex;justify-content:flex-end;gap:6px}
+.district-controls{position:fixed;right:74px;top:155px;z-index:18;font-family:inherit;font-size:13px;color:#193b34;pointer-events:none}
+.district-toolbar{display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:auto}
 .district-toolbar button,.district-panel button,.district-panel a,.district-parcel-link{font:inherit;border:1px solid #cbd9d4;background:#fff;color:#193b34;border-radius:10px;padding:9px 11px;min-height:38px;cursor:pointer;text-decoration:none;line-height:1.5}
+.district-toolbar .district-icon-button{position:relative;display:grid;place-items:center;width:44px;height:44px;padding:0;border-radius:14px;box-shadow:0 7px 22px rgba(25,60,49,.14)}
+.district-icon-button svg{width:22px;height:22px;flex:none}
 .district-toolbar button[aria-pressed=true]{background:#163d32;color:#fff;border-color:#163d32}
-.district-toolbar button[data-error=true]{background:#7c2d12;border-color:#7c2d12}
-.district-panel{width:320px;max-width:calc(100vw - 32px);max-height:60dvh;overflow:auto;overscroll-behavior:contain;margin-top:8px;padding:14px;background:rgba(255,255,255,.98);border:1px solid #d6e0dc;border-radius:14px;box-shadow:0 8px 30px #163d3224;scrollbar-gutter:stable}
+.district-toolbar button[data-error=true][aria-pressed=true]{background:#854d0e;border-color:#854d0e}
+.district-toolbar button[aria-expanded=true]{box-shadow:0 0 0 3px rgba(23,107,84,.25)}
+.district-count{position:absolute;right:-5px;top:-5px;padding:1px 5px;min-width:18px;border-radius:10px;background:#fff;color:#163d32;border:1px solid #cbd9d4;font-size:10px;font-weight:800;line-height:16px}
+.district-count[hidden]{display:none!important}
+.district-panel{position:fixed;top:155px;right:130px;width:320px;max-width:calc(100vw - 150px);max-height:min(60dvh,calc(100dvh - 175px));overflow:auto;overscroll-behavior:contain;padding:14px;background:rgba(255,255,255,.98);border:1px solid #d6e0dc;border-radius:14px;box-shadow:0 8px 30px #163d3224;scrollbar-gutter:stable;pointer-events:auto}
 .district-panel[hidden],.district-detail[hidden]{display:none!important}
 .district-panel h2{font-size:16px;margin:0 0 10px}.district-panel h3{font-size:15px;margin:10px 0}
 .district-panel fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px 12px}.district-panel legend{font-weight:700;margin-bottom:8px}
@@ -20,7 +25,17 @@
 .district-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.district-links button,.district-links a{font-size:12px}
 .district-disclaimer{font-size:11px!important;line-height:1.7!important;color:#64776e;margin:12px 0 0}
 .district-parcel-link{font-size:11px!important;white-space:nowrap;display:inline-flex;align-items:center;padding:5px 8px;min-height:32px}
-@media(max-width:700px){.district-controls{top:198px;right:10px}.district-panel{max-height:45dvh;width:290px;max-width:calc(100vw - 20px);padding:12px}.district-toolbar button{font-size:12px;padding:7px 9px}.district-parcel-link{font-size:10px!important;padding:4px 6px}.detail-title-actions{flex-wrap:wrap}}
+@media(max-width:720px){
+  /* Between the address search and the map control rail; never overlaps the locator/zoom buttons. */
+  .district-controls{top:max(200px,calc(env(safe-area-inset-top) + 188px));right:13px}
+  .district-toolbar{flex-direction:row;gap:8px}
+  .district-toolbar .district-icon-button{width:40px;height:40px;padding:0}
+  .district-panel{top:max(251px,calc(env(safe-area-inset-top) + 239px));right:65px;width:290px;max-width:calc(100vw - 77px);max-height:min(45dvh,calc(100dvh - 272px - env(safe-area-inset-bottom)));padding:12px}
+  .district-parcel-link{font-size:10px!important;padding:4px 6px}
+  .detail-title-actions{flex-wrap:wrap}
+}
+@media(max-width:370px){.district-toolbar .district-icon-button{width:38px;height:38px}}
+@media(prefers-reduced-motion:reduce){.district-controls *{scroll-behavior:auto}}
 
 /* Keep district tools on the map, not over the parcel detail sheet. */
 body:has(#detailSheet.open) .district-controls { display: none; }

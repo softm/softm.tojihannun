@@ -12,6 +12,7 @@ const publicFiles = [
   "districts-core.js",
   "districts.js",
   "districts.css",
+  "account.js",
   "index.html",
   "data-status.html",
   "data-status.js",

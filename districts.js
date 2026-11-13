@@ -23,13 +23,33 @@
   const button = (text, callback) => {
     const b = el("button", text); b.type = "button"; b.addEventListener("click", callback); return b;
   };
+  const iconButton = (paths, callback) => {
+    const b = button("", callback); b.className = "district-icon-button";
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("fill", "none"); svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.8"); svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("stroke-linecap", "round");
+    for (const shape of paths) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", shape); svg.append(path);
+    }
+    b.append(svg); return b;
+  };
   function save() {
     try {localStorage.setItem(keyName, JSON.stringify({enabled, ids: [...selectedIds]}));} catch { /* Optional preferences only. */ }
   }
   function setStatus(text, error = false) {
     const out = panel?.querySelector("[data-district-status]");
     if (out) {out.textContent = text; out.dataset.error = String(error);}
-    if (toggle) {toggle.dataset.error = String(error); toggle.title = text; toggle.textContent = !enabled ? "구역계 꺼짐" : error ? "구역계 · 확인 필요" : features.length ? `구역계 ${features.length}` : "구역계 켜짐";}
+    if (toggle) {
+      const label = !enabled ? "구역계 꺼짐" : error ? "구역계 확인 필요" : features.length ? `구역계 ${features.length}개 표시 중` : "구역계 켜짐";
+      toggle.dataset.error = String(error); toggle.dataset.state = enabled ? "on" : "off";
+      toggle.title = label; toggle.setAttribute("aria-label", label + (enabled ? " · 누르면 끄기" : " · 누르면 켜기"));
+      toggle.setAttribute("aria-pressed", String(enabled));
+      const count = toggle.querySelector("[data-district-count]");
+      if (count) {count.textContent = features.length > 99 ? "99+" : String(features.length); count.hidden = !enabled || !features.length;}
+    }
   }
   function external(text, href) {
     const a = el("a", text); a.href = href; a.target = "_blank"; a.rel = "noopener noreferrer"; return a;
@@ -55,14 +75,16 @@
     if (!host) return;
     const wrap = el("div", undefined, "district-controls");
     const toolbar = el("div", undefined, "district-toolbar");
-    toggle = button(enabled ? "구역계 켜짐" : "구역계 꺼짐", () => {
-      enabled = !enabled; save(); toggle.textContent = enabled ? "구역계 켜짐" : "구역계 꺼짐";
-      toggle.setAttribute("aria-pressed", String(enabled)); layer?.setVisible(enabled); invalidate();
+    toggle = iconButton(["M4 5 12 2l8 4v13l-8 3-8-4Z", "M4 5l8 6 8-5M12 11v11"], () => {
+      enabled = !enabled; save(); layer?.setVisible(enabled); invalidate();
+      setStatus(enabled ? "구역계를 표시합니다." : "구역계 표시가 꺼져 있습니다.");
     });
     toggle.id = "districtToggle"; toggle.setAttribute("aria-pressed", String(enabled));
-    const settings = button("구역 목록", () => {
+    const count = el("span", "", "district-count"); count.hidden = true; count.dataset.districtCount = ""; count.setAttribute("aria-hidden", "true"); toggle.append(count);
+    const settings = iconButton(["M8 6h13", "M8 12h13", "M8 18h13", "M3 6h.01", "M3 12h.01", "M3 18h.01"], () => {
       panel.hidden = !panel.hidden; settings.setAttribute("aria-expanded", String(!panel.hidden));
     });
+    settings.id = "districtListToggle"; settings.title = "구역계 목록"; settings.setAttribute("aria-label", "구역계 목록 열기");
     settings.setAttribute("aria-controls", "districtPanel"); settings.setAttribute("aria-expanded", "false");
     toolbar.append(toggle, settings); wrap.append(toolbar);
     panel = el("section", undefined, "district-panel"); panel.id = "districtPanel"; panel.hidden = true;
@@ -88,6 +110,17 @@
     const nav = external("현재 위치 네이버 부동산 ↗", "https://fin.land.naver.com/map"); nav.dataset.districtNaver = ""; actions.append(nav); panel.append(actions);
     panel.append(el("p", "출처: 국토교통부 공간정보 오픈플랫폼 VWorld. 후보지·공람안은 누락될 수 있습니다. 화면의 선은 편입·제척을 확정하는 자료가 아닙니다. 최신 고시 도면·조서를 확인하세요.", "district-disclaimer"));
     wrap.append(panel); document.body.append(wrap);
+    document.addEventListener("pointerdown", event => {
+      if (!panel.hidden && !wrap.contains(event.target)) {
+        panel.hidden = true; settings.setAttribute("aria-expanded", "false");
+      }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !panel.hidden) {
+        panel.hidden = true; settings.setAttribute("aria-expanded", "false"); settings.focus();
+      }
+    });
+    setStatus(enabled ? "구역계를 조회할 준비가 됐습니다." : "구역계 표시가 꺼져 있습니다.");
     const detailActions = document.querySelector(".detail-title-actions");
     if (detailActions && !document.getElementById("parcelNaverLand")) {
       const navParcel = external("네이버 부동산 ↗", "https://fin.land.naver.com/map"); navParcel.id = "parcelNaverLand"; navParcel.className = "district-parcel-link"; detailActions.prepend(navParcel);

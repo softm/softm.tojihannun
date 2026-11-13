@@ -43,9 +43,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261108.3" />
+    <link rel="stylesheet" href="./styles.css?v=20261113.1" />
     <link rel="stylesheet" href="./market-data.css?v=20261110.5" />
-    <link rel="stylesheet" href="./districts.css?v=20261108.4" />
+    <link rel="stylesheet" href="./districts.css?v=20261113.1" />
       <link rel="stylesheet" href="./transaction-ui.css?v=20261110.5" />
   </head>
   <body>
@@ -78,6 +78,11 @@
             <button class="round-button" type="button" id="helpButton" aria-label="도움말">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.3 1-1.3 1.9M12 17h.01"/></svg>
             </button>
+            <div class="site-account-slot" id="siteAccountSlot" aria-label="토지한눈 공통 계정">
+              <a class="site-account-fallback" href="https://softm-hannun-account.softm.workers.dev/account" target="_blank" rel="noopener noreferrer" aria-label="로그인 및 회원가입" title="로그인 및 회원가입">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 21v-2a7.5 7.5 0 0 1 15 0v2"/></svg>
+              </a>
+            </div>
           </div>
         </header>
 
@@ -562,6 +567,7 @@
     <script src="./market-data.js?v=20261110.1"></script>
     <script src="./app.js?v=20261108.3"></script>
     <script defer src="./districts-core.js?v=20261108.1"></script>
-    <script defer src="./districts.js?v=20261108.1"></script>
+    <script defer src="./districts.js?v=20261113.1"></script>
+    <script type="module" src="./account.js?v=20261113.1"></script>
 </body>
 </html>

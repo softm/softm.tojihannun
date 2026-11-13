@@ -45,7 +45,18 @@ button { color: inherit; }
 .brand b { color: var(--green); font-weight: 800; }
 .brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--green); }
 .brand-mark svg { width: 23px; fill: none; stroke: #fff; stroke-width: 2; stroke-linejoin: round; }
-.top-actions { display: flex; gap: 8px; }
+.top-actions { display: flex; align-items: center; gap: 8px; pointer-events: auto; }
+.site-account-slot { display: flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; height: 44px; pointer-events: auto; }
+.site-account-slot softm-site-account { margin: 0 !important; }
+.site-account-fallback { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #d8e1dc; border-radius: 50%; background: rgba(255,255,255,.96); color: var(--green); box-shadow: 0 7px 24px rgba(20,60,48,.13); text-decoration: none; }
+.site-account-fallback svg { width: 23px; height: 23px; }
+@media (max-width: 370px) {
+  .brand { gap: 6px; padding: 7px; font-size: 16px; }
+  .brand-mark { width: 28px; height: 28px; }
+  .top-actions { gap: 4px; }
+  .round-button { width: 40px; height: 40px; }
+  .site-account-slot { flex-basis: 42px; width: 42px; }
+}
 .round-button { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%; cursor: pointer; }
 .round-button svg { width: 21px; fill: none; stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .badge { position: absolute; top: -3px; right: -3px; display: none; min-width: 18px; height: 18px; padding: 0 4px; border: 2px solid white; border-radius: 9px; background: #f2644b; color: #fff; font-size: 10px; font-weight: 800; line-height: 14px; }
