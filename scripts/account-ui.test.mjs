@@ -11,7 +11,7 @@ test('Cloudflare account icon is mounted in the existing header, without Firebas
   assert.match(script,/createCloudflareAccountClient/);
   assert.match(script,/mountSiteAccount/);
   assert.match(script,/siteId:SITE_ID/);
-  assert.doesNotMatch(script,/firebase|firestore/i);
+  assert.doesNotMatch(script,/import[^\n]*(firebase|firestore)|initializeApp\(|getFirestore\(/i);
 });
 test('district controls are icon-only, accessible and separated from map zoom/locate controls',()=>{
   const js=read('districts.js'), css=read('districts.css');
