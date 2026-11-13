@@ -21,24 +21,30 @@ class PoolTests(unittest.TestCase):
     def test_twenty_slots_have_no_duplicate_collectors(self):
         expanded=expand_pool.expand(self.config);self.assertEqual(len(expanded['shards']),20)
         self.assertEqual(len(shards.shard_map(expanded)),len(shards.shard_map(self.config)))
-        for entry in expanded['shards'][10:]:
-            self.assertEqual(entry['districtCodes'],[]);self.assertEqual(entry['collectionOwner'],'paused')
+        self.assertEqual(sum(bool(entry['districtCodes']) for entry in expanded['shards']),20)
+        self.assertTrue(all(entry['collectionOwner']=='shard' for entry in expanded['shards']))
     def test_expansion_is_idempotent(self):
         self.assertEqual(expand_pool.expand(self.config),expand_pool.expand(expand_pool.expand(self.config)))
     def test_capacity_is_ceiling_not_current_usage(self):
         result=expand_pool.expand(self.config)
         self.assertEqual(result['pool']['maxPublishedBytes'],20_000_000_000)
         self.assertEqual(result['pool']['rotationCapacityBytes'],18_000_000_000)
-        self.assertEqual(result['pool']['reservedCount'],10)
-        self.assertTrue(all(s['publishedBytes'] is None for s in result['shards'][10:]))
-    def test_reserved_worker_bootstrap_never_calls_api(self):
+        self.assertEqual(result['pool']['reservedCount'],0)
+        self.assertTrue(all(s['publishedBytes'] is None for s in result['shards']))
+    def test_new_reserved_worker_bootstrap_never_calls_api(self):
         import argparse
-        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ,{'GITHUB_REPOSITORY':'softm/realestate-data-020'},clear=True), patch.object(shards,'collect',side_effect=AssertionError('Reserve called API')):
-            args=argparse.Namespace(root=directory,control=str(shards.ENGINE),legacy=str(shards.ENGINE),source_commit='a'*40,shard='realestate-data-020',mode='auto')
-            with contextlib.redirect_stdout(io.StringIO()): self.assertEqual(shards.run(args),0)
-            state=json.loads((Path(directory)/'shard-status.json').read_text())
-            self.assertEqual(state['summary']['completedTasks'],0);self.assertEqual(state['collection']['requests'],0)
-            self.assertEqual(state['districtCodes'],[])
+        with tempfile.TemporaryDirectory() as directory:
+            control=Path(directory)/'control'
+            (control/'data/transactions').mkdir(parents=True)
+            expanded=expand_pool.expand(self.config,count=21)
+            (control/'data/transactions/storage-registry.json').write_text(json.dumps(expanded))
+            (control/'data/transactions/registry.json').write_text((shards.ENGINE/'data/transactions/registry.json').read_text())
+            with patch.dict(os.environ,{'GITHUB_REPOSITORY':'softm/realestate-data-021'},clear=True), patch.object(shards,'collect',side_effect=AssertionError('Reserve called API')):
+                args=argparse.Namespace(root=directory,control=str(control),legacy=str(shards.ENGINE),source_commit='a'*40,shard='realestate-data-021',mode='auto')
+                with contextlib.redirect_stdout(io.StringIO()): self.assertEqual(shards.run(args),0)
+                state=json.loads((Path(directory)/'shard-status.json').read_text())
+                self.assertEqual(state['summary']['completedTasks'],0);self.assertEqual(state['collection']['requests'],0)
+                self.assertEqual(state['districtCodes'],[])
     def test_key_value_not_logged_or_written(self):
         fake='not-a-real-key-test-only-0123456789'
         class Response:
