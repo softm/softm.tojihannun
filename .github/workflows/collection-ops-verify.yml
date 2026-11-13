@@ -2,7 +2,7 @@ name: Verify collection operations
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/collection-ops-verify.yml', '.github/workflows/collection-worker.yml', 'scripts/distribution/operations.py', 'scripts/distribution/shards.py', 'scripts/distribution/expand_pool.py', 'scripts/distribution/test_operations.py', 'scripts/distribution/test_pool.py', 'scripts/distribution/test_shards.py', 'scripts/distribution/activate.py', 'distributed-status.js', 'scripts/distributed-operations.test.mjs']
+    paths: ['.github/workflows/collection-ops-verify.yml', '.github/workflows/collection-worker.yml', 'scripts/distribution/operations.py', 'scripts/distribution/shards.py', 'scripts/distribution/expand_pool.py', 'scripts/distribution/test_operations.py', 'scripts/distribution/test_pool.py', 'scripts/distribution/test_shards.py', 'scripts/distribution/activate.py', 'scripts/distribution/write_live_status.py', 'data-status.js', 'distributed-status.js', 'scripts/distributed-operations.test.mjs']
   workflow_dispatch:
 permissions:
   contents: read
