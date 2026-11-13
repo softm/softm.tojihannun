@@ -173,6 +173,14 @@ jobs:
           q=config['requestBudget']
           daily=int(q.get('perShardDaily',{}).get(shard_id,0))
           cutoff=datetime.now(timezone.utc)-timedelta(hours=24)
+          migration=state.get('migration') or {}
+          try:
+              if migration.get('phase')=='handover' and migration.get('verifiedAt'):
+                  handover=datetime.fromisoformat(migration['verifiedAt'].replace('Z','+00:00'))
+                  if handover>cutoff:
+                      cutoff=handover
+          except (ValueError,TypeError):
+              raise SystemExit('invalid migration verifiedAt')
           used=0
           for item in state.get('requestLedger',[]):
               try:
