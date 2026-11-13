@@ -31,6 +31,16 @@ class OperationTests(unittest.TestCase):
             r=o.collect(self.pipe,self.config,'backfill',Client)
         self.assertEqual(r['requests'],1);self.assertEqual(r['status'],'failed')
         self.assertTrue(s.cooldown_active(self.pipe.state['apiCooldown']))
+    def test_network_timeout_only_batch_is_deferred_for_retry(self):
+        class Client:
+            def __init__(self,*a):self.calls=0
+            def month(self,*a):self.calls+=1;raise s.SourceError('NETWORK_TIMEOUT')
+        with patch.dict(os.environ,{'MOLIT_API_KEY':'test-not-real'}):
+            r=o.collect(self.pipe,self.config,'backfill',Client)
+        self.assertEqual(r['requests'],8)
+        self.assertEqual(r['failed'],8)
+        self.assertEqual(r['status'],'deferred')
+        self.assertEqual(r['stopReason'],'NETWORK_TIMEOUT')
     def test_valid_empty_month_is_a_successful_response(self):
         class Client:
             def __init__(self,*a):self.calls=0
