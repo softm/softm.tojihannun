@@ -1,6 +1,6 @@
 import gzip, json, os, shutil, sys, tempfile, unittest
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import shards as s
 
@@ -49,6 +49,25 @@ class DistributionTests(unittest.TestCase):
             self.assertEqual(s.request_budget(state,self.config,now),2)
             state['requestLedger'][0]['requests']=daily
             self.assertEqual(s.request_budget(state,self.config,now),0)
+        finally:
+            if previous is None: os.environ.pop('GITHUB_REPOSITORY',None)
+            else: os.environ['GITHUB_REPOSITORY']=previous
+    def test_pre_handover_request_ledger_is_not_charged_to_target_shard(self):
+        now=datetime.now(timezone.utc)
+        shard_id='realestate-data-011'
+        daily=self.config['requestBudget']['perShardDaily'][shard_id]
+        handover=now.replace(microsecond=0)
+        state={
+            'migration':{'phase':'handover','verifiedAt':handover.isoformat()},
+            'requestLedger':[
+                {'at':(handover-timedelta(minutes=1)).isoformat(),'requests':daily},
+                {'at':(handover+timedelta(seconds=1)).isoformat(),'requests':3},
+            ],
+        }
+        previous=os.environ.get('GITHUB_REPOSITORY')
+        os.environ['GITHUB_REPOSITORY']='softm/'+shard_id
+        try:
+            self.assertEqual(s.request_budget(state,self.config,now+timedelta(seconds=2)),daily-3)
         finally:
             if previous is None: os.environ.pop('GITHUB_REPOSITORY',None)
             else: os.environ['GITHUB_REPOSITORY']=previous
