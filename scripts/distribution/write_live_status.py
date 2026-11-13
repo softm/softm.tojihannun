@@ -52,8 +52,8 @@ def main():
             status="failed"
             message="수집 오류·점검 필요"
         else:
-            status="stopped"
-            message="수집 실행 종료"
+            status="idle"
+            message="정상 종료 · 다음 실행 대기"
         body={
             "schemaVersion":1,
             "repository":repo,
