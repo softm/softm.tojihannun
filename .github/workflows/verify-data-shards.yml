@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/verify-data-shards.yml'
       - 'scripts/distribution/**'
+      - 'scripts/*.test.mjs'
       - 'data/transactions/storage-registry.json'
       - 'static-transactions.js'
       - 'distributed-transactions.js'
