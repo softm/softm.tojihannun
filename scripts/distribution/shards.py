@@ -285,6 +285,7 @@ def publish(pipe, root, config, shard, run):
     stats = {'schemaVersion':1,'shardId':shard['id'],'repository':shard['repository'],'registryRevision':config['revision'],
              'generatedAt':utc(),'districtCodes':shard['districtCodes'], 'collectionOwner':shard['collectionOwner'],
              'collection':run,'summary':manifest['summary'],'regions':manifest['regions'],
+             'requestUsage':request_usage(pipe.state,config),
              'migration':pipe.state.get('migration'), 'deployment':{'verified':False},
              'capacity':{'publishedBytes':0,'hardLimitBytes':HARD,'rotateAtBytes':ROTATE,'needsSplit':False}}
     # The status file contributes to its own artifact size; converge the byte count.
