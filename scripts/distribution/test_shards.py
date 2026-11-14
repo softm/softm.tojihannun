@@ -40,37 +40,44 @@ class DistributionTests(unittest.TestCase):
         s.write_json(self.root/'migration-receipt.json',{'sourceCommit':'a'*40,'sourceRepository':'softm/softm.tojihannun'});s.check_handover(self.root,shard)
     def test_rolling_daily_request_budget_shared_by_manual_reruns(self):
         now=datetime.now(timezone.utc)
-        shard_id='realestate-data-001'
-        daily=self.config['requestBudget']['perShardDaily'][shard_id]
-        state={'requestLedger':[{'at':now.isoformat(),'requests':daily-2}]}
+        shard_id='realestate-data-001';stream_id='apartment-sale'
+        daily=s.shard_stream_limit(self.config,shard_id,stream_id)
+        state={'requestLedger':[{'at':now.isoformat(),'requests':daily-2,'stream':stream_id}]}
         previous=os.environ.get('GITHUB_REPOSITORY')
         os.environ['GITHUB_REPOSITORY']='softm/'+shard_id
         try:
-            self.assertEqual(s.request_budget(state,self.config,now),2)
+            self.assertEqual(s.request_budget(state,self.config,stream_id,now),2)
             state['requestLedger'][0]['requests']=daily
-            self.assertEqual(s.request_budget(state,self.config,now),0)
+            self.assertEqual(s.request_budget(state,self.config,stream_id,now),0)
         finally:
             if previous is None: os.environ.pop('GITHUB_REPOSITORY',None)
             else: os.environ['GITHUB_REPOSITORY']=previous
     def test_pre_handover_request_ledger_is_not_charged_to_target_shard(self):
         now=datetime.now(timezone.utc)
-        shard_id='realestate-data-011'
-        daily=self.config['requestBudget']['perShardDaily'][shard_id]
+        shard_id='realestate-data-011';stream_id='rowHouse-sale'
+        daily=s.shard_stream_limit(self.config,shard_id,stream_id)
         handover=now.replace(microsecond=0)
         state={
             'migration':{'phase':'handover','verifiedAt':handover.isoformat()},
             'requestLedger':[
-                {'at':(handover-timedelta(minutes=1)).isoformat(),'requests':daily},
-                {'at':(handover+timedelta(seconds=1)).isoformat(),'requests':3},
+                {'at':(handover-timedelta(minutes=1)).isoformat(),'requests':daily,'stream':stream_id},
+                {'at':(handover+timedelta(seconds=1)).isoformat(),'requests':3,'stream':stream_id},
             ],
         }
         previous=os.environ.get('GITHUB_REPOSITORY')
         os.environ['GITHUB_REPOSITORY']='softm/'+shard_id
         try:
-            self.assertEqual(s.request_budget(state,self.config,now+timedelta(seconds=2)),daily-3)
+            self.assertEqual(s.request_budget(state,self.config,stream_id,now+timedelta(seconds=2)),daily-3)
         finally:
             if previous is None: os.environ.pop('GITHUB_REPOSITORY',None)
             else: os.environ['GITHUB_REPOSITORY']=previous
+    def test_per_stream_allocations_sum_to_service_limits(self):
+        for stream_id,limit in self.config['requestBudget']['perStreamDaily'].items():
+            allocated=sum(s.shard_stream_limit(self.config,shard['id'],stream_id) for shard in self.config['shards'])
+            self.assertEqual(allocated,limit)
+        self.assertEqual(self.config['requestBudget']['perStreamDaily']['land-sale'],1000)
+        self.assertEqual(self.config['requestBudget']['perStreamDaily']['apartment-sale'],10000)
+
     def test_one_gb_means_decimal_and_includes_all_files(self):
         self.config['allocation'].update(maxPublishedBytes=100,rotateAtBytes=90)
         (self.root/'data.gz').write_bytes(b'a'*80);(self.root/'index.json').write_bytes(b'a'*10)
