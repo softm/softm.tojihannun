@@ -195,13 +195,13 @@ def request_usage(state, config, now=None):
     return result
 
 def collect(pipe, config, mode):
-    budget = request_budget(pipe.state, config)
     run = {'startedAt':utc(), 'mode':mode, 'status':'running', 'runId':os.environ.get('GITHUB_RUN_ID'),
            'success':0, 'failed':0, 'requests':0, 'added':0, 'removed':0, 'cancelled':0}
-    if not budget: run.update(status='deferred', stopReason='LOCAL_REQUEST_BUDGET'); return run
-    if cooldown_active(pipe.state.get('apiCooldown')): run.update(status='deferred', stopReason='API_COOLDOWN'); return run
     key = os.environ.get('MOLIT_API_KEY', '')
     if not key: run.update(status='blocked', stopReason='MISSING_MOLIT_API_KEY'); return run
+    budget = request_budget(pipe.state, config)
+    if not budget: run.update(status='deferred', stopReason='LOCAL_REQUEST_BUDGET'); return run
+    if cooldown_active(pipe.state.get('apiCooldown')): run.update(status='deferred', stopReason='API_COOLDOWN'); return run
     client = Client(key, max_requests=budget, interval=1.2, deadline=time.monotonic()+480)
     try:
         blocked = set()
