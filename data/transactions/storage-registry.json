@@ -1,9 +1,9 @@
 {
   "schemaVersion": 3,
-  "revision": "twenty-shard-per-api-quota-v6",
+  "revision": "twenty-shard-pilot-serving-003-v7",
   "mode": "collecting",
   "bootstrapSourceRef": "f328c729eece4fe45f1b403a1af1fcd62fa5de46",
-  "note": "20개 지역 수집기 가동. 001~010에서 011~020으로 검증된 체크포인트를 분할 이관했고, 대상 handover 영수증과 source commit을 일치시킴. 원본 세그먼트 파일은 보존.",
+  "note": "20개 지역 수집기는 계속 동작합니다. realestate-data-003만 검증된 Pages 우선 조회를 시범 적용하며, 읽기 실패 시 토지한눈 중앙 정적자료로 자동 폴백합니다. 나머지 shard는 serving=legacy를 유지합니다.",
   "allocation": {
     "unit": "bytes",
     "maxPublishedBytes": 1000000000,
@@ -145,7 +145,7 @@
       ],
       "activeDistrictCount": 13,
       "collectionOwner": "shard",
-      "serving": "legacy",
+      "serving": "pages",
       "handoverCommit": "98c2c3aba1ba3c505708cef85f83a9cbdba30472",
       "pagesBaseUrl": "https://softm.github.io/realestate-data-003/",
       "publishedBytes": null,
