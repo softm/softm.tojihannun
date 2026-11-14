@@ -17,7 +17,7 @@ const publicFiles = [
   "data-status.html",
   "data-status.js",
   "data-status.css",
-  "static-transactions.js",
+  "distributed-transactions.js",\n  "static-transactions.js",
   "privacy.html",
   "sources.html",
   "privacy.css",
