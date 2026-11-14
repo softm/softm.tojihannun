@@ -17,7 +17,7 @@
     })().catch(error => { cache.delete(key); throw error; }));
     return cache.get(key);
   }
-  async function lookup(area, type, {includeNearby = false, force = false} = {}) {
+  async function lookupCentral(area, type, {includeNearby = false, force = false} = {}) {
     if (!/^\d{5}$/.test(area?.lawdCode || '') || !area.emd || !area.lot) return null;
     if (force) invalidate();
     const catalog = await json('index.json');
@@ -50,5 +50,19 @@
     return {type,lawdCode:area.lawdCode,emd:area.emd,lot:area.lot,completeMonths:covered,rows,
       includesNearby:includeNearby,verifiedAt:index.updatedAt,source:'국토부 수집 정적자료',fullHistoryComplete:false};
   }
-  window.TojiStaticTrades = {lookup,invalidate};
+  async function lookup(area, type, options = {}) {
+    const includeNearby = options.includeNearby === true;
+    const force = options.force === true;
+    if (window.TojiDistributedTrades) {
+      try {
+        const remote = await window.TojiDistributedTrades.lookup(area, type, {includeNearby, force});
+        if (remote) return remote;
+      } catch {
+        // A shard handoff must never make parcel lookup unavailable. The tracked
+        // central dataset remains the safety fallback until the shard is stable.
+      }
+    }
+    return lookupCentral(area, type, {includeNearby, force});
+  }
+  window.TojiStaticTrades = Object.freeze({lookup,invalidate});
 })();
