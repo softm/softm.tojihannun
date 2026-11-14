@@ -73,12 +73,12 @@
       if(!Number.isFinite(expiry)||expiry<=now)return {key:'stale',label:'● 실행 상태 만료',live:false,data:d,updatedAt:d.updatedAt};
       return {key:'running',label:'● 실제 수집 실행 중',live:true,data:d,updatedAt:d.updatedAt};
     }
-    if(now-updated>STALE)return {key:'stale',label:'● 상태 오래됨',live:false,data:d,updatedAt:d.updatedAt};
-    if(d.status==='deferred')return {key:'deferred',label:'● 호출 예산·재시도 대기',live:false,data:d,updatedAt:d.updatedAt};
-    if(d.status==='idle')return {key:'idle',label:'● 정상 종료 · 다음 실행 대기',live:false,data:d,updatedAt:d.updatedAt};
-    if(d.status==='failed')return {key:'failed',label:'● 오류·점검 필요',live:false,data:d,updatedAt:d.updatedAt};
-    if(d.status==='stopped'&&d.collectionStatus==='success')return {key:'idle',label:'● 정상 종료 · 다음 실행 대기',live:false,data:d,updatedAt:d.updatedAt};
-    if(d.status==='stopped')return {key:'stopped',label:'● 수집 정지·비활성',live:false,data:d,updatedAt:d.updatedAt};
+    const stale=now-updated>STALE;
+    if(d.status==='deferred')return {key:'deferred',label:stale?'● 호출 예산 대기 · 상태 갱신 지연':'● 호출 예산·재시도 대기',live:false,data:d,updatedAt:d.updatedAt,stale};
+    if(d.status==='idle')return {key:'idle',label:stale?'● 다음 실행 대기 · 상태 갱신 지연':'● 정상 종료 · 다음 실행 대기',live:false,data:d,updatedAt:d.updatedAt,stale};
+    if(d.status==='failed')return {key:'failed',label:'● 오류·점검 필요',live:false,data:d,updatedAt:d.updatedAt,stale};
+    if(d.status==='stopped'&&d.collectionStatus==='success')return {key:'idle',label:stale?'● 다음 실행 대기 · 상태 갱신 지연':'● 정상 종료 · 다음 실행 대기',live:false,data:d,updatedAt:d.updatedAt,stale};
+    if(d.status==='stopped')return {key:'stopped',label:'● 수집 정지·비활성',live:false,data:d,updatedAt:d.updatedAt,stale};
     return {key:'unknown',label:'● 상태 미확인',live:false,data:d,updatedAt:d.updatedAt};
   }
   function link(text,url){const a=el('a',text);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;}
@@ -121,10 +121,11 @@
     const running=states.filter(x=>x.key==='running').length;
     const deferred=states.filter(x=>['deferred','idle'].includes(x.key)).length;
     const stopped=states.filter(x=>x.key==='stopped').length;
-    const failed=states.filter(x=>['failed','stale'].includes(x.key)).length;
+    const failed=states.filter(x=>x.key==='failed').length;
+    const stale=states.filter(x=>x.stale).length;
     const latest=states.map(x=>Date.parse(x.updatedAt)).filter(Number.isFinite).sort((x,y)=>y-x)[0];
     if(states.length){
-      $('liveState').textContent=`현재 실행 ${running}개 · 대기 ${deferred}개 · 정지 ${stopped}개 · 오류 ${failed}개`;
+      $('liveState').textContent=`현재 실행 ${running}개 · 대기 ${deferred}개 · 정지 ${stopped}개 · 오류 ${failed}개${stale?` · 상태지연 ${stale}개`:''}`;
       $('liveDetail').textContent=`live-status 30초 자동 갱신 · 확인 ${states.length}/${snapshot.owned.length}개${latest?' · 최근 상태 '+age(new Date(latest).toISOString()):''}. 실행 중일 때만 초록색으로 점멸합니다.`;
     }else{
       const entries=snapshot.owned.map(r=>actions.reports[r.shard.id]);
@@ -165,9 +166,9 @@
   }
   function renderShards(){
     if(!snapshot)return;const filter=$('shardFilter').value;
-    const rows=snapshot.rows.filter(r=>{const live=liveVisual(r.shard.id);return filter==='all'||filter==='active'&&r.assigned||filter==='reserved'&&!r.assigned||filter==='attention'&&r.attention||filter==='stale'&&r.stale||filter==='running'&&live?.key==='running'||filter==='stopped'&&live?.key==='stopped'||filter==='deferred'&&['deferred','idle'].includes(live?.key)||filter==='error'&&['failed','stale'].includes(live?.key);});
+    const rows=snapshot.rows.filter(r=>{const live=liveVisual(r.shard.id);return filter==='all'||filter==='active'&&r.assigned||filter==='reserved'&&!r.assigned||filter==='attention'&&r.attention||filter==='stale'&&r.stale||filter==='running'&&live?.key==='running'||filter==='stopped'&&live?.key==='stopped'||filter==='deferred'&&['deferred','idle'].includes(live?.key)||filter==='error'&&live?.key==='failed';});
     const table=el('table'),thead=el('thead'),head=el('tr');for(const name of ['레포 · 담당','진행률 / 완료 구간','유효 거래','마지막 정상 수집','마지막 수집 배치','GitHub 실행 확인','게시 산출물','서비스 조회'])head.append(el('th',name));thead.append(head);table.append(thead);const body=el('tbody');
-    for(const r of rows){const {shard:s,data:d}=r, a=actions.reports[s.id], live=liveVisual(s.id), action=live||actionState(a&&!a.error?a.run:null), batchStatus=d?.collection?.status||'';const rowClasses=[!r.assigned?'reserved':r.attention?'attention':'',action.key==='running'?'running-row':action.key==='queued'?'queued-row':action.key==='stopped'?'stopped-row':'',action.key==='failed'||action.key==='stale'?'failed-row':'',['deferred','idle'].includes(action.key)||batchStatus==='deferred'?'deferred-row':''].filter(Boolean).join(' '), tr=el('tr',null,rowClasses);
+    for(const r of rows){const {shard:s,data:d}=r, a=actions.reports[s.id], live=liveVisual(s.id), action=live||actionState(a&&!a.error?a.run:null), batchStatus=d?.collection?.status||'';const rowClasses=[!r.assigned?'reserved':r.attention?'attention':'',action.key==='running'?'running-row':action.key==='queued'?'queued-row':action.key==='stopped'?'stopped-row':'',action.key==='failed'?'failed-row':'',['deferred','idle'].includes(action.key)||batchStatus==='deferred'?'deferred-row':''].filter(Boolean).join(' '), tr=el('tr',null,rowClasses);
       const td=()=>{const x=el('td');tr.append(x);return x;};
       const identity=td();identity.append(link(s.id.replace('realestate-data-','DATA '),s.pagesBaseUrl+'data-status.html'),el('small',s.label?.replace(/^\d+\s*·\s*/, '')||s.id),el('small',r.assigned?fmt(s.activeDistrictCount)+'개 현행 시군구':'지역 미배정'));identity.append(link('개별 상태 ↗',s.pagesBaseUrl+'data-status.html'));
       const progress=td();if(r.valid){progress.append(el('strong',formatPercent(d.summary.completedTasks,d.summary.expectedTasks)),el('small',fmt(d.summary.completedTasks)+' / '+fmt(d.summary.expectedTasks)));const p=el('progress');p.max=d.summary.expectedTasks||1;p.value=d.summary.completedTasks;p.setAttribute('aria-label',s.id+' 수집 진행률');progress.append(p);}else progress.append(badge(!r.assigned?'증설 대기':'미확인',!r.assigned?'reserved':'error'));
