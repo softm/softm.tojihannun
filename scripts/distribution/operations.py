@@ -190,7 +190,7 @@ def collect(pipe, config, mode, client_factory=BudgetedClient):
         timeout_only = bool(run['failed']) and not run['success'] and set(run.get('errors', {})) == {'NETWORK_TIMEOUT'}
         if timeout_only:
             run['status'] = 'deferred'
-            run.setdefault('stopReason', 'NETWORK_TIMEOUT')
+            run['stopReason'] = 'NETWORK_TIMEOUT'
         elif run['success'] and run['failed']:
             run['status'] = 'partial'
         elif run['failed']:
