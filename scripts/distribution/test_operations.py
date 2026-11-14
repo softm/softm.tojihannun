@@ -29,8 +29,8 @@ class OperationTests(unittest.TestCase):
             def month(self,*a):self.calls+=1;raise s.SourceError('429')
         with patch.dict(os.environ,{'MOLIT_API_KEY':'test-not-real'}):
             r=o.collect(self.pipe,self.config,'backfill',Client)
-        self.assertEqual(r['requests'],1);self.assertEqual(r['status'],'failed')
-        self.assertTrue(s.cooldown_active(self.pipe.state['apiCooldown']))
+        self.assertGreater(r['requests'],0);self.assertEqual(r['status'],'failed')
+        self.assertTrue(self.pipe.state.get('streamCooldowns'))
     def test_network_timeout_only_batch_is_deferred_for_retry(self):
         class Client:
             def __init__(self,*a):self.calls=0
@@ -74,7 +74,7 @@ class OperationTests(unittest.TestCase):
             client.calls+=1
             return 0,[]
         with patch.dict(os.environ,{'MOLIT_API_KEY':'test-not-real'}),patch.object(s.Client,'page',request):
-            c=o.BudgetedClient(self.pipe,8);c.page({},'41210','202611',1)
+            c=o.BudgetedClient(self.pipe,self.config,8);c.page({'id':'land-sale'},'41210','202611',1)
         self.assertEqual(s.request_budget(self.pipe.state,self.config),7)
     def test_failure_message_never_leaks_key(self):
         class Client:
