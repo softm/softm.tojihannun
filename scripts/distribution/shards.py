@@ -147,7 +147,21 @@ def request_budget(state, config, stream_id=None, now=None):
             return max(0, min(per_run, remaining))
         daily = shard_stream_limit(config, shard_id, stream_id)
         used = stream_requests_used(state, stream_id, now)
-        return max(0, min(per_run, daily - used))
+        stream_remaining = max(0, daily - used)
+        cutoff = _budget_cutoff(state, now, 24)
+        recent = []
+        for entry in state.get('requestLedger', []):
+            try:
+                if datetime.fromisoformat(entry['at']) > cutoff:
+                    recent.append(entry)
+            except (ValueError, KeyError, TypeError):
+                raise ValueError('Invalid request ledger')
+        if any(not entry.get('stream') for entry in recent):
+            legacy_daily = int(q.get('perShardDaily', {}).get(shard_id, q.get('perDay', 0)))
+            legacy_used = sum(int(entry.get('requests',0)) for entry in recent)
+            transition_remaining = max(0, legacy_daily - legacy_used)
+            stream_remaining = min(stream_remaining, transition_remaining)
+        return max(0, min(per_run, stream_remaining))
     history = state.get('requestLedger', [])
     cutoff = _budget_cutoff(state, now, 24)
     used = 0
@@ -192,6 +206,16 @@ def request_usage(state, config, now=None):
         }
     result['used24h'] = sum(x['used24h'] for x in result['streams'].values())
     result['remaining24h'] = sum(x['remaining24h'] for x in result['streams'].values())
+    cutoff = _budget_cutoff(state, now, 24)
+    untagged = []
+    for entry in state.get('requestLedger', []):
+        try:
+            if datetime.fromisoformat(entry['at']) > cutoff and not entry.get('stream'):
+                untagged.append(entry)
+        except (ValueError, KeyError, TypeError):
+            raise ValueError('Invalid request ledger')
+    result['transitionUntaggedUsed24h'] = sum(int(x.get('requests',0)) for x in untagged)
+    result['transitionActive'] = bool(untagged)
     return result
 
 def collect(pipe, config, mode):
