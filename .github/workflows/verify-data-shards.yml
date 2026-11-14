@@ -50,7 +50,7 @@ jobs:
           status_js=Path('data-status.js').read_text()
           status_html=Path('data-status.html').read_text()
           build_js=Path('scripts/build-pages.mjs').read_text()
-          assert 'TojiDistributedStatus' in status_js and 'shardReports' in status_js, 'distributed dashboard integration missing'
+          assert 'TojiDistributedStatus' in status_js and 'reports={}' in status_js and 'window.TojiDistributedStatus.load(config)' in status_js, 'distributed dashboard integration missing'
           assert './distributed-status.js' in status_html, 'distributed status script missing from page'
           assert '"distributed-status.js"' in build_js, 'distributed status asset missing from Pages build'
           print('Checked-in twenty-shard integration is structurally valid.')
