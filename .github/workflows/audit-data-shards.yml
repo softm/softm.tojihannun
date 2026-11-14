@@ -2,7 +2,11 @@ name: Audit installed regional repositories
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/audit-data-shards.yml']
+    paths:
+      - '.github/workflows/audit-data-shards.yml'
+      - 'data/transactions/storage-registry.json'
+      - 'distributed-transactions.js'
+      - 'static-transactions.js'
   workflow_dispatch:
 permissions:
   contents: write
@@ -70,24 +74,33 @@ jobs:
                   assert set(status['districtCodes'])==allowed,'district assignment mismatch'
                   assert status['migration']['sourceCommit']==expected_source,'status handover mismatch'
                   assert status['capacity']['publishedBytes']<1000000000,'publication capacity exceeded'
-                  runs=get('https://api.github.com/repos/'+repo+'/actions/runs?per_page=1')['workflow_runs']
-                  result.update(verified=True,head=head,records=status['summary']['records'],segments=status['summary']['completedTasks'],publishedBytes=status['capacity']['publishedBytes'],collection=status['collection']['status'],sourceRequests=status['collection']['requests'],run=runs[0]['html_url'] if runs else None,runConclusion=runs[0]['conclusion'] if runs else None)
+                  runs=get('https://api.github.com/repos/'+repo+'/actions/runs?per_page=8')['workflow_runs']
+                  collection_run=next((r for r in runs if r.get('path')=='.github/workflows/collect.yml'),runs[0] if runs else None)
+                  result.update(verified=True,head=head,records=status['summary']['records'],segments=status['summary']['completedTasks'],publishedBytes=status['capacity']['publishedBytes'],collection=status['collection']['status'],sourceRequests=status['collection']['requests'],run=collection_run.get('html_url') if collection_run else None,runConclusion=collection_run.get('conclusion') if collection_run else None)
                   try:
                       published=get(shard['pagesBaseUrl']+'shard-status.json')
-                      result['pagesVerified']=published.get('shardId')==shard['id'] and published.get('migration',{}).get('sourceCommit')==expected_source
-                  except (urllib.error.HTTPError,urllib.error.URLError,TimeoutError):result['pagesVerified']=False
+                      pages_ok=published.get('shardId')==shard['id'] and published.get('repository')==repo and published.get('migration',{}).get('sourceCommit')==expected_source
+                      catalog=get(shard['pagesBaseUrl']+'published/index.json')
+                      published_districts=set(catalog.get('districts',{}))
+                      index_ok=catalog.get('schemaVersion')==2 and published_districts.issubset(allowed) and all(v.get('index')==code+'/index.json' for code,v in catalog.get('districts',{}).items())
+                      result['pagesVerified']=pages_ok
+                      result['publishedIndexVerified']=index_ok
+                      result['pagesReady']=pages_ok and index_ok
+                  except (urllib.error.HTTPError,urllib.error.URLError,TimeoutError,ValueError,KeyError):
+                      result['pagesVerified']=False;result['publishedIndexVerified']=False;result['pagesReady']=False
               except Exception as error:
                   result.update(verified=False,error=str(error));errors.append(shard['id']+': '+str(error))
               rows.append(result)
           assigned=[code for shard in config['shards'] for code in shard['districtCodes']]
           assert len(assigned)==len(set(assigned)),'overlapping district ownership'
           assert all(shard.get('collectionOwner')=='shard' and shard.get('collectionEnabled') for shard in config['shards'] if shard['districtCodes']),'inactive collection shard'
-          report={'checkedAt':datetime.now(timezone.utc).isoformat(),'sourceCommit':config['bootstrapSourceRef'],'shards':rows,'verifiedRepositories':sum(r.get('verified',False) for r in rows),'totalSegments':sum(r.get('segments',0) for r in rows),'totalRecords':sum(r.get('records',0) for r in rows),'totalPublishedBytes':sum(r.get('publishedBytes',0) for r in rows),'pagesVerified':sum(r.get('pagesVerified',False) for r in rows),'sourceDataDeleted':False,'serviceRoutesChanged':False,'errors':errors}
+          serving_pages=sum(s.get('serving')=='pages' for s in config['shards'])
+          report={'checkedAt':datetime.now(timezone.utc).isoformat(),'sourceCommit':config['bootstrapSourceRef'],'shards':rows,'verifiedRepositories':sum(r.get('verified',False) for r in rows),'totalSegments':sum(r.get('segments',0) for r in rows),'totalRecords':sum(r.get('records',0) for r in rows),'totalPublishedBytes':sum(r.get('publishedBytes',0) for r in rows),'pagesVerified':sum(r.get('pagesVerified',False) for r in rows),'pagesReady':sum(r.get('pagesReady',False) for r in rows),'servingPages':serving_pages,'sourceDataDeleted':False,'serviceRoutesChanged':serving_pages>0,'errors':errors}
           Path('test-results').mkdir(exist_ok=True)
           Path('test-results/regional-install-audit.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
           lines=['# 분산 레포 설치 검증','', '확인 시각: '+report['checkedAt'], '원본 체크포인트: `'+report['sourceCommit']+'`','', '| 레포 | 담당 | 검증 거래 | 구간 | 게시 산출물(bytes) | 첫 실행 | Pages 확인 |','|---|---|---:|---:|---:|---|---|']
           for r in rows:lines.append('| '+r['id']+' | '+r['label']+' | '+str(r.get('records','미확인'))+' | '+str(r.get('segments','미확인'))+' | '+str(r.get('publishedBytes','미확인'))+' | '+str(r.get('runConclusion','미확인'))+' | '+('성공' if r.get('pagesVerified') else '미확인')+' |')
-          lines+=['','검증된 저장소: '+str(report['verifiedRepositories'])+'/'+str(len(config['shards'])), '전국 원본과 대조된 구간: '+str(report['totalSegments']),'거래 합계: '+str(report['totalRecords']),'게시 산출물 합계: '+str(report['totalPublishedBytes'])+' bytes','', '검증 내용: 20개 레포 수집 소유권·지역 배정·handover 체크포인트·registry revision·레포별 1GB 한도를 검증.','기존 데이터 삭제: 실행하지 않음. 기존 실거래 조회 경로 변경: 실행하지 않음.','현재 단계는 20개 shard가 API 본수집을 소유하며 체크포인트에서 지속 수집하는 운영 구조다. Pages 게시 성공은 수집 성공과 별도이다.']
+          lines+=['','검증된 저장소: '+str(report['verifiedRepositories'])+'/'+str(len(config['shards'])), '전국 원본과 대조된 구간: '+str(report['totalSegments']),'거래 합계: '+str(report['totalRecords']),'게시 산출물 합계: '+str(report['totalPublishedBytes'])+' bytes','', '검증 내용: 20개 레포 수집 소유권·지역 배정·handover 체크포인트·registry revision·레포별 1GB 한도를 검증.','기존 데이터 삭제: 실행하지 않음. 조회 전환은 storage-registry.json의 serving 값으로 관리하며 Pages 읽기 실패 시 중앙 정적자료로 폴백한다.','현재 단계는 20개 shard가 API 본수집을 소유하며 체크포인트에서 지속 수집한다. Pages shard-status와 published/index.json을 별도로 검증한다.']
           Path('docs/DISTRIBUTED_INSTALL_VERIFICATION.md').write_text('\n'.join(lines)+'\n')
           print(json.dumps(report,ensure_ascii=False))
           if errors:raise SystemExit(1)
