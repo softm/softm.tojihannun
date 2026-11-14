@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "revision": "twenty-shard-continuous-daily-v5",
+  "revision": "twenty-shard-per-api-quota-v6",
   "mode": "collecting",
   "bootstrapSourceRef": "f328c729eece4fe45f1b403a1af1fcd62fa5de46",
   "note": "20개 지역 수집기 가동. 001~010에서 011~020으로 검증된 체크포인트를 분할 이관했고, 대상 handover 영수증과 source commit을 일치시킴. 원본 세그먼트 파일은 보존.",
@@ -37,7 +37,22 @@
       "realestate-data-019": 508,
       "realestate-data-020": 391
     },
-    "scope": "fixed per-shard daily allocations; sum exactly 10000 requests/rolling-24h across 20 active shards; use the full configured daily request budget"
+    "scope": "per OpenAPI service rolling-24h quota; each stream is budgeted independently across 20 shards. Defaults follow current data.go.kr development-account traffic listings; override when an approved operating-account quota differs.",
+    "perStreamDaily": {
+      "apartment-sale": 10000,
+      "rowHouse-sale": 10000,
+      "detached-sale": 10000,
+      "officetel-sale": 10000,
+      "rights-sale": 10000,
+      "commercial-sale": 10000,
+      "land-sale": 1000,
+      "factory-sale": 10000,
+      "apartment-rent": 10000,
+      "rowHouse-rent": 10000,
+      "detached-rent": 10000,
+      "officetel-rent": 10000
+    },
+    "totalDefaultDaily": 111000
   },
   "naming": {
     "owner": "softm",
