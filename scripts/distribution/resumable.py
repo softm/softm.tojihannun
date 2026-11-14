@@ -33,12 +33,14 @@ def clear_pending(pipe, key):
     pipe.save()
 
 
-def pending_tasks(pipe):
+def pending_tasks(pipe, streams=None):
     for key in sorted(pipe.state.get('pendingSegments', {})):
         parts = key.split('/')
         if len(parts) != 3:
             raise s.SourceError('INVALID_PENDING_SCOPE')
         code, sid, month = parts
+        if streams is not None and sid not in set(streams):
+            continue
         if (code not in pipe.districts or sid not in s.STREAMS or
                 not re.fullmatch(r'20\d{4}', month)):
             raise s.SourceError('INVALID_PENDING_SCOPE')
