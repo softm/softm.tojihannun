@@ -155,47 +155,35 @@ jobs:
             git pull --rebase origin main
             git push origin HEAD:main
           fi
-      - name: Continue immediately while this shard still has request budget
+      - name: Continue immediately while any API stream still has request budget
         if: steps.worker.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, os, urllib.request
-          from datetime import datetime, timedelta, timezone
+          import json, os, sys, urllib.request
           from pathlib import Path
+          sys.path.insert(0, str(Path('_engine/scripts/distribution').resolve()))
+          import shards as s
 
           result=json.loads(Path('collection-result.json').read_text())
           state=json.loads(Path('data/transactions/collection-state.json').read_text())
           config=json.loads(Path('_control/data/transactions/storage-registry.json').read_text())
-          shard_id=os.environ['GITHUB_REPOSITORY'].split('/')[-1]
-          q=config['requestBudget']
-          daily=int(q.get('perShardDaily',{}).get(shard_id,0))
-          cutoff=datetime.now(timezone.utc)-timedelta(hours=24)
-          migration=state.get('migration') or {}
-          try:
-              if migration.get('phase')=='handover' and migration.get('verifiedAt'):
-                  handover=datetime.fromisoformat(migration['verifiedAt'].replace('Z','+00:00'))
-                  if handover>cutoff:
-                      cutoff=handover
-          except (ValueError,TypeError):
-              raise SystemExit('invalid migration verifiedAt')
-          used=0
-          for item in state.get('requestLedger',[]):
-              try:
-                  if datetime.fromisoformat(item['at'])>cutoff:
-                      used+=int(item.get('requests',0))
-              except (ValueError,KeyError,TypeError):
-                  raise SystemExit('invalid request ledger')
-          remaining=max(0,daily-used)
           run=result.get('run',{})
           summary=result.get('summary',{})
           backlog=int(summary.get('completedTasks',0)) < int(summary.get('expectedTasks',0))
           healthy=run.get('status') in ('success','partial') and int(run.get('success',0))>0
-          cooldown=summary.get('apiCooldownUntil')
-          should_continue=remaining>0 and backlog and healthy and not cooldown
-          print(json.dumps({'used24h':used,'dailyAllocation':daily,'remaining':remaining,
+          streams=config.get('requestBudget',{}).get('perStreamDaily',{})
+          available=[
+              sid for sid in streams
+              if s.request_budget(state,config,sid)>0
+              and not s.cooldown_active(state.get('streamCooldowns',{}).get(sid))
+          ]
+          should_continue=bool(available) and backlog and healthy and not s.cooldown_active(state.get('apiCooldown'))
+          usage=s.request_usage(state,config)
+          print(json.dumps({'availableStreams':available,
+                            'remainingAcrossStreams':usage.get('remaining24h'),
                             'backlog':backlog,'healthy':healthy,'continue':should_continue},
                            ensure_ascii=False))
           if not should_continue:
@@ -210,7 +198,7 @@ jobs:
           with urllib.request.urlopen(req,timeout=20) as response:
               if response.status not in (201,204):
                   raise SystemExit('workflow dispatch failed: '+str(response.status))
-          print('::notice::Dispatched the next collection batch immediately; shard budget remains.')
+          print('::notice::Dispatched next collection batch; at least one API service still has quota.')
           PY
       - name: Mark source failures accurately
         if: steps.worker.outcome == 'failure'
