@@ -20,7 +20,8 @@ class OperationTests(unittest.TestCase):
         self.assertEqual(s.load(self.pipe.base/'collection-state.json')['lastRun']['status'],'blocked')
     def test_budget_deferral_is_persisted(self):
         self.pipe.state['requestLedger']=[{'at':s.utc(),'requests':8}]
-        r=o.collect(self.pipe,self.config,'backfill')
+        with patch.dict(os.environ,{'MOLIT_API_KEY':'test-not-real'}):
+            r=o.collect(self.pipe,self.config,'backfill')
         self.assertEqual(r['stopReason'],'LOCAL_REQUEST_BUDGET')
         self.assertTrue(r['finishedAt'])
     def test_shared_quota_error_stops_run(self):
