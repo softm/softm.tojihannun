@@ -28,20 +28,25 @@ def finish(pipe, run):
 
 
 class BudgetedClient(ResumableMonths, s.Client):
-    def __init__(self, pipe, budget):
+    def __init__(self, pipe, config, budget):
         super().__init__(os.environ.get('MOLIT_API_KEY', ''), max_requests=budget,
                          interval=1.5, deadline=time.monotonic()+480)
         self.pipe = pipe
+        self.config = config
+        self.calls_by_stream = {}
 
     def page(self, stream, code, month, page):
         if self.calls >= self.max_requests:
             raise s.SourceError('REQUEST_BUDGET')
+        if s.request_budget(self.pipe.state, self.config, stream['id']) <= 0:
+            raise s.SourceError('STREAM_REQUEST_BUDGET')
         # This is local until the workflow persists the checkpoint; do not claim
         # remote crash durability before that commit succeeds.
         cutoff = datetime.now(timezone.utc)-timedelta(days=2)
         ledger = [x for x in self.pipe.state.get('requestLedger', [])
                   if datetime.fromisoformat(x['at']) > cutoff]
-        entry = {'at': s.utc(), 'requests': 1, 'runId': os.environ.get('GITHUB_RUN_ID')}
+        entry = {'at': s.utc(), 'requests': 1, 'stream': stream['id'],
+                 'runId': os.environ.get('GITHUB_RUN_ID')}
         self.pipe.state['requestLedger'] = [*ledger, entry]
         self.pipe.save()
         before = self.calls
@@ -51,6 +56,8 @@ class BudgetedClient(ResumableMonths, s.Client):
             if self.calls == before:  # Client rejected before attempting the network.
                 self.pipe.state['requestLedger'].remove(entry)
                 self.pipe.save()
+            else:
+                self.calls_by_stream[stream['id']] = self.calls_by_stream.get(stream['id'], 0) + (self.calls-before)
 
 
 COLLECTION_PHASES = (
@@ -60,11 +67,11 @@ COLLECTION_PHASES = (
     {'id':4,'label':'2006~2009','start':'2006-01-01','end':'2009-12-31'},
 )
 
-def phase_tasks(pipe, phase):
+def phase_tasks(pipe, phase, streams=None):
     end = min(phase['end'], pipe.asof)
     if phase['start'] > end:
         return iter(())
-    return pipe.plan('backfill', month_start=phase['start'], month_end=end)
+    return pipe.plan('backfill', streams=streams, month_start=phase['start'], month_end=end)
 
 def phase_complete(pipe, phase):
     # Completion is based on persisted segments; unsupported/access-blocked streams
@@ -77,14 +84,14 @@ def current_phase(pipe):
             return phase
     return None
 
-def task_queue(pipe, mode):
+def task_queue(pipe, mode, streams=None):
     seen = set()
     if mode in ('auto', 'backfill'):
-        for task in pending_tasks(pipe):
+        for task in pending_tasks(pipe, streams):
             seen.add(task)
             yield task
     if mode not in ('auto','backfill'):
-        for task in pipe.plan(mode):
+        for task in pipe.plan(mode, streams=streams):
             if task not in seen:
                 seen.add(task)
                 yield task
@@ -92,16 +99,16 @@ def task_queue(pipe, mode):
     phase = current_phase(pipe)
     if mode == 'backfill':
         if phase:
-            for task in phase_tasks(pipe, phase):
+            for task in phase_tasks(pipe, phase, streams):
                 if task not in seen:
                     seen.add(task)
                     yield task
         return
     # Auto: spend most calls on the current historical phase while reserving
     # regular turns for recent corrections/cancellations.
-    queues = {'refresh': iter(pipe.plan('refresh'))}
+    queues = {'refresh': iter(pipe.plan('refresh', streams=streams))}
     if phase:
-        queues['backfill'] = phase_tasks(pipe, phase)
+        queues['backfill'] = phase_tasks(pipe, phase, streams)
     pattern = ('backfill','backfill','backfill','refresh') if phase else ('refresh',)
     for kind in itertools.cycle(pattern):
         if not queues:
@@ -120,24 +127,36 @@ def task_queue(pipe, mode):
 def collect(pipe, config, mode, client_factory=BudgetedClient):
     run = {'startedAt':s.utc(), 'mode':mode, 'status':'running',
            'runId':os.environ.get('GITHUB_RUN_ID'), 'success':0, 'failed':0,
-           'requests':0, 'added':0, 'removed':0, 'cancelled':0}
-    budget = s.request_budget(pipe.state, config)
-    reason = ('LOCAL_REQUEST_BUDGET' if budget <= 0 else
-              'API_COOLDOWN' if s.cooldown_active(pipe.state.get('apiCooldown')) else
-              'MISSING_MOLIT_API_KEY' if not os.environ.get('MOLIT_API_KEY', '').strip() else None)
-    if reason:
-        run.update(status='blocked' if reason=='MISSING_MOLIT_API_KEY' else 'deferred', stopReason=reason)
+           'requests':0, 'requestsByStream':{}, 'added':0, 'removed':0, 'cancelled':0}
+    if not os.environ.get('MOLIT_API_KEY', '').strip():
+        run.update(status='blocked', stopReason='MISSING_MOLIT_API_KEY')
         return finish(pipe, run)
-    client = client_factory(pipe, budget)
+    if s.cooldown_active(pipe.state.get('apiCooldown')):
+        run.update(status='deferred', stopReason='API_COOLDOWN')
+        return finish(pipe, run)
+
+    available = [sid for sid in s.STREAMS
+                 if s.request_budget(pipe.state, config, sid) > 0
+                 and not s.cooldown_active(pipe.state.get('streamCooldowns', {}).get(sid))]
+    if not available:
+        run.update(status='deferred', stopReason='LOCAL_REQUEST_BUDGET')
+        return finish(pipe, run)
+
+    per_run = int(config['requestBudget'].get('perRun', 1000))
+    client = client_factory(pipe, config, per_run)
     blocked = set()
     pipe.state['lastRun'] = run
     pipe.save()
     try:
-        for task in task_queue(pipe, mode):
-            if client.calls >= budget:
+        for task in task_queue(pipe, mode, streams=available):
+            if client.calls >= per_run:
+                run['stopReason'] = 'REQUEST_BUDGET'
                 break
             code, sid, month = task.split('/')
             if sid in blocked:
+                continue
+            if s.request_budget(pipe.state, config, sid) <= 0:
+                blocked.add(sid)
                 continue
             run['currentTask'] = task
             try:
@@ -149,31 +168,47 @@ def collect(pipe, config, mode, client_factory=BudgetedClient):
                 for key in ('added', 'removed', 'cancelled'):
                     run[key] += meta[key]
             except s.SourceError as error:
+                if error.code == 'STREAM_REQUEST_BUDGET':
+                    blocked.add(sid)
+                    continue
                 if error.code in ('REQUEST_BUDGET', 'TIME_BUDGET', 'STOPPED'):
                     run['stopReason'] = error.code
-                    break  # Local batching is not a failed source segment.
+                    break
                 pipe.fail(task, error)
                 run['failed'] += 1
                 run.setdefault('errors', {}).setdefault(error.code, 0)
                 run['errors'][error.code] += 1
-                if error.code in ('429', '22', '23', '29'):
+                if error.code in ('429', '22', '23'):
+                    blocked.add(sid)
+                    continue
+                if error.code == '29':
                     run['stopReason'] = error.code
                     break
                 if error.code in ('401', '403', '20', '30', '31', '12', '404'):
                     blocked.add(sid)
+        run['requestsByStream'] = dict(getattr(client, 'calls_by_stream', {}))
         timeout_only = bool(run['failed']) and not run['success'] and set(run.get('errors', {})) == {'NETWORK_TIMEOUT'}
         if timeout_only:
             run['status'] = 'deferred'
             run.setdefault('stopReason', 'NETWORK_TIMEOUT')
+        elif run['success'] and run['failed']:
+            run['status'] = 'partial'
+        elif run['failed']:
+            run['status'] = 'failed'
+        elif run['success']:
+            run['status'] = 'success'
+        elif blocked:
+            run['status'] = 'deferred'
+            run.setdefault('stopReason', 'STREAMS_UNAVAILABLE')
+        elif run.get('stopReason'):
+            run['status'] = 'deferred'
         else:
-            run['status'] = ('partial' if run['success'] and run['failed'] else
-                             'failed' if run['failed'] else 'success' if run['success'] else
-                             'deferred' if run.get('stopReason') else 'idle')
+            run['status'] = 'idle'
     except Exception as error:
         run.update(status='failed', stopReason='INTERNAL_VALIDATION_ERROR', errorType=type(error).__name__)
-        # Do not expose exception messages containing URLs or credential values.
     finally:
         run['requests'] = client.calls
+        run['requestsByStream'] = dict(getattr(client, 'calls_by_stream', run.get('requestsByStream', {})))
         finish(pipe, run)
     return run
 
