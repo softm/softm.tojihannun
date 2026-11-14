@@ -78,7 +78,7 @@ class ResumeTests(unittest.TestCase):
         tasks=list(o.task_queue(self.pipe,'auto'))
         self.assertEqual(tasks[0],self.key);self.assertEqual(tasks.count(self.key),1)
     def test_operations_reports_partial_pages_and_resumes(self):
-        with patch.dict(os.environ,{'MOLIT_API_KEY':'fake-only'}),patch.object(o,'task_queue',lambda *a:iter([self.key])):
+        with patch.dict(os.environ,{'MOLIT_API_KEY':'fake-only'}),patch.object(o,'task_queue',lambda *a,**k:iter([self.key])):
             first=o.collect(self.pipe,self.config,'backfill',self.client(8001))
             self.assertEqual(first['pendingPages'],8);self.assertEqual(first['status'],'deferred')
             second=o.collect(self.pipe,self.config,'backfill',self.client(8001))
