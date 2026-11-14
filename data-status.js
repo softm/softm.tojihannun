@@ -183,6 +183,8 @@
     if(!host||!summary||!snapshot||!registry)return;
     const limits=registry.requestBudget?.perStreamDaily||{};
     const owned=snapshot.owned||[];
+    const transitionShards=owned.filter(r=>r.data?.requestUsage?.transitionActive).length;
+    const transitionUntagged=owned.reduce((n,r)=>n+(Number(r.data?.requestUsage?.transitionUntaggedUsed24h)||0),0);
     const streamRows=[];
     for(const [sid,serviceLimitRaw] of Object.entries(limits)){
       const serviceLimit=Number(serviceLimitRaw)||0;
@@ -195,7 +197,7 @@
         allocated+=Number(u.shardDailyLimit)||0;
         if(u.nextAvailableAt&&Number.isFinite(Date.parse(u.nextAvailableAt)))next.push(u.nextAvailableAt);
       }
-      const complete=known===owned.length&&owned.length>0;
+      const complete=known===owned.length&&owned.length>0&&transitionShards===0;
       const remaining=complete?Math.max(0,serviceLimit-used):null;
       const pct=complete&&serviceLimit?Math.min(100,used/serviceLimit*100):null;
       streamRows.push({sid,label:streamDefs[sid]?.label||sid,serviceLimit,used,remaining,pct,known,complete,next:next.sort((a,b)=>Date.parse(a)-Date.parse(b))[0]||null,allocated});
@@ -208,7 +210,8 @@
       card('API 서비스',fmt(streamRows.length)+'개','실거래 유형별 독립 quota'),
       card('기본 일일 한도',fmt(totalLimit)+'회','서비스별 기본 한도의 합계'),
       card('최근 24시간 사용',totalUsed==null?'부분 집계':fmt(totalUsed)+'회',`완전 집계 ${completeRows.length}/${streamRows.length}개 서비스`),
-      card('가장 빠른 quota 회복',earliest?age(earliest):'여유 있음',earliest?stamp(earliest):'현재 확인된 서비스 중 대기 없음')
+      card('가장 빠른 quota 회복',earliest?age(earliest):'여유 있음',earliest?stamp(earliest):'현재 확인된 서비스 중 대기 없음'),
+      card('quota 전환 상태',transitionShards?transitionShards+'개 shard 전환 중':'API별 정확 집계',transitionShards?'기존 공용 ledger '+fmt(transitionUntagged)+'회가 24시간 창에서 빠지는 중':'과거 공용 ledger 전환 완료')
     );
     const table=el('table'),thead=el('thead'),hr=el('tr');
     for(const h of ['API 서비스','기본 한도','최근 24시간 사용','남음','사용률','다음 회복','레포 확인'])hr.append(el('th',h));
