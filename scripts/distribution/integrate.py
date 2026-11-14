@@ -58,7 +58,7 @@ def month_range(start,end):""")
         text=replace_once(text,'        streams=streams or list(STREAMS)','        streams=streams or list(STREAMS)\n        owners=collection_owners(self.base)\n        codes=[c for c in codes if owners.get(c,\'legacy\')==\'legacy\']')
         path.write_text(text)
     path=ROOT/'data-status.js';text=path.read_text()
-    if 'shardReports={}' not in text:
+    if not ('TojiDistributedStatus' in text and 'shardReports' in text):
         text=replace_once(text,'  let model=null, storage=null;','  let model=null, storage=null, shardReports={}, loadVersion=0;')
         text=replace_once(text,'  function renderShards(){','  function renderShards(){\n    if(storage?.schemaVersion===3&&window.TojiDistributedStatus)return window.TojiDistributedStatus.render(storage,shardReports);')
         text=replace_once(text,"      const data=await get('./data/transactions/status/'+d.code+'.json');host.replaceChildren();","      const owner=storageFor(d.code),remote=owner?.serving==='pages'&&shardReports[owner.id]?.source==='pages';\n      const data=await get(remote?owner.pagesBaseUrl+'status-'+d.code+'.json':'./data/transactions/status/'+d.code+'.json');host.replaceChildren();")
