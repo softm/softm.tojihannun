@@ -18,7 +18,7 @@ class ResumeTests(unittest.TestCase):
     def client(self, total, budget=8, change_check=False, error_page=None):
         outer=self
         class Fake(ResumableMonths):
-            def __init__(self,pipe=None,budget_override=None):
+            def __init__(self,pipe=None,config=None,budget_override=None):
                 self.pipe=pipe or outer.pipe;self.calls=0;self.max_requests=budget_override or budget;self.trace=[]
             def page(self,stream,code,month,page):
                 if self.calls>=self.max_requests:raise s.SourceError('REQUEST_BUDGET')
