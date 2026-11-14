@@ -88,34 +88,111 @@ def check_handover(root, shard):
         receipt.get('sourceRepository') != expected_repo):
         raise ValueError('Verified final checkpoint and source repository required before shard collection')
 
-def request_budget(state, config, now=None):
-    now = now or datetime.now(timezone.utc)
-    history = state.get('requestLedger', [])
+def _budget_cutoff(state, now, hours=24):
+    cutoff = now - timedelta(hours=hours)
     migration = state.get('migration') or {}
-    handover_at = None
     try:
         if migration.get('phase') == 'handover' and migration.get('verifiedAt'):
             handover_at = datetime.fromisoformat(migration['verifiedAt'].replace('Z','+00:00'))
+            if handover_at > cutoff:
+                cutoff = handover_at
     except (ValueError, TypeError):
         raise ValueError('Invalid migration verifiedAt')
-    def recent(hours):
-        total = 0
-        cutoff = now - timedelta(hours=hours)
-        if handover_at and handover_at > cutoff:
-            cutoff = handover_at
-        for run in history:
-            try:
-                if datetime.fromisoformat(run['at']) > cutoff: total += int(run['requests'])
-            except (ValueError, KeyError, TypeError): raise ValueError('Invalid request ledger')
-        return total
+    return cutoff
+
+def shard_stream_limit(config, shard_id, stream_id):
+    q = config['requestBudget']
+    limits = q.get('perStreamDaily', {})
+    if not limits:
+        return int(q.get('perShardDaily', {}).get(shard_id, q.get('perDay', 0)))
+    if stream_id not in limits:
+        raise ValueError('Missing stream request limit: ' + str(stream_id))
+    total = int(limits[stream_id])
+    weights = {k:int(v) for k,v in q.get('perShardDaily', {}).items() if int(v) > 0}
+    if shard_id not in weights or not weights:
+        return 0
+    weight_sum = sum(weights.values())
+    shares = {k:(total*v/weight_sum) for k,v in weights.items()}
+    allocated = {k:int(v) for k,v in shares.items()}
+    remainder = total - sum(allocated.values())
+    order = sorted(weights, key=lambda k:(-(shares[k]-allocated[k]), k))
+    for k in order[:remainder]:
+        allocated[k] += 1
+    return allocated.get(shard_id, 0)
+
+def stream_requests_used(state, stream_id, now=None, hours=24):
+    now = now or datetime.now(timezone.utc)
+    cutoff = _budget_cutoff(state, now, hours)
+    total = 0
+    for entry in state.get('requestLedger', []):
+        try:
+            if entry.get('stream') != stream_id:
+                continue
+            if datetime.fromisoformat(entry['at']) > cutoff:
+                total += int(entry['requests'])
+        except (ValueError, KeyError, TypeError):
+            raise ValueError('Invalid request ledger')
+    return total
+
+def request_budget(state, config, stream_id=None, now=None):
+    now = now or datetime.now(timezone.utc)
+    q = config['requestBudget']
+    per_run = int(q.get('perRun', 1000))
+    shard_id = os.environ.get('GITHUB_REPOSITORY','').split('/')[-1]
+    if q.get('perStreamDaily'):
+        if stream_id is None:
+            remaining = sum(max(0, shard_stream_limit(config, shard_id, sid) -
+                                stream_requests_used(state, sid, now))
+                            for sid in q['perStreamDaily'])
+            return max(0, min(per_run, remaining))
+        daily = shard_stream_limit(config, shard_id, stream_id)
+        used = stream_requests_used(state, stream_id, now)
+        return max(0, min(per_run, daily - used))
+    history = state.get('requestLedger', [])
+    cutoff = _budget_cutoff(state, now, 24)
+    used = 0
+    for entry in history:
+        try:
+            if datetime.fromisoformat(entry['at']) > cutoff:
+                used += int(entry['requests'])
+        except (ValueError, KeyError, TypeError):
+            raise ValueError('Invalid request ledger')
+    daily = int(q.get('perShardDaily', {}).get(shard_id, q.get('perDay', 0)))
+    return max(0, min(per_run, daily - used))
+
+def request_usage(state, config, now=None):
+    now = now or datetime.now(timezone.utc)
     q = config['requestBudget']
     shard_id = os.environ.get('GITHUB_REPOSITORY','').split('/')[-1]
-    allocations = q.get('perShardDaily', {})
-    daily = int(allocations.get(shard_id, q.get('perDay', 0)))
-    per_run = int(q.get('perRun', daily))
-    # Continuous mode deliberately has no hourly throttle. Each independent shard
-    # owns a fixed daily allocation; all allocations sum below the account limit.
-    return max(0, min(per_run, daily - recent(24)))
+    result = {'windowHours':24, 'streams':{}}
+    for sid, total_limit in q.get('perStreamDaily', {}).items():
+        limit = shard_stream_limit(config, shard_id, sid)
+        used = stream_requests_used(state, sid, now)
+        remaining = max(0, limit-used)
+        next_at = None
+        if remaining <= 0:
+            cutoff = _budget_cutoff(state, now, 24)
+            candidates = []
+            for entry in state.get('requestLedger', []):
+                try:
+                    if entry.get('stream') == sid:
+                        at = datetime.fromisoformat(entry['at'])
+                        if at > cutoff:
+                            candidates.append(at + timedelta(hours=24))
+                except (ValueError, KeyError, TypeError):
+                    raise ValueError('Invalid request ledger')
+            if candidates:
+                next_at = min(candidates).isoformat()
+        result['streams'][sid] = {
+            'serviceDailyLimit':int(total_limit),
+            'shardDailyLimit':limit,
+            'used24h':used,
+            'remaining24h':remaining,
+            'nextAvailableAt':next_at,
+        }
+    result['used24h'] = sum(x['used24h'] for x in result['streams'].values())
+    result['remaining24h'] = sum(x['remaining24h'] for x in result['streams'].values())
+    return result
 
 def collect(pipe, config, mode):
     budget = request_budget(pipe.state, config)
