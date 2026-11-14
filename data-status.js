@@ -4,6 +4,20 @@
   const HOUR = 3600000, STALE = 2 * HOUR, ACTION_TTL = 15 * 60000, LIVE_POLL = 30000;
   const SNAPSHOT_KEY = 'toji.collection.observation.v1', ACTION_KEY = 'toji.collection.actions.v1';
   const names = {not_collected:'미수집',not_started:'미시작',partial:'일부 성공',complete:'계획 구간 완료',success:'수집 성공',failed:'수집 실패',failure:'실행 실패',error:'오류',running:'실행 중 기록',in_progress:'실행 중 기록',queued:'실행 대기',pending:'실행 대기',cancelled:'취소',deferred:'재시도·예산 대기',idle:'이번 대상 없음',blocked:'접근·설정 확인',capacity_paused:'용량 분할 필요',ready:'준비',paused:'이관 대기',mirroring:'기존 자료 복제',reserved:'증설 대기'};
+  const streamDefs={
+    'apartment-sale':{label:'아파트 매매'},
+    'rowHouse-sale':{label:'연립·다세대 매매'},
+    'detached-sale':{label:'단독·다가구 매매'},
+    'officetel-sale':{label:'오피스텔 매매'},
+    'rights-sale':{label:'분양·입주권 매매'},
+    'commercial-sale':{label:'상업·업무 매매'},
+    'land-sale':{label:'토지 매매'},
+    'factory-sale':{label:'공장·창고 등 매매'},
+    'apartment-rent':{label:'아파트 전월세'},
+    'rowHouse-rent':{label:'연립·다세대 전월세'},
+    'detached-rent':{label:'단독·다가구 전월세'},
+    'officetel-rent':{label:'오피스텔 전월세'}
+  };
   const integer = n => Number.isSafeInteger(n) && n >= 0;
   const fmt = n => n == null ? '미확인' : Number(n).toLocaleString('ko-KR');
   const stamp = value => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour12:false})+' KST' : '미확인';
@@ -164,6 +178,58 @@
     $('poolSummary').textContent=`총 ${s.rows.length}개 · 수집 예약 ${s.enabled}개 · 예비 ${s.reserved}개 · 확인 ${s.good.length}/${s.owned.length}개 · 레포당 게시 상한 1GB`;
     renderLive();
   }
+  function renderApiUsage(){
+    const host=$('apiUsage'), summary=$('apiUsageSummary');
+    if(!host||!summary||!snapshot||!registry)return;
+    const limits=registry.requestBudget?.perStreamDaily||{};
+    const owned=snapshot.owned||[];
+    const streamRows=[];
+    for(const [sid,serviceLimitRaw] of Object.entries(limits)){
+      const serviceLimit=Number(serviceLimitRaw)||0;
+      let used=0,known=0,allocated=0;const next=[];
+      for(const row of owned){
+        const u=row.data?.requestUsage?.streams?.[sid];
+        if(!u)continue;
+        known++;
+        used+=Number(u.used24h)||0;
+        allocated+=Number(u.shardDailyLimit)||0;
+        if(u.nextAvailableAt&&Number.isFinite(Date.parse(u.nextAvailableAt)))next.push(u.nextAvailableAt);
+      }
+      const complete=known===owned.length&&owned.length>0;
+      const remaining=complete?Math.max(0,serviceLimit-used):null;
+      const pct=complete&&serviceLimit?Math.min(100,used/serviceLimit*100):null;
+      streamRows.push({sid,label:streamDefs[sid]?.label||sid,serviceLimit,used,remaining,pct,known,complete,next:next.sort((a,b)=>Date.parse(a)-Date.parse(b))[0]||null,allocated});
+    }
+    const completeRows=streamRows.filter(r=>r.complete);
+    const totalLimit=streamRows.reduce((n,r)=>n+r.serviceLimit,0);
+    const totalUsed=completeRows.length===streamRows.length?streamRows.reduce((n,r)=>n+r.used,0):null;
+    const earliest=streamRows.map(r=>r.next).filter(Boolean).sort((a,b)=>Date.parse(a)-Date.parse(b))[0]||null;
+    summary.replaceChildren(
+      card('API 서비스',fmt(streamRows.length)+'개','실거래 유형별 독립 quota'),
+      card('기본 일일 한도',fmt(totalLimit)+'회','서비스별 기본 한도의 합계'),
+      card('최근 24시간 사용',totalUsed==null?'부분 집계':fmt(totalUsed)+'회',`완전 집계 ${completeRows.length}/${streamRows.length}개 서비스`),
+      card('가장 빠른 quota 회복',earliest?age(earliest):'여유 있음',earliest?stamp(earliest):'현재 확인된 서비스 중 대기 없음')
+    );
+    const table=el('table'),thead=el('thead'),hr=el('tr');
+    for(const h of ['API 서비스','기본 한도','최근 24시간 사용','남음','사용률','다음 회복','레포 확인'])hr.append(el('th',h));
+    thead.append(hr);table.append(thead);const body=el('tbody');
+    for(const r of streamRows){
+      const tr=el('tr');
+      const pctText=r.pct==null?'—':r.pct.toLocaleString('ko-KR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+      const values=[
+        r.label,
+        fmt(r.serviceLimit)+'회',
+        r.complete?fmt(r.used)+'회':fmt(r.used)+'회 (부분)',
+        r.remaining==null?'미확인':fmt(r.remaining)+'회',
+        pctText,
+        r.remaining===0&&r.next?stamp(r.next):r.complete&&r.remaining>0?'즉시 사용 가능':'—',
+        r.known+' / '+owned.length
+      ];
+      for(const v of values)tr.append(el('td',v));
+      body.append(tr);
+    }
+    table.append(body);host.replaceChildren(table);
+  }
   function renderShards(){
     if(!snapshot)return;const filter=$('shardFilter').value;
     const rows=snapshot.rows.filter(r=>{const live=liveVisual(r.shard.id);return filter==='all'||filter==='active'&&r.assigned||filter==='reserved'&&!r.assigned||filter==='attention'&&r.attention||filter==='stale'&&r.stale||filter==='running'&&live?.key==='running'||filter==='stopped'&&live?.key==='stopped'||filter==='deferred'&&['deferred','idle'].includes(live?.key)||filter==='error'&&live?.key==='failed';});
@@ -202,10 +268,10 @@
     const host=$('history');host.replaceChildren();const rows=snapshot.good.map(r=>({row:r,run:r.data.collection})).sort((a,b)=>String(b.run.finishedAt).localeCompare(String(a.run.finishedAt))).slice(0,500);
     for(const {row,run}of rows){const article=el('article',null,'history-item');article.append(el('strong',row.shard.label),badge(names[run.status]||run.status,run.status),el('p',stamp(run.finishedAt)),el('p',`API ${fmt(run.requests)}회 · 구간 성공 ${fmt(run.success)} / 실패 ${fmt(run.failed)}`));if(run.currentTask)article.append(el('small','최근 작업 '+run.currentTask));if(/^\d+$/.test(String(run.runId)))article.append(link(' 해당 실행 ↗','https://github.com/'+row.shard.repository+'/actions/runs/'+run.runId));host.append(article);}
     if(!rows.length)host.append(el('p','검증된 지역별 실행 결과가 없습니다.','empty'));
-    const ops=$('operations');ops.replaceChildren();for(const [k,v]of [['현황 조회',stamp(checked)],['수집 결과 확인',snapshot.good.length+' / '+snapshot.owned.length+'개 담당 레포'],['수집 기준','시군구 × 거래유형 × 계약월 · 페이지 검증 완료 후 반영'],['자동 실행 설정',registry?.mode==='collecting'?'지역별 매시간 예약 (실제 실행은 GitHub 기록으로 확인)':'분산 담당 이관 전'],['레포별 요청 한도',`실행당 ${fmt(registry?.requestBudget?.perRun)}회 · 시간당 ${fmt(registry?.requestBudget?.perHour)}회 · 24시간당 ${fmt(registry?.requestBudget?.perDay)}회`],['원본 gzip 합계',bytes(snapshot.sourceBytes)],['재개 대기 구간',fmt(snapshot.pending)],['미수집·실패 처리','정상 0건 응답과 구분 · 기존 정상 데이터 보존'],['배포·조회','Pages 공개와 사용자 실거래 화면 연결은 수집과 별도']])kv(ops,k,v);
+    const ops=$('operations');ops.replaceChildren();for(const [k,v]of [['현황 조회',stamp(checked)],['수집 결과 확인',snapshot.good.length+' / '+snapshot.owned.length+'개 담당 레포'],['수집 기준','시군구 × 거래유형 × 계약월 · 페이지 검증 완료 후 반영'],['자동 실행 설정',registry?.mode==='collecting'?'지역별 매시간 예약 (실제 실행은 GitHub 기록으로 확인)':'분산 담당 이관 전'],['API 요청 한도',`실행당 최대 ${fmt(registry?.requestBudget?.perRun)}회 · OpenAPI 서비스별 rolling 24시간 quota 적용 · 기본 합계 ${fmt(registry?.requestBudget?.totalDefaultDaily)}회`],['원본 gzip 합계',bytes(snapshot.sourceBytes)],['재개 대기 구간',fmt(snapshot.pending)],['미수집·실패 처리','정상 0건 응답과 구분 · 기존 정상 데이터 보존'],['배포·조회','Pages 공개와 사용자 실거래 화면 연결은 수집과 별도']])kv(ops,k,v);
     $('sources').replaceChildren();for(const source of model?.source||[]){try{const u=new URL(source.url);if(u.protocol==='https:'){const p=el('p');p.append(link(source.name+' ↗',u.href));$('sources').append(p);}}catch{}}
   }
-  function render(){if(!model||!registry)return;snapshot=derive(registry,reports,model);renderOverview();renderShards();renderRegions();renderHistory();}
+  function render(){if(!model||!registry)return;snapshot=derive(registry,reports,model);renderOverview();renderApiUsage();renderShards();renderRegions();renderHistory();}
   async function load(){
     if(loading)return;loading=true;$('refresh').disabled=true;$('refreshNote').textContent='현황 조회 중 · 원본 API 호출 없음';
     try{const [base,config]=await Promise.all([get('./data/transactions/status-manifest.json'),get('./data/transactions/storage-registry.json')]);if(config.schemaVersion!==3||!Array.isArray(config.shards))throw Error('지원하지 않는 저장소 구성');
