@@ -18,7 +18,8 @@ def today(): return (datetime.now(timezone.utc)+timedelta(hours=9)).date()
 # Source access failure is not a data failure. Keep blocked streams out of
 # subsequent runs without hiding the error from the public status dashboard.
 ACCESS_ERRORS=frozenset(('401','403','20','30','31','12','404'))
-QUOTA_ERRORS=frozenset(('429','22','23','29'))
+QUOTA_ERRORS=frozenset(('429','22','23'))
+GLOBAL_BLOCK_ERRORS=frozenset(('29',))
 def cooldown_active(item,now=None):
     if not isinstance(item,dict):return False
     expiry=item.get('nextRetryAt') or item.get('until')
@@ -29,6 +30,7 @@ def retry_delay(code,attempts):
     # Never hammer an unapproved endpoint every ten minutes.
     if code in ACCESS_ERRORS:return 24*3600
     if code in QUOTA_ERRORS:return 60*60
+    if code in GLOBAL_BLOCK_ERRORS:return 60*60
     if code=='NETWORK_TIMEOUT':return min(4*3600,600*2**min(attempts-1,5))
     return min(6*3600,600*2**min(attempts-1,5))
 def run_exit_code(run):
@@ -114,7 +116,12 @@ class Pipeline:
                 'code':code,'at':at,'nextRetryAt':retry_at,
                 'reason':'source_access_unavailable'}
         elif code in QUOTA_ERRORS:
-            self.state['apiCooldown']={'code':code,'at':at,'nextRetryAt':retry_at,'reason':'quota_or_rate_limit'}
+            stream_id=key.split('/')[1]
+            self.state.setdefault('streamCooldowns',{})[stream_id]={
+                'code':code,'at':at,'nextRetryAt':retry_at,
+                'reason':'stream_quota_or_rate_limit'}
+        elif code in GLOBAL_BLOCK_ERRORS:
+            self.state['apiCooldown']={'code':code,'at':at,'nextRetryAt':retry_at,'reason':'global_access_block'}
         self.save()
     def migrate_legacy(self):
         migrated=0
