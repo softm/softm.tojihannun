@@ -38,10 +38,11 @@ class CooldownTests(unittest.TestCase):
   self.assertEqual(retry_delay('NETWORK_TIMEOUT',1),600)
   self.assertEqual(retry_delay('NETWORK_TIMEOUT',2),1200)
   self.assertLessEqual(retry_delay('NETWORK_TIMEOUT',100),4*3600)
- def test_rate_limit_creates_global_cooldown(self):
+ def test_rate_limit_creates_stream_cooldown(self):
   p=self.pipe;p.fail('41210/land-sale/202610',SourceError('429'))
-  self.assertTrue(cooldown_active(p.state['apiCooldown']))
-  self.assertEqual(p.state['apiCooldown']['code'],'429')
+  self.assertTrue(cooldown_active(p.state['streamCooldowns']['land-sale']))
+  self.assertEqual(p.state['streamCooldowns']['land-sale']['code'],'429')
+  self.assertFalse('apiCooldown' in p.state)
  def test_expired_cooldown_is_eligible(self):
   p=self.pipe;p.fail('41210/rowHouse-rent/202611',SourceError('403'))
   p.state['streamCooldowns']['rowHouse-rent']['nextRetryAt']=(datetime.now(timezone.utc)-timedelta(seconds=10)).isoformat()
