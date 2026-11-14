@@ -38,6 +38,10 @@ jobs:
               if url.startswith('https://api.github.com/'):
                   headers['Authorization']='Bearer '+os.environ['GH_TOKEN']
               with urllib.request.urlopen(urllib.request.Request(url,headers=headers),timeout=20) as r:return json.load(r)
+          def page(url):
+              request=urllib.request.Request(url,headers={'Accept':'application/json','User-Agent':'Tojihannun-pages-verifier'})
+              with urllib.request.urlopen(request,timeout=20) as response:
+                  return json.load(response),response.headers.get('Access-Control-Allow-Origin')
           def file(repo,path,ref='main'):
               item=get('https://api.github.com/repos/'+repo+'/contents/'+path+'?ref='+ref)
               return json.loads(base64.b64decode(item['content']))
@@ -78,16 +82,18 @@ jobs:
                   collection_run=next((r for r in runs if r.get('path')=='.github/workflows/collect.yml'),runs[0] if runs else None)
                   result.update(verified=True,head=head,records=status['summary']['records'],segments=status['summary']['completedTasks'],publishedBytes=status['capacity']['publishedBytes'],collection=status['collection']['status'],sourceRequests=status['collection']['requests'],run=collection_run.get('html_url') if collection_run else None,runConclusion=collection_run.get('conclusion') if collection_run else None)
                   try:
-                      published=get(shard['pagesBaseUrl']+'shard-status.json')
+                      published,status_cors=page(shard['pagesBaseUrl']+'shard-status.json')
                       pages_ok=published.get('shardId')==shard['id'] and published.get('repository')==repo and published.get('migration',{}).get('sourceCommit')==expected_source
-                      catalog=get(shard['pagesBaseUrl']+'published/index.json')
+                      catalog,index_cors=page(shard['pagesBaseUrl']+'published/index.json')
                       published_districts=set(catalog.get('districts',{}))
                       index_ok=catalog.get('schemaVersion')==2 and published_districts.issubset(allowed) and all(v.get('index')==code+'/index.json' for code,v in catalog.get('districts',{}).items())
+                      cors_ok=status_cors in ('*','https://tojihannun.designboard.net') and index_cors in ('*','https://tojihannun.designboard.net')
                       result['pagesVerified']=pages_ok
                       result['publishedIndexVerified']=index_ok
-                      result['pagesReady']=pages_ok and index_ok
+                      result['corsVerified']=cors_ok
+                      result['pagesReady']=pages_ok and index_ok and cors_ok
                   except (urllib.error.HTTPError,urllib.error.URLError,TimeoutError,ValueError,KeyError):
-                      result['pagesVerified']=False;result['publishedIndexVerified']=False;result['pagesReady']=False
+                      result['pagesVerified']=False;result['publishedIndexVerified']=False;result['corsVerified']=False;result['pagesReady']=False
               except Exception as error:
                   result.update(verified=False,error=str(error));errors.append(shard['id']+': '+str(error))
               rows.append(result)
