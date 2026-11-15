@@ -758,6 +758,7 @@ async function fetchBuildingRecords(pnu) {
     dongName: cleanText(item.buldDongNm || ""),
     lotAddress: cleanText([item.ldCodeNm, item.mnnmSlno].filter(Boolean).join(" ")),
     use: cleanText(item.mainPrposCodeNm || item.detailPrposCodeNm || ""),
+    detailUse: cleanText(item.detailPrposCodeNm || ""),
     groundFloors: Number(item.groundFloorCo || 0),
     undergroundFloors: Number(item.undgrndFloorCo || 0),
     buildingArea: Number(item.buldBildngAr || 0),

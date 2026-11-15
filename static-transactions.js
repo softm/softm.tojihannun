@@ -17,7 +17,7 @@
     })().catch(error => { cache.delete(key); throw error; }));
     return cache.get(key);
   }
-  async function lookupCentral(area, type, {includeNearby = false, force = false} = {}) {
+  async function lookupCentral(area, type, {includeNearby = false, force = false, months} = {}) {
     if (!/^\d{5}$/.test(area?.lawdCode || '') || !area.emd || !area.lot) return null;
     if (force) invalidate();
     const catalog = await json('index.json');
@@ -26,7 +26,7 @@
     const index = await json(region.index);
     if (index.district !== area.lawdCode) throw new Error('Static district mismatch');
     const stream = type + '-sale';
-    const covered = index.coverage?.[stream] || [];
+    const covered = (index.coverage?.[stream] || []).filter(month => !months || months.includes(month));
     if (!covered.length) return null;
     const names = Object.keys(index.groups?.[stream] || {}).filter(name => norm(name) === norm(area.emd));
     if (names.length > 1) throw new Error('Ambiguous legal dong');
@@ -40,6 +40,7 @@
         if (norm(row.umdNm) !== norm(area.emd)) throw new Error('Static row legal dong mismatch');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date || '')) throw new Error('Invalid static contract date');
         const [year, month, day] = row.date.split('-');
+        if (months && !months.includes(year + month)) continue;
         rows.push({dealYear:year,dealMonth:month,dealDay:day,dealAmount:row.amount,
           umdNm:row.umdNm,jibun:row.exactLotPublic ? row.lot : '',mhouseNm:row.buildingName,buildingNm:row.buildingName,
           floor:row.floor,excluUseAr:row.exclusiveArea,buildingAr:row.buildingArea,landAr:row.landArea,
@@ -53,16 +54,17 @@
   async function lookup(area, type, options = {}) {
     const includeNearby = options.includeNearby === true;
     const force = options.force === true;
+    const months = options.months;
     if (window.TojiDistributedTrades) {
       try {
-        const remote = await window.TojiDistributedTrades.lookup(area, type, {includeNearby, force});
+        const remote = await window.TojiDistributedTrades.lookup(area, type, {includeNearby, force, months});
         if (remote) return remote;
       } catch {
         // A shard handoff must never make parcel lookup unavailable. The tracked
         // central dataset remains the safety fallback until the shard is stable.
       }
     }
-    return lookupCentral(area, type, {includeNearby, force});
+    return lookupCentral(area, type, {includeNearby, force, months});
   }
   window.TojiStaticTrades = Object.freeze({lookup,invalidate});
 })();

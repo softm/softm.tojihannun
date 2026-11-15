@@ -30,6 +30,7 @@
     transactionCacheKey: "",
     transactionType: "land",
     transactionTypeManuallySelected: false,
+    transactionApartmentLookup: null,
     auctionCacheKey: "",
     transactionItems: [],
     transactionGroups: null,
@@ -190,21 +191,42 @@
     return numberValue(register.base?.lndpclAr || register.ownership?.lndpclAr || register.characteristic?.lndpclAr || 0);
   }
 
-  function recommendTransactionType(parcel = state.parcel) {
+  function classifyBuildingTransactionType(parcel) {
     const hasBuildingData = Array.isArray(parcel?.buildings);
     const buildings = hasBuildingData ? parcel.buildings : [];
     const description = [
       hasBuildingData && !buildings.length ? "" : parcel?.buildingName,
-      ...buildings.flatMap((building) => [building?.name, building?.dongName, building?.use])
+      ...buildings.flatMap((building) => [building?.name, building?.dongName, building?.use, building?.detailUse])
     ].filter(Boolean).join(" ");
     if (/공장|창고|제조소|산업시설/i.test(description)) return "factory";
     if (/오피스텔/i.test(description)) return "officetel";
     if (/연립|다세대|빌라|다세대주택|연립주택/i.test(description)) return "rowHouse";
     if (/단독|다가구|다중주택/i.test(description)) return "detached";
     if (/아파트/i.test(description)) return "apartment";
-    if (/공동주택/i.test(description)) return "rowHouse"; // 공동주택만 확인된 경우 임시 권장; 유형 선택 가능
+    if (/공동주택/i.test(description)) return "multiFamily";
     if (/상가|근린생활|판매시설|업무시설|타워|플라자|센터|숙박시설|위락시설/i.test(description)) return "commercial";
-    return "land"; // 건물 유형 미확인 시 아파트로 임의 추정하지 않음
+    return "";
+  }
+
+  function recommendTransactionType(parcel = state.parcel) {
+    const buildingType = classifyBuildingTransactionType(parcel);
+    if (buildingType && buildingType !== "multiFamily") return buildingType;
+    if (state.transactionApartmentLookup?.matched) return "apartment";
+    return buildingType === "multiFamily" ? "rowHouse" : "land";
+  }
+
+  function checkRecentApartmentTransactions(area) {
+    const lookup = state.transactionApartmentLookup ??= {matched: false, promise: null};
+    if (!lookup.promise) {
+      const months = recentMonths(3);
+      lookup.promise = window.TojiStaticTrades.lookup(area, "apartment", {months}).then((result) => {
+        lookup.matched = Boolean(result?.rows?.some((row) =>
+          months.includes(`${row.dealYear}${row.dealMonth}`) &&
+          normalizeAreaName(row.umdNm) === normalizeAreaName(area.emd) &&
+          normalizeLot(row.jibun) === area.lot));
+      }).catch(() => { lookup.promise = null; });
+    }
+    return lookup;
   }
 
   function transactionArea(node, type) {
@@ -808,12 +830,21 @@
     if (force && collectedOnly) snapshotPromise = undefined;
     const parcel = state.parcel;
     if (!parcel || (!allowInactive && state.activeTab !== "transactions")) return;
-    if (!state.transactionTypeManuallySelected) applyTransactionType(recommendTransactionType(parcel));
-    const type = state.transactionType;
     const area = parseParcelArea(parcel);
     if (!area.lawdCode || !area.emd || !area.lot) {
       setStatus("#transactionStatus", "선택 필지의 법정동·지번 식별정보를 확인하지 못했습니다. 거래 없음이 아닙니다.", "error"); return;
     }
+    if (!state.transactionTypeManuallySelected) {
+      const buildingType = classifyBuildingTransactionType(parcel);
+      if (window.TojiStaticTrades && (!buildingType || buildingType === "multiFamily")) {
+        const lookup = checkRecentApartmentTransactions(area);
+        await lookup.promise;
+        if (state.transactionApartmentLookup !== lookup || state.transactionTypeManuallySelected ||
+            (!allowInactive && state.activeTab !== "transactions")) return;
+      }
+      applyTransactionType(recommendTransactionType());
+    }
+    const type = state.transactionType;
     const selectedPeriod = String($("#transactionRange")?.value || "saved");
     const period = selectedPeriod === "all" ? "saved" : selectedPeriod;
     const months = transactionMonths(period);
@@ -1166,6 +1197,7 @@
     state.auctionRequest += 1;
     state.transactionCacheKey = "";
     state.transactionTypeManuallySelected = false;
+    state.transactionApartmentLookup = null;
     state.transactionType = recommendTransactionType(parcel);
     state.auctionCacheKey = "";
     state.transactionItems = [];
@@ -1187,9 +1219,11 @@
     const previousArea = parseParcelArea(state.parcel);
     const previousType = state.transactionType;
     state.parcel = parcel;
-    if (!state.transactionTypeManuallySelected) applyTransactionType(recommendTransactionType(parcel));
     const area = parseParcelArea(parcel);
-    if (previousType === state.transactionType && previousArea.lawdCode === area.lawdCode && previousArea.emd === area.emd && previousArea.lot === area.lot) return;
+    const areaChanged = previousArea.lawdCode !== area.lawdCode || previousArea.emd !== area.emd || previousArea.lot !== area.lot;
+    if (areaChanged) state.transactionApartmentLookup = null;
+    if (!state.transactionTypeManuallySelected) applyTransactionType(recommendTransactionType(parcel));
+    if (!areaChanged && previousType === state.transactionType) return;
     state.transactionController?.abort();
     state.transactionSession = null;
     state.transactionCacheKey = "";

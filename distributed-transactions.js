@@ -134,7 +134,7 @@
     return rows;
   }
 
-  async function lookup(area, type, {includeNearby = false, force = false} = {}) {
+  async function lookup(area, type, {includeNearby = false, force = false, months} = {}) {
     if (!validCode(area?.lawdCode) || !area.emd || !area.lot || !/^[A-Za-z]+$/.test(String(type || ''))) return null;
     const config = await registry(force);
     const shard = selectShard(config, area.lawdCode);
@@ -167,6 +167,7 @@
       if (!Array.isArray(parts)) throw new Error('Invalid distributed group');
       for (const part of parts) {
         if (!covered.includes(part.month)) throw new Error('Distributed part outside coverage');
+        if (months && !months.includes(part.month)) continue;
         const chunkUrl = safePart(publishedBase, shard, area, stream, part);
         const data = await fetchChunk(chunkUrl);
         if (data?.schemaVersion !== 2 || data.district !== area.lawdCode || data.stream !== stream ||
@@ -179,7 +180,7 @@
 
     return {
       type, lawdCode:area.lawdCode, emd:area.emd, lot:area.lot,
-      completeMonths:[...new Set(covered)].sort(), rows,
+      completeMonths:[...new Set(covered)].filter(month => !months || months.includes(month)).sort(), rows,
       includesNearby:includeNearby, verifiedAt:index.updatedAt || region.updatedAt || catalog.generatedAt,
       source:'국토부 분산 수집 자료', storageShard:shard.id, fullHistoryComplete:false
     };

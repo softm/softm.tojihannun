@@ -7,7 +7,7 @@ const source = fs.readFileSync(new URL('../market-data.js', import.meta.url),'ut
 const snapshot = JSON.parse(fs.readFileSync(new URL('../rtms-verified-snapshots.json',import.meta.url),'utf8'));
 const rows = snapshot.entries[0].rows;
 const parcel = {id:'4121010100101580216',pnu:'4121010100101580216',address:'경기도 광명시 광명동 158-216',number:'158-216대',buildings:[{name:'선영빌라',use:'다세대주택'}]};
-function element(){return {value:'',textContent:'',innerHTML:'',hidden:false,dataset:{},remove(){},classList:{add(){},remove(){}},addEventListener(){}};}
+function element(){return {value:'',textContent:'',innerHTML:'',hidden:false,dataset:{},events:{},remove(){},classList:{add(){},remove(){}},addEventListener(name,listener){this.events[name]=listener;}};}
 function harness({snap=snapshot,respond=async()=>new Response(JSON.stringify({response:{header:{resultCode:'000'},body:{items:{item:[]},totalCount:0}}})),key='test-not-real'}={}){
   const elements=new Map();
   const get=sel=>{if(!elements.has(sel))elements.set(sel,element());return elements.get(sel);};
@@ -22,7 +22,8 @@ function harness({snap=snapshot,respond=async()=>new Response(JSON.stringify({re
     fetch:async (url,options)=>{if(String(url).startsWith('./rtms-verified'))return {ok:true,json:async()=>snap};calls.push(String(url));return respond(url,options,calls.length);}};
   const instrumented=source.replace('  bindEvents();',`  renderTransactionView = () => {state.transactionItems = state.transactionView === 'nearby' ? state.transactionGroups.comparable : state.transactionGroups.items;};
   waitForRtms = async (ms,signal) => {if(signal?.aborted) throw abortError();};
-  window.testApi = {state, parseParcelArea, normalizeLot, parcelLot, parseRtmsResponse, normalizeRtmsNodes, scopeTransactionItems, transactionMonths, loadTransactions: (force=false, allowInactive=false, options={}) => loadTransactions(force, allowInactive, {collectedOnly:false, ...options}), loadCollectedTransactions: loadTransactions, setParcel, refreshParcel, activate, fetchRtmsMonth, readMonthCache, saveMonthCache};`);
+  window.testApi = {state, parseParcelArea, normalizeLot, parcelLot, parseRtmsResponse, normalizeRtmsNodes, scopeTransactionItems, transactionMonths, loadTransactions: (force=false, allowInactive=false, options={}) => loadTransactions(force, allowInactive, {collectedOnly:false, ...options}), loadCollectedTransactions: loadTransactions, setParcel, refreshParcel, activate, fetchRtmsMonth, readMonthCache, saveMonthCache};
+  bindEvents();`);
   vm.runInNewContext(instrumented,context);
   const api=context.window.testApi;
   api.setParcel(parcel);api.state.activeTab='transactions';
@@ -124,4 +125,67 @@ test('collection-default period and refresh never initiate government requests',
 test('collection-default ignores optional PNU provider and retains verified saved evidence',async()=>{
   const {api,calls,context}=harness();context.window.__TOJI_RUNTIME_CONFIG__.parcelHistoryEndpoint='https://provider.example/parcel';
   await api.loadCollectedTransactions();assert.equal(calls.length,0);assert.equal(api.state.transactionItems.length,3);
+});
+
+const okgilParcel = {id:'4119410600107470001',pnu:'4119410600107470001',address:'경기도 부천시 소사구 옥길동 747-1',number:'747-1대',buildings:[]};
+const okgilApartment = {dealYear:'2026',dealMonth:'10',dealDay:'31',dealAmount:'54000',excluUseAr:'59.6',umdNm:'옥길동',jibun:'747-1',buildingNm:'옥길데시앙'};
+
+test('apartment detail use takes precedence over a generic residential building use',()=>{
+  const {api,get}=harness();
+  api.setParcel({...okgilParcel,buildings:[{use:'공동주택',detailUse:'아파트'}]});
+  assert.equal(get('#transactionType').value,'apartment');
+});
+
+test('an exact recent apartment row selects apartment and loads normal history without a live API call',async()=>{
+  const {api,context,calls,get}=harness();
+  const lookups=[];
+  context.window.TojiStaticTrades={lookup:async(area,type,options)=>{
+    lookups.push({area,type,options});
+    return {rows:[okgilApartment],completeMonths:['202610']};
+  }};
+  api.setParcel(okgilParcel);
+  await api.loadCollectedTransactions();
+  assert.equal(get('#transactionType').value,'apartment');
+  assert.equal(api.state.transactionItems.length,1);
+  assert.deepEqual(lookups.map(entry=>[entry.area.lot,entry.type]),[['747-1','apartment'],['747-1','apartment']]);
+  assert.deepEqual(clean(lookups[0].options.months),['202611','202610','202609']);
+  assert.equal(lookups[1].options.includeNearby,true);
+  api.refreshParcel({...okgilParcel,buildingError:true});
+  assert.equal(get('#transactionType').value,'apartment');
+  assert.equal(calls.length,0);
+});
+
+test('nearby, masked, other legal dong and older apartment rows do not promote the parcel',async()=>{
+  const {api,context,get}=harness();
+  context.window.TojiStaticTrades={lookup:async(_area,type)=>type==='apartment'?{rows:[
+    {...okgilApartment,jibun:'747'},
+    {...okgilApartment,jibun:'747-*'},
+    {...okgilApartment,umdNm:'다른동'},
+    {...okgilApartment,dealMonth:'08'}
+  ]}:null};
+  api.setParcel(okgilParcel);
+  await api.loadCollectedTransactions();
+  assert.equal(get('#transactionType').value,'land');
+});
+
+test('an in-flight apartment match preserves a manual selection and cannot leak to a new parcel',async()=>{
+  const {api,context,get}=harness();
+  let resolveEvidence;
+  const evidence=new Promise(resolve=>{resolveEvidence=resolve;});
+  context.window.TojiStaticTrades={lookup:async(area,type,options)=>
+    area.lot==='747-1'&&type==='apartment'&&options.months?evidence:null};
+  api.setParcel(okgilParcel);
+  const pending=api.loadCollectedTransactions();
+  get('#transactionType').events.change({target:{value:'land'}});
+  resolveEvidence({rows:[okgilApartment]});
+  await pending;
+  assert.equal(get('#transactionType').value,'land');
+  assert.equal(api.state.transactionTypeManuallySelected,true);
+
+  api.setParcel(okgilParcel);
+  const previous=api.loadCollectedTransactions();
+  api.setParcel({...okgilParcel,id:'4119410600107470002',pnu:'4119410600107470002',address:'경기도 부천시 소사구 옥길동 747-2'});
+  await previous;
+  await api.loadCollectedTransactions();
+  assert.equal(get('#transactionType').value,'land');
 });
