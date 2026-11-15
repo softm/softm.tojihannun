@@ -156,7 +156,11 @@ def request_budget(state, config, stream_id=None, now=None):
                     recent.append(entry)
             except (ValueError, KeyError, TypeError):
                 raise ValueError('Invalid request ledger')
-        if any(not entry.get('stream') for entry in recent):
+        # Legacy untagged ledger entries belonged to the former shared low-quota
+        # regime. Once the registry explicitly enables independent operating-account
+        # stream quotas, preserve those entries for audit but do not let them cap the
+        # new per-stream allowance.
+        if not q.get('independentOperatingQuotas') and any(not entry.get('stream') for entry in recent):
             legacy_daily = int(q.get('perShardDaily', {}).get(shard_id, q.get('perDay', 0)))
             legacy_used = sum(int(entry.get('requests',0)) for entry in recent)
             transition_remaining = max(0, legacy_daily - legacy_used)
