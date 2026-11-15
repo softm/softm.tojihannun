@@ -1,9 +1,9 @@
 {
   "schemaVersion": 3,
-  "revision": "twenty-shard-pages-serving-v8",
+  "revision": "twenty-shard-million-quota-v9",
   "mode": "collecting",
   "bootstrapSourceRef": "f328c729eece4fe45f1b403a1af1fcd62fa5de46",
-  "note": "20개 shard 모두 수집 소유권과 Pages 게시·published index·브라우저 CORS 검증을 통과해 Pages 우선 실거래 조회로 전환했습니다. 원격 shard 읽기 실패·형식 불일치·gzip 오류 시 토지한눈 중앙 정적자료로 자동 폴백하며 기존 체크포인트와 데이터는 보존합니다.",
+  "note": "20개 shard Pages 우선 조회와 중앙 폴백을 유지합니다. 운영계정 트래픽 증설에 맞춰 12개 실거래 OpenAPI별 일일 한도를 각각 1,000,000회로 반영하며, 기존 데이터·체크포인트는 보존합니다.",
   "allocation": {
     "unit": "bytes",
     "maxPublishedBytes": 1000000000,
@@ -14,7 +14,7 @@
   },
   "requestBudget": {
     "perRun": 1000,
-    "perDay": 10000,
+    "perDay": 1000000,
     "perShardDaily": {
       "realestate-data-001": 273,
       "realestate-data-002": 235,
@@ -39,20 +39,21 @@
     },
     "scope": "per OpenAPI service rolling-24h quota; each stream is budgeted independently across 20 shards. Defaults follow current data.go.kr development-account traffic listings; override when an approved operating-account quota differs.",
     "perStreamDaily": {
-      "apartment-sale": 10000,
-      "rowHouse-sale": 10000,
-      "detached-sale": 10000,
-      "officetel-sale": 10000,
-      "rights-sale": 10000,
-      "commercial-sale": 10000,
-      "land-sale": 1000,
-      "factory-sale": 10000,
-      "apartment-rent": 10000,
-      "rowHouse-rent": 10000,
-      "detached-rent": 10000,
-      "officetel-rent": 10000
+      "apartment-sale": 1000000,
+      "rowHouse-sale": 1000000,
+      "detached-sale": 1000000,
+      "officetel-sale": 1000000,
+      "rights-sale": 1000000,
+      "commercial-sale": 1000000,
+      "land-sale": 1000000,
+      "factory-sale": 1000000,
+      "apartment-rent": 1000000,
+      "rowHouse-rent": 1000000,
+      "detached-rent": 1000000,
+      "officetel-rent": 1000000
     },
-    "totalDefaultDaily": 111000
+    "totalDefaultDaily": 12000000,
+    "revisionNote": "운영계정 트래픽 증설에 맞춰 12개 OpenAPI stream 각각 일일 1,000,000회 한도로 반영. 실제 호출은 shard 분배·실행당 1,000회·rolling 24h ledger로 제어."
   },
   "naming": {
     "owner": "softm",
