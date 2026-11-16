@@ -13,8 +13,7 @@ function setup({searchResults = [], searchItems = [], reverse = []} = {}) {
     records: [],
     selectedId: "test-parcel",
     searchResults,
-    favorites: new Set(),
-    selectedId: "test-parcel"
+    favorites: new Set()
   };
   const detailRoad = {textContent: ""};
   let queries = 0;
