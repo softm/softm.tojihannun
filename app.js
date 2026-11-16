@@ -694,16 +694,14 @@ async function inspectParcel(lonLat, searchResult) {
       fetchParcelFeature(lonLat),
       searchResult ? Promise.resolve(null) : reverseGeocode(lonLat)
     ]);
-    const record = buildRecord(lonLat, searchResult, parcelFeature, reverseAddress);
-    addOrUpdateRecord(record);
+    const record = addOrUpdateRecord(buildRecord(lonLat, searchResult, parcelFeature, reverseAddress));
     if (parcelFeature?.feature) parcelFeatureCache.set(record.id, parcelFeature.feature);
     showSelectedParcel(record, parcelFeature?.feature || null);
     openDetail(record);
   } catch (error) {
     console.error("VWorld parcel lookup failed", error);
     if (searchResult) {
-      const record = buildRecord(lonLat, searchResult, null, null);
-      addOrUpdateRecord(record);
+      const record = addOrUpdateRecord(buildRecord(lonLat, searchResult, null, null));
       showSelectedParcel(record, null);
       openDetail(record);
       showToast("주소 위치는 찾았지만 필지 속성은 확인하지 못했어요.");
@@ -964,15 +962,85 @@ function buildRecord([lon, lat], searchResult, parcelFeature, reverseResults) {
   };
 }
 
+// Address searches and reverse geocoding do not always return both address types.
+// Match the actual parcel first: a nearby road/building address is not sufficient.
+function parcelAddressKey(value) {
+  const text = cleanText(value).replace(/\s+/g, " ");
+  const match = text.match(/([가-힣0-9]+(?:동|리|가))\s+(산\s*)?(\d+(?:-\d+)?)$/);
+  return match ? `${match[1]} ${match[2] ? "산 " : ""}${match[3]}` : "";
+}
+
+function parcelCityKey(value) {
+  return cleanText(value).match(/(?:^|\s)([가-힣]+(?:시|군))(?=\s|$)/)?.[1] || "";
+}
+
+function isSameParcelAddress(record, candidate) {
+  if (record.pnu && candidate.pnu) return record.pnu === candidate.pnu;
+  const candidateAddress = candidate.parcel || candidate.address || "";
+  const key = parcelAddressKey(record.address);
+  const city = parcelCityKey(record.address);
+  return Boolean(key && city && key === parcelAddressKey(candidateAddress) && city === parcelCityKey(candidateAddress));
+}
+
+function applyVerifiedRoadAddress(record, value) {
+  const road = cleanText(value);
+  if (!road) return;
+  record.road = road;
+  const current = state.records.find((item) => item.id === record.id);
+  if (current) current.road = road;
+  if (state.selectedId === record.id) $("#detailRoad").textContent = road;
+  persistRecentParcels();
+  if (state.favorites.has(record.id)) persistFavorites();
+}
+
+// Resolve only a verified same-parcel address; never infer from the nearest building.
+async function resolveParcelRoadAddress(record) {
+  if (record.road || record.roadLookupAttempted || !parcelAddressKey(record.address)) return;
+  const known = state.searchResults.find((item) => item.road && isSameParcelAddress(record, item));
+  if (known) {
+    applyVerifiedRoadAddress(record, known.road);
+    return;
+  }
+  record.roadLookupAttempted = true;
+  if (state.selectedId === record.id) $("#detailRoad").textContent = "도로명주소 확인 중...";
+  try {
+    const candidates = (await searchVWorld(record.address, "lot"))
+      .filter((item) => isSameParcelAddress(record, item));
+    let road = candidates.find((item) => item.road)?.road || "";
+    // A parcel search can return only a lot number. Reverse geocode its
+    // matched point, but accept the road address only when the parcel agrees.
+    if (!road && candidates.length) {
+      const candidate = candidates[0];
+      const results = await reverseGeocode([candidate.lon, candidate.lat]);
+      const parcelResult = results.find((item) => /parcel/i.test(String(item?.type || "")));
+      const roadResult = results.find((item) => /road/i.test(String(item?.type || "")));
+      if (parcelResult && roadResult && isSameParcelAddress(record, {parcel: parcelResult.text || ""})) {
+        road = cleanText(roadResult.text || "");
+      }
+    }
+    if (road) applyVerifiedRoadAddress(record, road);
+  } catch (error) {
+    console.warn("VWorld road-address lookup failed", error);
+  } finally {
+    if (state.selectedId === record.id) {
+      $("#detailRoad").textContent = record.road || "도로명주소를 조회하지 못했습니다.";
+    }
+  }
+}
+
 function addOrUpdateRecord(record) {
   const existingIndex = state.records.findIndex((item) => item.id === record.id);
-  const mergedRecord = existingIndex >= 0 ? {...state.records[existingIndex], ...record} : record;
+  const existing = existingIndex >= 0 ? state.records[existingIndex] : null;
+  // A subsequent map click with an incomplete reverse-geocode response must not
+  // erase an address already verified for this exact PNU.
+  const mergedRecord = existing ? {...existing, ...record, road: record.road || existing.road || ""} : record;
   if (existingIndex >= 0) state.records.splice(existingIndex, 1);
   state.records.unshift(mergedRecord);
   state.selectedId = record.id;
   persistRecentParcels();
   if (state.favorites.has(record.id)) persistFavorites();
   render();
+  return mergedRecord;
 }
 
 function showSelectedParcel(record, rawFeature) {
@@ -1959,7 +2027,8 @@ function openDetail(record) {
   $("#detailType").textContent = record.typeLabel;
   $("#detailType").classList.toggle("forest", record.type === "forest");
   $("#detailTitle").textContent = record.address || "선택한 토지";
-  $("#detailRoad").textContent = record.road || "도로명 주소가 제공되지 않는 필지입니다.";
+  $("#detailRoad").textContent = record.road || "도로명주소 확인 중...";
+  void resolveParcelRoadAddress(record);
   $("#relatedParcelAddress").textContent = record.address || record.road || "선택한 지번";
   const facts = [
     ["지번", record.number || "확인되지 않음"],
