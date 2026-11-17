@@ -13,7 +13,7 @@ function responseChunk(value){
   const bytes=new TextEncoder().encode(JSON.stringify(value));
   return {ok:true,headers:{get:()=>String(bytes.byteLength)},arrayBuffer:async()=>bytes.buffer};
 }
-function setup({serving='pages',partPath='41210/rowHouse-sale/202008/a-0.json.gz'}={}){
+function setup({serving='pages',partPath='41210/rowHouse-sale/202008/a-0.json.gz',streamIndex=false}={}){
   const calls=[];
   const shard={id:'realestate-data-003',repository:'softm/realestate-data-003',collectionOwner:'shard',serving,
     pagesBaseUrl:'https://softm.github.io/realestate-data-003/',districtCodes:['41210']};
@@ -26,6 +26,12 @@ function setup({serving='pages',partPath='41210/rowHouse-sale/202008/a-0.json.gz
       coverage:{'rowHouse-sale':['202008']},groups:{'rowHouse-sale':{'광명동':[{path:partPath,encoding:'gzip',rows:1,month:'202008'}]}}}}],
     ['https://softm.github.io/realestate-data-003/published/'+partPath,{kind:'chunk',value:{schemaVersion:2,district:'41210',stream:'rowHouse-sale',emd:'광명동',rows:[row]}}]
   ]);
+  if(streamIndex){
+    payloads.set('https://softm.github.io/realestate-data-003/published/41210/rowHouse-sale/index.json',
+      {kind:'json',value:{schemaVersion:2,district:'41210',stream:'rowHouse-sale',
+        updatedAt:'2026-11-17T00:00:00Z',coverage:['202008'],
+        groups:{'광명동':[{path:partPath,encoding:'gzip',rows:1,month:'202008'}]}}});
+  }
   const context={window:{},document:{baseURI:'https://example.test/'},URL,AbortSignal,TextEncoder,TextDecoder,Blob,Response,DecompressionStream,
     fetch:async url=>{const href=String(url);calls.push(href);const payload=payloads.get(href);if(!payload)return {ok:false,status:404,headers:{get:()=>null}};
       return payload.kind==='chunk'?responseChunk(payload.value):responseJson(payload.value);}};
@@ -54,4 +60,12 @@ test('distributed lookup reads only the owning shard Pages and returns exact par
 test('a shard chunk cannot escape its assigned published scope',async()=>{
   const {api}=setup({partPath:'../other.json.gz'});
   await assert.rejects(()=>api.lookup({lawdCode:'41210',emd:'광명동',lot:'158-216'},'rowHouse'),/Invalid distributed chunk path/);
+});
+
+test('lightweight per-stream manifest takes precedence over the giant district index',async()=>{
+  const {api,calls}=setup({streamIndex:true});
+  const result=await api.lookup({lawdCode:'41210',emd:'광명동',lot:'158-216'},'rowHouse',{months:['202008']});
+  assert.equal(result.rows.length,1);
+  assert.ok(calls.some(url=>url.endsWith('/41210/rowHouse-sale/index.json')));
+  assert.ok(!calls.some(url=>url.endsWith('/41210/index.json')));
 });

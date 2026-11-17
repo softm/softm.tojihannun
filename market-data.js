@@ -698,7 +698,7 @@
     if (!message && nearby) message = group.regionalCovered ? "같은 법정동 비교 거래입니다. 선택 필지의 거래가 아니며 반경·거리 기준 자료가 아닙니다." : "같은 법정동 거래는 아직 조회하지 않았습니다.";
     if (!message && items.length) message = "공개 지번이 일치하는 확인된 거래입니다. 미조회 기간이 있으며, 같은 지번의 다른 호실 거래가 포함될 수 있습니다.";
     if (!message && group.undisclosedCount) message = "해당 필지 여부 미확인 · 지번 비공개 거래가 있어 거래 없음으로 판단할 수 없습니다.";
-    if (!message) message = group.savedOnly ? "저장된 해당 필지 거래가 없습니다. 전체 거래이력이 없다는 뜻은 아닙니다." : "확인한 기간에서 공개 지번 일치 거래를 찾지 못했습니다. 과거 거래 없음으로 판단하지 않습니다.";
+    if (!message) message = group.degraded ? "분산 수집 자료를 읽지 못해 중앙 일부 자료만 표시합니다. 거래 없음이 아닙니다." : group.savedOnly ? "최근 수집 기간에 해당 필지 거래를 확인하지 못했습니다. 전체 거래이력의 거래 없음이 아닙니다." : "확인한 기간에서 공개 지번 일치 거래를 찾지 못했습니다. 과거 거래 없음으로 판단하지 않습니다.";
     setStatus("#transactionStatus", message, group.error ? "error" : group.loading ? "loading" : "");
     state.transactionMeta = {...state.transactionMeta,
       status: group.loading ? "loading" : group.error ? (items.length ? "partial" : "error") : group.savedOnly || group.remainingMonths || group.failedMonths || group.truncated || group.undisclosedCount ? "partial" : "success",
@@ -815,9 +815,10 @@
       coveredMonths: expected.filter(month => covered.has(month)).length,
       remainingMonths: remaining.length, failedMonths: relevantFailures.length,
       regionalCovered: [...session.results.keys()].some(month => expected.includes(month)),
-      periodLabel: savedOnly ? "저장된 자료 (전체 이력 아님)" : session.period.startsWith("year-") ? session.period.slice(5) + "년" : "최근 " + session.months.length + "개월",
+      periodLabel: savedOnly ? "최근 6개월 우선 수집자료 (전체 이력 아님)" : session.period.startsWith("year-") ? session.period.slice(5) + "년" : "최근 " + session.months.length + "개월",
       coveredMonthKeys: expected.filter(month => covered.has(month)),
       staticLoaded: Boolean(session.staticLoaded), staticError: Boolean(session.staticError),
+      degraded: Boolean(session.degraded), distributedError: session.distributedError || "",
       snapshotAt: session.snapshotAt, loading: session.loading, error: session.error,
       truncated: [...session.results.values()].some(value => value.truncated)
     };
@@ -877,10 +878,17 @@
       // File/API collector publishes shared static datasets; no interactive government requests.
       if (window.TojiStaticTrades) {
         try {
-          const staticEntry = await window.TojiStaticTrades.lookup(area, type, {includeNearby:true, force:force && collectedOnly});
+          const staticEntry = await window.TojiStaticTrades.lookup(area, type, {
+            includeNearby:true, force:force && collectedOnly,
+            // A parcel selection must not download every historical district
+            // chunk. Show recent evidence first, with year filters for history.
+            months: period === "saved" ? recentMonths(6) : months
+          });
           if (!current() || controller.signal.aborted) { if(current()){session.loading=false;renderTransactionSession(session);} return; }
           if (staticEntry) {
             session.staticLoaded = true;
+            session.degraded = Boolean(staticEntry.degraded);
+            session.distributedError = staticEntry.distributedError || "";
             session.snapshotAt = staticEntry.verifiedAt || session.snapshotAt;
             session.snapshotFresh = Date.now() - Date.parse(session.snapshotAt) < 7 * 86400000;
             for (const month of staticEntry.completeMonths) if (period === "saved" || months.includes(month)) {

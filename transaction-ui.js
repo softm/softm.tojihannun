@@ -55,7 +55,7 @@
       const refresh = $('refreshTransactions');
       if (refresh) {refresh.setAttribute('aria-label','실거래 내역 새로고침');refresh.title='실거래 내역 새로고침';refresh.insertAdjacentHTML('beforeend','<span>새로고침</span>');}
       const saved = $('transactionRange')?.querySelector('[value="saved"]');
-      if (saved) saved.textContent = '전체 기간';
+      if (saved) saved.textContent = '최근 6개월 우선';
       for (const option of $('transactionRange')?.options || []) if (option.value.startsWith('year-')) option.textContent = `${option.value.slice(5)}년`;
       const listCaption = $('transactionListSection')?.querySelector('.market-section-head span');
       if (listCaption) listCaption.textContent = '계약일 기준 · 취소 제외';
@@ -130,7 +130,7 @@
     }
     const status=$('transactionStatus');
     status.dataset.tone=failed?'error':group.loading?'loading':items.length?'success':'';
-    status.textContent=failed?'거래 정보를 불러오지 못했습니다. 다시 시도해 주세요.':group.loading?'거래 내역을 불러오는 중입니다.':items.length?'':'조회 조건에 맞는 거래 내역을 찾지 못했습니다.';
+    status.textContent=failed?'거래 정보를 불러오지 못했습니다. 다시 시도해 주세요.':group.loading?'거래 내역을 불러오는 중입니다.':group.degraded?'분산 수집본 연결 실패 · 중앙 일부만 표시 중입니다. 이 화면의 0건은 거래가 없다는 뜻이 아닙니다.':items.length?'':'확보한 수집 범위에서 해당 거래를 확인하지 못했습니다. 실제 거래가 없다는 뜻이 아닙니다.';
     const newest=sorted(items)[0];
     $('transactionStats').innerHTML=newest?[
       ['매매 거래',number(items.length)+'건',nearby?'같은 법정동 비교':'해당 지번 기준'],
@@ -139,8 +139,8 @@
     ].map(([a,b,c])=>`<div class="market-stat"><span>${esc(a)}</span><strong>${esc(b)}</strong><small>${esc(c)}</small></div>`).join(''):'';
     let empty=$('transactionEmpty');if(!empty){empty=document.createElement('div');empty.id='transactionEmpty';empty.className='trade-empty';$('transactionStats').after(empty);}
     empty.hidden=Boolean(items.length);
-    const emptyTitle=group.loading?'거래 내역 조회 중':failed?'거래 정보를 읽지 못했습니다':'조회된 거래 내역이 없습니다';
-    empty.innerHTML=`<strong>${esc(emptyTitle)}</strong><p>${esc(group.loading?'거래 내역을 불러오고 있습니다.':failed?'네트워크 상태를 확인한 뒤 다시 불러오기를 눌러 주세요.':'조회 기간이나 부동산 유형을 변경해 보세요.')}</p>`;
+    const emptyTitle=group.loading?'거래 내역 조회 중':failed?'거래 정보를 읽지 못했습니다':'해당 지번의 거래 자료를 아직 확인하지 못했습니다';
+    empty.innerHTML=`<strong>${esc(emptyTitle)}</strong><p>${esc(group.loading?'거래 내역을 불러오고 있습니다.':failed?'네트워크 상태를 확인한 뒤 다시 불러오기를 눌러 주세요.':group.degraded?'분산 저장소 연결이 실패하여 중앙 일부 자료만 조회되었습니다. 실제 거래 존재 여부는 공식 실거래가 시스템에서 확인해 주세요.':'수집 범위 밖 계약이나 미확보 거래가 있을 수 있습니다. 조회 기간 또는 데이터 상태를 확인해 주세요.')}</p>`;
     let sortRow=$('transactionSortRow');if(!sortRow){sortRow=document.createElement('div');sortRow.id='transactionSortRow';sortRow.className='trade-sort';sortRow.innerHTML='<label for="transactionSort">거래 정렬</label><select id="transactionSort"><option value="date-desc">최신 계약순</option><option value="date-asc">과거 계약순</option><option value="amount-desc">금액 높은순</option><option value="amount-asc">금액 낮은순</option><option value="unit-desc">단가 높은순</option></select>';$('transactionList').before(sortRow);$('transactionSort').onchange=e=>{order=e.target.value;limit=20;drawList();};}
     $('transactionSort').value=order;
     drawList();

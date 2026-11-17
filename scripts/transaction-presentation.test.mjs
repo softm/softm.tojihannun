@@ -7,7 +7,7 @@ const presentation=source.slice(source.indexOf('  function mount()'));
 test('transaction presentation has no collection card, operational link or progress notices',()=>{
   assert.doesNotMatch(presentation,/data-status\.html|trade-collection-head|trade-month-details|자료 갱신|전체 이력 아님|수집 현황|수집 자료|계약월 확보|미수집/);
   assert.doesNotMatch(presentation,/section\.id\s*=\s*['"]transactionCollection/);
-  assert.match(presentation,/전체 기간/);
+  assert.match(presentation,/최근 6개월/);
 });
 test('removing diagnostics preserves retry, transaction scope and local pagination',()=>{
   for(const value of ['다시 불러오기','조회 중단','같은 법정동 비교','공개 지번 일치','limit+=20'])assert.ok(presentation.includes(value));
@@ -23,7 +23,7 @@ test('successful transaction lookup has no redundant status summary or empty car
   const status=source.match(/status\.textContent=([^\n]+)/)?.[1];
   assert.ok(status);
   assert.doesNotMatch(status,/number\(items\.length\)|공개 지번 일치|비교 거래|취소 제외/);
-  assert.match(status,/items\.length\?'':'조회 조건에 맞는 거래 내역을 찾지 못했습니다\.'/);
+  assert.match(status,/확보한 수집 범위에서 해당 거래를 확인하지 못했습니다/);
   assert.match(status,/거래 정보를 불러오지 못했습니다/);
   assert.match(status,/거래 내역을 불러오는 중입니다/);
   const css=fs.readFileSync(new URL('../transaction-ui.css',import.meta.url),'utf8');
@@ -37,7 +37,7 @@ test('status transitions preserve loading, failure and empty-result guidance',()
   context.group.loading=true;assert.match(render(),/불러오는 중/);
   context.group.loading=false;context.failed=true;assert.match(render(),/불러오지 못/);
   context.failed=false;assert.equal(render(),'');
-  context.items=[];assert.match(render(),/조회 조건에 맞는 거래 내역을 찾지 못/);
+  context.items=[];assert.match(render(),/확보한 수집 범위에서 해당 거래를 확인하지 못/);
   context.items=[{}];assert.equal(render(),'');
 });
 test('UI integration preserves the current transaction asset cache version',()=>{
