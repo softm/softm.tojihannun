@@ -64,7 +64,7 @@ try{
   assert.equal(await page.locator('#transactionChartToggle').getAttribute('open'),null);
   await assertCleanPanel();
   assert.equal(await page.locator('#transactionPaging').isVisible(),false,'no empty diagnostics gap');
-  assert.equal(await page.locator('#transactionRange option[value="saved"]').textContent(),'전체 기간');
+  assert.equal(await page.locator('#transactionRange option[value="saved"]').textContent(),'최근 6개월 우선');
   proof.checks.push('published exact-lot records rendered without collection card or operational links; chart collapsed');
   for(const width of [320,360,390,768,1280]){
     await page.setViewportSize({width,height:850});
@@ -129,7 +129,7 @@ try{
     window.TojihannunMarketData.activate('transactions');
   });
   await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false');
-  assert.match(await page.locator('#transactionEmpty').textContent(),/조회된 거래 내역이 없습니다/);
+  assert.match(await page.locator('#transactionEmpty').textContent(),/거래 자료를 아직 확인하지 못했습니다/);
   assert.equal(await page.locator('#transactionStatus').isVisible(),true,'empty-result guidance stays visible');
   assert.doesNotMatch(await page.locator('#transactionEmpty').textContent(),/읽지 못|거래가 없습니다/);
   await assertCleanPanel();
