@@ -86,13 +86,22 @@ test('uncached saved-only lookup makes zero calls; explicit period stops after 3
 });
 test('selecting 2019 in the UI queries only three months and exposes the masked Ungdo-ri trade as comparison evidence',async()=>{
   const masked={dealYear:'2019',dealMonth:'10',dealDay:'24',dealAmount:'10,500',dealArea:'1269',umdNm:'대산읍 웅도리',jibun:'6*',jimok:'임야'};
-  const {api,calls,get}=harness({snap:{entries:[]},respond:async url=>{
+  const {api,calls,get,context}=harness({snap:{entries:[]},respond:async url=>{
     const month=new URL(String(url)).searchParams.get('DEAL_YMD');
     return new Response(JSON.stringify({response:{header:{resultCode:'000'},body:{items:{item:month==='201910'?[masked]:[]},totalCount:month==='201910'?1:0}}}));
   }});
+  let releaseApartmentLookup;
+  context.window.TojiStaticTrades={lookup:async(_area,type)=>type==='apartment'
+    ? new Promise(resolve=>{releaseApartmentLookup=resolve;})
+    : null};
   api.setParcel({id:'ungdo-63-1',pnu:'4421010100100630001',address:'충청남도 서산시 대산읍 웅도리 63-1',number:'63-1'});
-  api.state.activeTab='transactions';get('#transactionRange').value='year-2019';
-  await get('#transactionRange').events.change();
+  api.state.activeTab='transactions';
+  const staleDefaultLookup=api.loadCollectedTransactions();
+  await Promise.resolve();
+  get('#transactionRange').value='year-2019';
+  const selectedYearLookup=get('#transactionRange').events.change();
+  releaseApartmentLookup({rows:[],completeMonths:[]});
+  await Promise.all([staleDefaultLookup,selectedYearLookup]);
   assert.deepEqual(calls.map(url=>new URL(url).searchParams.get('DEAL_YMD')),['201912','201911','201910']);
   assert.equal(api.state.transactionView,'nearby');assert.equal(api.state.transactionGroups.items.length,0);assert.equal(api.state.transactionGroups.comparable.length,1);
   assert.equal(api.state.transactionGroups.comparable[0].amount,10500);assert.equal(api.state.transactionGroups.comparable[0].area,1269);assert.equal(api.state.transactionGroups.undisclosedCount,1);
