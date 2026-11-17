@@ -62,6 +62,11 @@ try{
   const expected=actual.filter(r=>r.lot===sample.lot).length;
   assert.match(await page.locator('#transactionListCount').textContent(),new RegExp(expected.toLocaleString('ko-KR')+'건'));
   assert.equal(await page.locator('#transactionChartToggle').getAttribute('open'),'','monthly chart should open by default');
+  assert.equal(await page.evaluate(()=>{
+    const chart=document.querySelector('#transactionChartToggle');
+    const stats=document.querySelector('#transactionStats');
+    return !!(chart.compareDocumentPosition(stats)&Node.DOCUMENT_POSITION_FOLLOWING);
+  }),true,'monthly chart should appear before the pricing summary');
   assert.match(await page.locator('#transactionChartMeta').textContent(),/월별 중위값|세로축/);
   await assertCleanPanel();
   assert.equal(await page.locator('#transactionPaging').isVisible(),false,'no empty diagnostics gap');
@@ -95,13 +100,17 @@ try{
   // The default shows only recent collected months, not every historical fixture.
   // Pagination thresholds must use the number of rows actually loaded for this period.
   const total=Number((await page.locator('#transactionListCount').textContent()).replace(/,/g,'').match(/(\d+)건/)?.[1] || 0);
-  let steps=0;
-  while(await page.locator('.trade-more').count() && (await page.locator('.trade-row').count())<Math.min(total,220) && steps++<12)await page.locator('.trade-more').click();
-  if(total>200)assert.ok(await page.locator('.trade-row').count()>200,'no old 200-record cutoff');
+  assert.ok(await page.locator('.trade-row').count()<=10,'no more than 10 deals may render per page');
+  if(total>10){
+    assert.equal(await page.locator('.trade-row').count(),10);
+    assert.equal(await page.locator('#transactionPagination button[aria-current="page"]').textContent(),'1');
+    await page.locator('#transactionPagination button').filter({hasText:/^2$/}).click();
+    assert.equal(await page.locator('#transactionPagination button[aria-current="page"]').textContent(),'2');
+  } else assert.equal(await page.locator('#transactionPagination').isVisible(),false);
   await page.locator('.trade-row').last().scrollIntoViewIfNeeded();
   const last=await page.locator('.trade-row').last().boundingBox();assert.ok(last&&last.y<800&&last.y+last.height>0,'last record can be scrolled into view');
   await assertCleanPanel();
-  proof.checks.push('comparison separated; local sorting; pagination beyond 200; last row reachable');
+  proof.checks.push('comparison separated; local sorting; ten-deal pages; last row reachable');
   await page.locator('#transactionRange').selectOption('12');
   await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false');
   assert.equal(apiCalls.length,0,'filtering must not initiate government requests');
@@ -137,6 +146,36 @@ try{
   assert.doesNotMatch(await page.locator('#transactionEmpty').textContent(),/읽지 못|거래가 없습니다/);
   await assertCleanPanel();
   proof.checks.push('empty lookup shows filter guidance without collection diagnostics or complete-history claims');
+  // Presentation-only fixture: verify >5 numbered pages without any remote API call.
+  const pagedDeals=Array.from({length:62},(_,i)=>({
+    date:'2026-11-'+String(i%28+1).padStart(2,'0'),
+    month:'202611',amount:50000+i*300,area:i<45?84.98:97.97,unitPrice:700+i,
+    buildingName:'페이지 검증 단지',umdNm:'옥길동',jibun:'742-1',floor:String(i%20+1),exact:true
+  }));
+  await page.evaluate(records=>{
+    window.TojiTransactionUI.render({
+      group:{scope:'옥길동 742-1',items:records,comparable:[],loading:false,staticError:false,error:'',degraded:false},
+      definition:{label:'아파트',areaKind:'전용면적'},view:'parcel',type:'apartment',
+      period:'saved',onView:()=>{},onReload:()=>{},onStop:()=>{}
+    });
+  },pagedDeals);
+  assert.equal(await page.locator('.trade-row').count(),10,'page size must be ten');
+  assert.deepEqual(await page.locator('#transactionPagination button').allTextContents(),['이전','1','2','3','4','5','다음']);
+  await page.locator('#transactionPagination button').filter({hasText:/^5$/}).click();
+  assert.equal(await page.locator('#transactionPagination button[aria-current="page"]').textContent(),'5');
+  assert.deepEqual(await page.locator('#transactionPagination button').allTextContents(),['이전','3','4','5','6','7','다음']);
+  await page.locator('#transactionPagination button').last().click();
+  await page.locator('#transactionPagination button').last().click();
+  assert.equal(await page.locator('.trade-row').count(),2,'final page must show remaining two deals');
+  assert.equal(await page.locator('#transactionPagination button[aria-current="page"]').textContent(),'7');
+  await page.locator('#transactionSort').selectOption('amount-asc');
+  assert.equal(await page.locator('#transactionPagination button[aria-current="page"]').textContent(),'1','sorting resets paging');
+  assert.equal(await page.locator('.trade-row').count(),10);
+  await page.locator('#transactionAreaFilters button').last().click();
+  assert.equal(await page.locator('#transactionPagination button[aria-current="page"]').textContent(),'1','area filter resets paging');
+  assert.ok(await page.locator('.trade-row').count()<=10);
+  assert.equal(apiCalls.length,0,'local pagination must never call public APIs');
+  proof.checks.push('62-row fixture: five visible page numbers, last page, sorting and area-filter resets');
   assert.deepEqual(errors,[]);assert.equal(apiCalls.length,0);
   proof.status='passed';fs.writeFileSync('test-results/transaction-ui-browser.json',JSON.stringify(proof,null,2));
   console.log(JSON.stringify(proof));

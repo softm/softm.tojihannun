@@ -12,7 +12,7 @@ test('loading and failure never become zero transactions',()=>{assert.match(ui.c
 test('invalid coverage months are rejected',()=>assert.equal(ui.coverage({coveredMonthKeys:['202613','202600','2026','202611']}).count,1));
 test('money values retain ten-thousand-won units',()=>{assert.equal(ui.money(51500),'5억 1,500만원');assert.equal(ui.money(50000),'5억원');assert.equal(ui.money(900),'900만원');assert.equal(ui.money(null),'미제공');});
 test('sorting does not mutate exported data',()=>{const items=[{date:'2026-01-01',amount:100},{date:'2026-02-01',amount:50}];assert.equal(ui.sorted(items)[0].date,'2026-02-01');assert.equal(ui.sorted(items,'amount-desc')[0].amount,100);assert.equal(items[0].date,'2026-01-01');});
-test('UI uses no source API requests or fixed overlays',()=>{assert.doesNotMatch(src,/\bfetch\s*\(/);const css=fs.readFileSync(new URL('transaction-ui.css',root),'utf8');assert.doesNotMatch(css,/position\s*:\s*fixed/);assert.match(src,/limit\+=20/);assert.doesNotMatch(src,/Math\.min\(items\.length, 200\)/);});
+test('UI uses no source API requests or fixed overlays',()=>{assert.doesNotMatch(src,/\bfetch\s*\(/);const css=fs.readFileSync(new URL('transaction-ui.css',root),'utf8');assert.doesNotMatch(css,/position\s*:\s*fixed/);assert.match(src,/const PAGE_SIZE = 10/);assert.match(src,/const VISIBLE_PAGE_BUTTONS = 5/);assert.doesNotMatch(src,/Math\.min\(items\.length, 200\)/);});
 
 async function loader(overrides={}){
   const row={date:'2026-10-21',amount:51500,umdNm:'광명동',lot:'94-9',exactLotPublic:true,type:'rowHouse',deal:'sale',exclusiveArea:59.7,buildingName:'테스트 전용',floor:3};
@@ -69,4 +69,36 @@ test('monthly chart is open by default with clear non-zero axis warning',()=>{
   assert.match(market,/세로축/);
   assert.match(market,/min>0/);
   assert.match(market,/count: values\.length/);
+});
+
+test('trade paging shows 10 rows and at most five numbered page buttons',()=>{
+  assert.equal(ui.PAGE_SIZE,10);
+  assert.equal(ui.VISIBLE_PAGE_BUTTONS,5);
+  const first=ui.paginationWindow(62,1);
+  assert.equal(first.totalPages,7);
+  assert.equal(first.firstIndex,0);
+  assert.equal(first.lastIndex,10);
+  assert.equal(first.start,1);
+  assert.equal(first.end,5);
+  const middle=ui.paginationWindow(62,5);
+  assert.equal(middle.firstIndex,40);
+  assert.equal(middle.lastIndex,50);
+  assert.equal(middle.start,3);
+  assert.equal(middle.end,7);
+  const last=ui.paginationWindow(62,99);
+  assert.equal(last.page,7);
+  assert.equal(last.firstIndex,60);
+  assert.equal(last.lastIndex,62);
+  assert.equal(last.start,3);
+  assert.equal(last.end,7);
+  assert.equal(ui.paginationWindow(17,1).totalPages,2);
+  assert.equal(ui.paginationWindow(0,1).totalPages,1);
+  assert.equal(ui.paginationWindow(42,-5).page,1);
+});
+test('monthly chart precedes pricing summary, and list paging does not alter chart sample size',()=>{
+  const source=fs.readFileSync(new URL('transaction-ui.js',root),'utf8');
+  assert.match(source,/\$\('transactionStats'\)\.before\(details\)/);
+  assert.match(source,/items\.slice\(paging\.firstIndex,paging\.lastIndex\)/);
+  assert.match(source,/renderChartForItems\?\.\(items\)/);
+  assert.doesNotMatch(source,/trade-more/);
 });
