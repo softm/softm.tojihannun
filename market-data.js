@@ -566,43 +566,57 @@
       </div>`).join("");
   }
 
+
   function renderTransactionChart(items) {
     const groups = new Map();
     items.forEach((item) => {
+      if (!/^\d{6}$/.test(String(item.month || "")) || !(Number(item.unitPrice) > 0)) return;
       if (!groups.has(item.month)) groups.set(item.month, []);
-      groups.get(item.month).push(item.unitPrice);
+      groups.get(item.month).push(Number(item.unitPrice));
     });
     const points = [...groups.entries()]
-      .map(([month, values]) => ({month, value: median(values)}))
+      .map(([month, values]) => ({month, value: median(values), count: values.length}))
       .filter((point) => point.value > 0)
       .sort((a, b) => a.month.localeCompare(b.month));
-    if (!points.length) {
-      $("#transactionChartCard").hidden = true;
-      return;
-    }
-    const width = 520;
-    const height = 190;
-    const pad = {left: 42, right: 18, top: 25, bottom: 30};
+    const card = $("#transactionChartCard");
+    if (!points.length) { card.hidden = true; return; }
+    const width = 560, height = 222;
+    const pad = {left: 61, right: 31, top: 31, bottom: 38};
     const chartWidth = width - pad.left - pad.right;
     const chartHeight = height - pad.top - pad.bottom;
-    const max = Math.max(...points.map((point) => point.value)) * 1.15 || 1;
-    const x = (index) => points.length === 1 ? pad.left + chartWidth / 2 : pad.left + (index / (points.length - 1)) * chartWidth;
-    const y = (value) => pad.top + chartHeight - (value / max) * chartHeight;
-    const line = points.map((point, index) => `${index ? "L" : "M"}${x(index).toFixed(1)},${y(point.value).toFixed(1)}`).join(" ");
-    const areaPath = `${line} L${x(points.length - 1).toFixed(1)},${(pad.top + chartHeight).toFixed(1)} L${x(0).toFixed(1)},${(pad.top + chartHeight).toFixed(1)} Z`;
-    const labelStep = Math.max(1, Math.ceil(points.length / 6));
-    const grid = [0, .5, 1].map((ratio) => {
-      const gridY = pad.top + chartHeight * ratio;
-      const value = Math.round(max * (1 - ratio));
-      return `<line class="market-chart-grid" x1="${pad.left}" x2="${width - pad.right}" y1="${gridY}" y2="${gridY}"/><text class="market-chart-label" x="${pad.left - 5}" y="${gridY + 3}" text-anchor="end">${formatNumber(value)}</text>`;
+    const values = points.map(point => point.value);
+    const lowest = Math.min(...values), highest = Math.max(...values);
+    const spread = highest - lowest;
+    const margin = Math.max(spread * .3, highest * .045, 1);
+    // Auto zoom improves legibility; disclose a non-zero baseline explicitly.
+    const min = Math.max(0, lowest - margin), max = highest + margin;
+    const x = index => points.length === 1 ? pad.left + chartWidth/2 : pad.left + index/(points.length-1)*chartWidth;
+    const y = value => pad.top + chartHeight - (value-min)/(max-min)*chartHeight;
+    const line = points.map((point,index) => `${index ? "L" : "M"}${x(index).toFixed(1)},${y(point.value).toFixed(1)}`).join(" ");
+    const bottom = pad.top + chartHeight;
+    const areaPath = `${line} L${x(points.length-1).toFixed(1)},${bottom} L${x(0).toFixed(1)},${bottom} Z`;
+    const labelStep = Math.max(1, Math.ceil(points.length / 5));
+    const grid = [0, 1/3, 2/3, 1].map(ratio => {
+      const gridY = pad.top + chartHeight*ratio;
+      const value = max - (max-min)*ratio;
+      return `<line class="market-chart-grid" x1="${pad.left}" x2="${width-pad.right}" y1="${gridY.toFixed(1)}" y2="${gridY.toFixed(1)}"/><text class="market-chart-label" x="${pad.left-8}" y="${(gridY+4).toFixed(1)}" text-anchor="end">${formatNumber(value,1)}</text>`;
     }).join("");
-    const dots = points.map((point, index) => {
-      const showLabel = index % labelStep === 0 || index === points.length - 1;
-      return `<circle class="market-chart-dot" cx="${x(index)}" cy="${y(point.value)}" r="4"><title>${point.month.slice(0, 4)}.${point.month.slice(4)} ${formatNumber(point.value, 1)}만원/㎡</title></circle>${showLabel ? `<text class="market-chart-label" x="${x(index)}" y="${height - 9}" text-anchor="middle">${point.month.slice(2, 4)}.${point.month.slice(4)}</text>` : ""}${index === points.length - 1 ? `<text class="market-chart-value" x="${x(index) - 4}" y="${Math.max(12, y(point.value) - 9)}" text-anchor="end">${formatNumber(point.value, 1)}</text>` : ""}`;
+    const dots = points.map((point,index) => {
+      const showLabel = index % labelStep === 0 || index === points.length-1;
+      const pointTitle = `${point.month.slice(0,4)}년 ${point.month.slice(4)}월 · ${point.count}건 · 중위 ${formatNumber(point.value,1)}만원/㎡`;
+      const dot = `<circle class="market-chart-dot" cx="${x(index).toFixed(1)}" cy="${y(point.value).toFixed(1)}" r="5" tabindex="0" aria-label="${escapeHtml(pointTitle)}"><title>${escapeHtml(pointTitle)}</title></circle>`;
+      const label = showLabel ? `<text class="market-chart-label" x="${x(index).toFixed(1)}" y="${height-13}" text-anchor="middle">${point.month.slice(2,4)}.${point.month.slice(4)}</text>` : "";
+      return dot+label+(index===points.length-1 ? `<text class="market-chart-value" x="${x(index)-7}" y="${Math.max(17,y(point.value)-12)}" text-anchor="end">${formatNumber(point.value,1)}</text>` : "");
     }).join("");
-    const aria = `월별 중위 거래단가. ${points.map((point) => `${point.month.slice(0, 4)}년 ${point.month.slice(4)}월 ${formatNumber(point.value, 1)}만원`).join(", ")}`;
-    $("#transactionChart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(aria)}"><defs><linearGradient id="marketChartArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a9a78" stop-opacity=".28"/><stop offset="1" stop-color="#3a9a78" stop-opacity=".03"/></linearGradient></defs>${grid}<path class="market-chart-area" d="${areaPath}"/><path class="market-chart-line" d="${line}"/>${dots}</svg>`;
-    $("#transactionChartCard").hidden = false;
+    const first=points[0], last=points.at(-1);
+    const aria = `월별 중위 거래단가, ${points.length}개월. ` +
+      points.map(point => `${point.month.slice(0,4)}년 ${point.month.slice(4)}월 ${point.count}건 중위 ${formatNumber(point.value,1)}만원/제곱미터`).join(", ");
+    $("#transactionChartTitle").textContent = "월별 중위 거래단가";
+    $("#transactionChart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(aria)}"><defs><linearGradient id="marketChartArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a9a78" stop-opacity=".23"/><stop offset="1" stop-color="#3a9a78" stop-opacity=".02"/></linearGradient></defs>${grid}<path class="market-chart-area" d="${areaPath}"/><path class="market-chart-line" d="${line}"/>${dots}</svg>`;
+    const meta = $("#transactionChartMeta");
+    if (meta) meta.textContent =
+      `${first.month.slice(0,4)}.${first.month.slice(4)} ~ ${last.month.slice(0,4)}.${last.month.slice(4)} · 월별 중위값 · 최근 월 ${last.count}건 · 세로축 ${min>0?"0이 아닌 자동 범위":"0부터 표시"}`;
+    card.hidden=false;
   }
 
   function renderTransactionList() {
@@ -1264,7 +1278,7 @@
     resetAuctionView();
   }
 
-  window.TojihannunMarketData = {setParcel, refreshParcel, activate, prepareReportData, getReportSections};
+  window.TojihannunMarketData = {setParcel, refreshParcel, activate, prepareReportData, getReportSections, renderChartForItems:renderTransactionChart};
   readMonthCache();
   bindEvents();
 })();
