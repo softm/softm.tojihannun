@@ -90,7 +90,9 @@ try{
  assert.equal(await page.locator('#transactionChart').getAttribute('data-trend-line'),'shown');
  await page.locator('#transactionChart [data-month-index]').first().focus();
  assert.match(await page.locator('#transactionMonthReadout').textContent(),/2026\.06/);
- proof.checks.push('Sparse observations and missing month are explicit; keyboard and touch readout is available');
+ assert.equal(await page.locator('#transactionChart').getAttribute('data-observed-months'),'2');
+ assert.match(await page.locator('#transactionChartMeta').textContent(),/월 거래 건수.*거래 없는 월 제외/);
+ proof.checks.push('Only observed months are consecutive; monthly count bars and keyboard/touch readout are available');
  assert.deepEqual(errors,[]);assert.equal(remote.length,0);proof.status='passed';
  fs.writeFileSync('test-results/price-context/proof.json',JSON.stringify(proof,null,2));console.log(JSON.stringify(proof));
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

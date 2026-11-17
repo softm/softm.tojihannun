@@ -36,10 +36,10 @@ test('chart and cards use one common 84-square-metre cohort',()=>{
   assert.equal(m.months[0].count,2);assert.equal(m.low,80000);assert.equal(m.high,90000);
   assert.equal(p.summaryRows(m)[1][1],'8억 5,000만원');assert.match(m.areaDescription,/84\.97~84\.99㎡/);
 });
-test('missing months are not zero and one-record months remain sparse observations',()=>{
+test('months without transactions are omitted and observed months stay chronological',()=>{
   const m=p.model([row(80000,84.97,'2026-06-03'),row(90000,84.97,'2026-08-04')]);
-  assert.equal(m.months.length,3);assert.equal(m.months[1].count,0);assert.equal(m.months[1].value,null);
-  assert.equal(m.months[0].count,1);assert.equal(m.months[0].value,80000);
+  assert.equal(m.months.length,2);assert.equal(m.months.map(point=>point.month).join(','),'202606,202608');
+  assert.equal(m.months[0].count,1);assert.equal(m.months[0].value,80000);assert.equal(m.months[1].value,90000);
   assert.equal(p.model([row(80000,84.97)]).smallSample,true);
 });
 test('mixed areas are marked and cancelled contracts cannot become comparables',()=>{
@@ -57,20 +57,22 @@ test('invalid areas cannot become zero-priced unit transactions',()=>{
 });
 test('rendering makes no upstream requests or market-index claims',()=>{
   assert.doesNotMatch(source,/\bfetch\s*\(/);assert.match(source,/시세지수가 아닙니다/);
-  assert.match(source,/세로축 0부터/);assert.match(source,/혼합 거래 중앙값/);
+  assert.match(source,/가격축 0부터/);assert.match(source,/혼합 거래 중앙값/);
   assert.match(source,/connectNulls:false/);assert.match(source,/공급면적 기준 평당가와 다릅니다/);
   assert.match(source,/showPointValues=points.length<=8/);assert.match(source,/renderer:'svg'/);
-  assert.match(source,/type:'custom'/);assert.match(source,/type:'inside'/);assert.match(source,/type:'slider'/);
+  assert.match(source,/name:priceSeriesName,type:'line'/);assert.match(source,/type:'inside'/);assert.match(source,/type:'slider'/);
+  assert.match(source,/name:'월 거래 건수',type:'bar',yAxisIndex:1/);
+  assert.match(source,/거래 없는 월 제외/);
 });
 
 // FULL_HISTORY_MODEL_TEST_V1
- test('full-history view keeps old records and interior gaps without pre-contract empty years',()=>{
+ test('full-history view keeps only observed transaction months in chronological order',()=>{
    const rows=[{date:'2016-07-23',month:'201607',amount:20500,area:59.7},
      {date:'2026-10-21',month:'202610',amount:51500,area:59.7}];
    const m=p.model(rows,{metric:'total',allPeriod:true,coveredMonthKeys:['200601','201607','202610','202611']});
    assert.equal(m.count,2);assert.equal(m.months[0].month,'201607');
    assert.equal(m.months.at(-1).month,'202610');
-   assert.equal(m.months.length,124);
-   assert.equal(m.months.find(x=>x.month==='201608').value,null);
+   assert.equal(m.months.length,2);
+   assert.equal(m.months.find(x=>x.month==='201608'),undefined);
    assert.equal(m.months.reduce((n,x)=>n+x.count,0),m.count);
  });
