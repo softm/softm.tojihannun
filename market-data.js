@@ -199,6 +199,20 @@
     return String(value || "").replace(/\s+/g, "").trim();
   }
 
+  function normalizeComplexName(value) {
+    return String(value || "").toLowerCase().replace(/[\s()[\]{},·._-]+/g, "").trim();
+  }
+
+  function parcelComplexNames(parcel = state.parcel) {
+    const candidates = [parcel?.buildingName];
+    for (const building of parcel?.buildings || []) candidates.push(building?.name, building?.dongName);
+    for (const value of [parcel?.road, parcel?.address]) {
+      for (const match of String(value || "").matchAll(/\(([^)]*)\)/g)) candidates.push(...match[1].split(/[,/]/));
+    }
+    return new Set(candidates.map(normalizeComplexName).filter(name =>
+      name.length >= 3 && !/^(아파트|빌라|연립|다세대|공동주택|주택)$/.test(name) && !/[동읍면리]$/.test(name)));
+  }
+
   function selectedParcelArea(parcel = state.parcel) {
     const register = parcel?.landRegister || {};
     return numberValue(register.base?.lndpclAr || register.ownership?.lndpclAr || register.characteristic?.lndpclAr || 0);
@@ -209,6 +223,7 @@
     const buildings = hasBuildingData ? parcel.buildings : [];
     const description = [
       hasBuildingData && !buildings.length ? "" : parcel?.buildingName,
+      parcel?.road,
       ...buildings.flatMap((building) => [building?.name, building?.dongName, building?.use, building?.detailUse])
     ].filter(Boolean).join(" ");
     if (/공장|창고|제조소|산업시설/i.test(description)) return "factory";
@@ -555,10 +570,16 @@
   function scopeTransactionItems(items, area, type) {
     const matchingArea = items.filter((item) => normalizeAreaName(item.umdNm) === normalizeAreaName(area.emd));
     const regional = area.emd ? matchingArea : [];
-    const unique = regional.map((item) => ({...item,
-      exact: Boolean(area.emd && area.lot && normalizeAreaName(item.umdNm) === normalizeAreaName(area.emd) && normalizeLot(item.jibun) && normalizeLot(item.jibun) === area.lot)
-    }));
+    const complexNames = ["apartment", "officetel", "rowHouse"].includes(type) ? parcelComplexNames() : new Set();
+    const unique = regional.map((item) => {
+      const exact = Boolean(area.emd && area.lot && normalizeLot(item.jibun) && normalizeLot(item.jibun) === area.lot);
+      const complexName = normalizeComplexName(item.buildingName);
+      const sameComplex = !exact && Boolean(complexName && complexNames.has(complexName));
+      return {...item, exact, sameComplex, matchKind: exact ? "parcel" : sameComplex ? "complex" : "comparison"};
+    });
     const exact = unique.filter((item) => item.exact);
+    const complex = unique.filter((item) => item.sameComplex);
+    const selected = unique.filter((item) => item.exact || item.sameComplex);
     const parcelArea = selectedParcelArea();
     const comparable = type === "land" && parcelArea > 0
       ? unique.filter((item) => item.area >= parcelArea * .5 && item.area <= parcelArea * 2)
@@ -566,9 +587,12 @@
     return {
       scope: `${area.emd || `${area.sido} ${area.sgg}`.trim()} ${area.lot}`,
       exact: exact.length > 0,
+      complexCount: complex.length,
+      complexName: complex[0]?.buildingName || "",
+      complexLots: [...new Set(complex.map(item => normalizeLot(item.jibun)).filter(Boolean))],
       undisclosedCount: unique.filter(item => !normalizeLot(item.jibun)).length,
-      items: exact.sort((a,b) => b.date.localeCompare(a.date)),
-      comparable: comparable.filter(item => !item.exact).sort((a,b) => b.date.localeCompare(a.date))
+      items: selected.sort((a,b) => b.date.localeCompare(a.date)),
+      comparable: comparable.filter(item => !item.exact && !item.sameComplex).sort((a,b) => b.date.localeCompare(a.date))
     };
   }
 
