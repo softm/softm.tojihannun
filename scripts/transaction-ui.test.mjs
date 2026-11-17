@@ -12,6 +12,7 @@ test('loading and failure never become zero transactions',()=>{assert.match(ui.c
 test('invalid coverage months are rejected',()=>assert.equal(ui.coverage({coveredMonthKeys:['202613','202600','2026','202611']}).count,1));
 test('money values retain ten-thousand-won units',()=>{assert.equal(ui.money(51500),'5억 1,500만원');assert.equal(ui.money(50000),'5억원');assert.equal(ui.money(900),'900만원');assert.equal(ui.money(null),'미제공');});
 test('sorting does not mutate exported data',()=>{const items=[{date:'2026-01-01',amount:100},{date:'2026-02-01',amount:50}];assert.equal(ui.sorted(items)[0].date,'2026-02-01');assert.equal(ui.sorted(items,'amount-desc')[0].amount,100);assert.equal(items[0].date,'2026-01-01');});
+test('only disclosed same-dong comparison lots can open a parcel',()=>{assert.equal(ui.canOpenParcel({jibun:'213-21'},'nearby'),true);assert.equal(ui.canOpenParcel({jibun:'산 12-3'},'nearby'),true);assert.equal(ui.canOpenParcel({jibun:''},'nearby'),false);assert.equal(ui.canOpenParcel({jibun:'213-21'},'parcel'),false);});
 test('UI uses no source API requests or fixed overlays',()=>{assert.doesNotMatch(src,/\bfetch\s*\(/);const css=fs.readFileSync(new URL('transaction-ui.css',root),'utf8');assert.doesNotMatch(css,/position\s*:\s*fixed/);assert.match(src,/const PAGE_SIZE = 10/);assert.match(src,/const VISIBLE_PAGE_BUTTONS = 5/);assert.doesNotMatch(src,/Math\.min\(items\.length, 200\)/);});
 
 async function loader(overrides={}){

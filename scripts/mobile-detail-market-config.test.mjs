@@ -45,10 +45,10 @@ test("실거래는 용도별 API와 필지 우선·유사면적 비교 기준을
   assert.match(html, /id="transactionType"[\s\S]*?value="land"[\s\S]*?value="apartment"[\s\S]*?value="factory"/);
   assert.match(html, /<option value="48">최근 4년<\/option>/);
   assert.match(html, /<option value="60" selected>최근 5년<\/option>/);
-  assert.match(html, /transaction-ui\.css\?v=20261117\.13/);
+  assert.match(html, /transaction-ui\.css\?v=20261117\.14/);
   assert.match(html, /vendor\/echarts-toji\.min\.js\?v=20261117\.1/);
   assert.match(html, /transaction-price-context\.js\?v=20261117\.12/);
-  assert.match(html, /market-data\.js\?v=20261117\.8/);
+  assert.match(html, /market-data\.js\?v=20261117\.9/);
   assert.match(read("transaction-ui.js"), /saved\.textContent = '전체 기간'/);
   assert.match(market, /RTMSDataSvcLandTrade[\s\S]*?RTMSDataSvcAptTrade[\s\S]*?RTMSDataSvcInduTrade/);
   assert.match(market, /const exact = unique\.filter\(\(item\) => item\.exact\)/);
@@ -58,6 +58,20 @@ test("실거래는 용도별 API와 필지 우선·유사면적 비교 기준을
   assert.match(market, /parcel\?\.buildingName/);
   assert.match(app, /buildingName: searchResult\?\.category === "place" \? searchResult\.title : ""/);
   assert.match(app, /TojihannunMarketData\?\.refreshParcel\(record\)/);
+});
+
+test("같은 법정동 비교 거래는 공개 지번만 정확한 필지 검색으로 연결한다", () => {
+  const html = read("index.html");
+  const ui = read("transaction-ui.js");
+  const market = read("market-data.js");
+  const app = read("app.js");
+
+  assert.match(html, /app\.js\?v=20261117\.1/);
+  assert.match(ui, /data-open-parcel-index/);
+  assert.match(ui, /role="button" tabindex="0"/);
+  assert.match(market, /tojihannun:select-parcel-address/);
+  assert.match(app, /addEventListener\("tojihannun:select-parcel-address"/);
+  assert.match(app, /parcelAddressKey\(candidateAddress\) === expectedKey[\s\S]*?parcelRegionKey\(candidateAddress\) === expectedRegion/);
 });
 
 test("공공데이터 인증키 운영 정보는 사용자 화면에 노출하지 않는다", () => {

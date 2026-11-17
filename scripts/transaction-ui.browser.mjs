@@ -180,6 +180,21 @@ try{
   assert.doesNotMatch(await page.locator('#transactionEmpty').textContent(),/읽지 못|거래가 없습니다/);
   await assertCleanPanel();
   proof.checks.push('empty lookup shows filter guidance without collection diagnostics or complete-history claims');
+  await page.evaluate(()=>{
+    window.__openedComparisonParcel=null;
+    window.TojiTransactionUI.render({
+      group:{scope:'궁동 213-27',regionScope:'궁동',items:[],comparable:[
+        {date:'2026-08-22',amount:31800,area:46.51,umdNm:'궁동',jibun:'213-21',buildingName:'우신빌라'},
+        {date:'2026-08-21',amount:31000,area:46.51,umdNm:'궁동',jibun:'',buildingName:'지번 비공개'}
+      ],loading:false,staticError:false,error:'',degraded:false},
+      definition:{label:'연립·다세대',areaKind:'전용면적'},view:'nearby',type:'rowHouse',period:'60',
+      onView:()=>{},onReload:()=>{},onStop:()=>{},onSelectParcel:item=>{window.__openedComparisonParcel=item;}
+    });
+  });
+  assert.equal(await page.locator('.trade-row[role="button"]').count(),1,'only the disclosed comparison lot is actionable');
+  await page.locator('.trade-row[role="button"]').press('Enter');
+  assert.equal(await page.evaluate(()=>window.__openedComparisonParcel?.jibun),'213-21');
+  proof.checks.push('disclosed same-dong row opens its parcel by keyboard; masked lot stays inert');
   // Presentation-only fixture: verify >5 numbered pages without any remote API call.
   const pagedDeals=Array.from({length:62},(_,i)=>({
     date:'2026-11-'+String(i%28+1).padStart(2,'0'),
