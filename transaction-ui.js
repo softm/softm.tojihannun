@@ -98,7 +98,7 @@
       details.innerHTML='<summary>월별 거래단가 추이 <small>거래 월별 중위값 · 건별 면적 및 층수 차이 주의</small></summary>';
       // The monthly chart is the primary insight, not an optional hidden panel.
       details.open=true;
-      $('transactionListSection').after(details);details.append($('transactionChartCard'));
+      $('transactionListSection').before(details);details.append($('transactionChartCard'));
       const filters=document.createElement('div');filters.id='transactionAreaFilters';filters.className='trade-area-filters';
       filters.setAttribute('role','group');filters.setAttribute('aria-label','전용면적별 거래 비교');
       details.querySelector('summary').after(filters);
