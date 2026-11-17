@@ -35,6 +35,7 @@
     transactionItems: [],
     transactionGroups: null,
     transactionSession: null,
+    nearbyPriceRequest: 0,
     transactionView: "parcel",
     transactionShowAll: false,
     auctionItems: [],
@@ -158,8 +159,10 @@
       }
       // A parenthesized legal dong can supplement a road address. Its street number is NEVER a lot.
       const parenthesized = [...raw.matchAll(/\(([^)]*)\)/g)].flatMap(match => match[1].split(/[\s,]+/));
-      const emd = emdIndex >= 0 ? tokens[emdIndex] : parenthesized.find(token => legalName.test(token)) || "";
-      const prefix = tokens.slice(0, emdIndex >= 0 ? emdIndex : boundary);
+      const hasRuralParent = emdIndex > 0 && /리$/.test(tokens[emdIndex]) && /(?:읍|면)$/.test(tokens[emdIndex - 1]);
+      const emdStart = hasRuralParent ? emdIndex - 1 : emdIndex;
+      const emd = emdIndex >= 0 ? tokens.slice(emdStart, emdIndex + 1).join(" ") : parenthesized.find(token => legalName.test(token)) || "";
+      const prefix = tokens.slice(0, emdIndex >= 0 ? emdStart : boundary);
       const sido = prefix.find(token => /(?:특별시|광역시|특별자치시|특별자치도|도)$/.test(token)) || "";
       const sgg = prefix.filter(token => token !== sido && /(?:시|군|구)$/.test(token)).join(" ");
       const addressLot = !isRoad && lotIndex >= 0
@@ -594,6 +597,82 @@
       items: selected.sort((a,b) => b.date.localeCompare(a.date)),
       comparable: comparable.filter(item => !item.exact && !item.sameComplex).sort((a,b) => b.date.localeCompare(a.date))
     };
+  }
+
+  function nearbyPriceQuantile(values, ratio) {
+    if (!values.length) return 0;
+    const position = (values.length - 1) * ratio;
+    const lower = Math.floor(position);
+    const fraction = position - lower;
+    return values[lower + 1] === undefined ? values[lower] : values[lower] + fraction * (values[lower + 1] - values[lower]);
+  }
+
+  function nearbyLandPriceSummary(items) {
+    const prices = items
+      .filter(item => !item.cancellationDate && Number(item.amount) > 0 && Number(item.area) > 0)
+      .map(item => Number(item.amount) / Number(item.area) * 3.305785)
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b);
+    if (!prices.length) return null;
+    const useCentralRange = prices.length >= 4;
+    const low = useCentralRange ? nearbyPriceQuantile(prices, .25) : prices[0];
+    const high = useCentralRange ? nearbyPriceQuantile(prices, .75) : prices[prices.length - 1];
+    return {
+      count: prices.length,
+      low: Math.round(low),
+      high: Math.round(high),
+      rangeLabel: useCentralRange ? "중앙 50% 범위" : prices.length === 1 ? "확인 거래" : "최저~최고 범위"
+    };
+  }
+
+  function renderNearbyLandPrice({status, areaName = "", comparisonLabel = "같은 법정동", summary = null, degraded = false} = {}) {
+    const card = $("#nearbyLandPrice");
+    const value = $("#nearbyLandPriceValue");
+    const meta = $("#nearbyLandPriceMeta");
+    const note = $("#nearbyLandPriceNote");
+    if (!card || !value || !meta || !note) return;
+    card.hidden = status === "hidden";
+    card.dataset.status = status || "loading";
+    const baseNote = "같은 법정동의 공개 토지 거래를 면적 기준으로 환산한 참고값입니다. 도로·용도·형상에 따라 실제 시세와 다를 수 있습니다.";
+    if (status === "loading") {
+      value.textContent = "평당 가격 확인 중";
+      meta.textContent = `${areaName || "선택 지역"} · 최근 5년`;
+      note.textContent = baseNote;
+      return;
+    }
+    if (status === "ready" && summary) {
+      const low = summary.low.toLocaleString("ko-KR");
+      const high = summary.high.toLocaleString("ko-KR");
+      value.textContent = summary.low === summary.high ? `평당 약 ${low}만원` : `평당 약 ${low}만원 ~ ${high}만원`;
+      meta.textContent = `${areaName} ${comparisonLabel} 토지 ${summary.count.toLocaleString("ko-KR")}건 · 최근 5년 · ${summary.rangeLabel}`;
+      note.textContent = `${baseNote}${degraded ? " 일부 수집 자료만 반영되어 범위가 달라질 수 있습니다." : ""}`;
+      return;
+    }
+    value.textContent = status === "error" ? "자료 확인 필요" : "확인 가능한 주변 거래 없음";
+    meta.textContent = `${areaName || "선택 지역"} · 최근 5년`;
+    note.textContent = status === "error" ? `거래 자료 연결 상태를 확인하지 못했습니다. ${baseNote}` : `현재 확보한 자료 범위에서는 조건에 맞는 거래를 찾지 못했습니다. ${baseNote}`;
+  }
+
+  async function loadNearbyLandPrice(parcel) {
+    const request = ++state.nearbyPriceRequest;
+    const area = parseParcelArea(parcel);
+    if (!parcel || !area.lawdCode || !area.emd || !window.TojiStaticTrades) {
+      renderNearbyLandPrice({status: "hidden"});
+      return;
+    }
+    renderNearbyLandPrice({status: "loading", areaName: area.emd});
+    try {
+      const entry = await window.TojiStaticTrades.lookup(area, "land", {includeNearby: true, months: recentMonths(60)});
+      if (request !== state.nearbyPriceRequest || parcel !== state.parcel) return;
+      const normalized = normalizeRtmsNodes(entry?.rows || [], "land");
+      const scoped = scopeTransactionItems(normalized, area, "land");
+      const summary = nearbyLandPriceSummary(scoped.comparable);
+      const comparisonLabel = selectedParcelArea() > 0 ? "유사 면적" : "법정동 전체";
+      renderNearbyLandPrice({status: summary ? "ready" : "empty", areaName: area.emd, comparisonLabel, summary, degraded: Boolean(entry?.degraded)});
+    } catch {
+      if (request !== state.nearbyPriceRequest || parcel !== state.parcel) return;
+      renderNearbyLandPrice({status: "error", areaName: area.emd});
+    }
   }
 
   function renderMarketStats(selector, stats) {
@@ -1290,6 +1369,7 @@
     state.transactionController?.abort();
     state.auctionController?.abort();
     state.transactionRequest += 1;
+    state.nearbyPriceRequest += 1;
     state.auctionRequest += 1;
     state.transactionCacheKey = "";
     state.transactionTypeManuallySelected = false;
@@ -1308,6 +1388,7 @@
     state.auctionMeta = {status: "idle", area: "", totalCount: 0, fetchedAt: "", error: ""};
     resetTransactionView();
     resetAuctionView();
+    void loadNearbyLandPrice(state.parcel);
   }
 
   function refreshParcel(parcel) {
@@ -1315,6 +1396,7 @@
     const previousArea = parseParcelArea(state.parcel);
     const previousType = state.transactionType;
     state.parcel = parcel;
+    void loadNearbyLandPrice(parcel);
     const area = parseParcelArea(parcel);
     const areaChanged = previousArea.lawdCode !== area.lawdCode || previousArea.emd !== area.emd || previousArea.lot !== area.lot;
     if (areaChanged) state.transactionApartmentLookup = null;

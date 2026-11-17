@@ -43,7 +43,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261113.1" />
+    <link rel="stylesheet" href="./styles.css?v=20261117.1" />
     <link rel="stylesheet" href="./market-data.css?v=20261110.5" />
     <link rel="stylesheet" href="./districts.css?v=20261113.1" />
       <link rel="stylesheet" href="./transaction-ui.css?v=20261117.14" />
@@ -225,6 +225,14 @@
         <section class="detail-tab-panel detail-basic-panel" id="detailPanelBasic" role="tabpanel" aria-labelledby="detailTabBasic" data-detail-panel="basic">
           <section class="detail-highlight" aria-label="핵심 및 필지 정보">
             <dl id="detailHighlight"></dl>
+            <section class="nearby-land-price" id="nearbyLandPrice" aria-labelledby="nearbyLandPriceTitle" aria-live="polite" hidden>
+              <div class="nearby-land-price-main">
+                <span id="nearbyLandPriceTitle">주변 실거래</span>
+                <strong id="nearbyLandPriceValue">확인 중</strong>
+              </div>
+              <p class="nearby-land-price-meta" id="nearbyLandPriceMeta"></p>
+              <p class="nearby-land-price-note" id="nearbyLandPriceNote"></p>
+            </section>
             <div class="parcel-identity" aria-labelledby="parcelIdTitle">
               <strong class="parcel-identity-title" id="parcelIdTitle">필지 식별정보</strong>
               <dl class="land-facts" id="landFacts"></dl>
@@ -571,7 +579,7 @@
     <script src="./vendor/echarts-toji.min.js?v=20261117.2"></script>
     <script src="./transaction-price-context.js?v=20261117.13"></script>
     <script src="./transaction-ui.js?v=20261117.14"></script>
-    <script src="./market-data.js?v=20261117.9"></script>
+    <script src="./market-data.js?v=20261117.10"></script>
     <script src="./app.js?v=20261117.1"></script>
     <script defer src="./districts-core.js?v=20261108.1"></script>
     <script defer src="./districts.js?v=20261113.1"></script>

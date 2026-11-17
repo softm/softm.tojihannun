@@ -234,6 +234,15 @@ button { color: inherit; }
 .detail-highlight .orange { background: #fff0de; color: #a45112; }
 .detail-highlight .gold { background: #fff7d8; color: #80650b; }
 .detail-highlight .purple:last-child { grid-column: 1 / -1; }
+.nearby-land-price { margin-top: 7px; overflow: hidden; border: 1px solid #dce7e2; border-radius: 11px; background: #fff; }
+.nearby-land-price-main { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 11px 8px; }
+.nearby-land-price-main span { flex: 0 0 auto; color: #365a4e; font-size: 12px; font-weight: 800; }
+.nearby-land-price-main strong { min-width: 0; color: var(--ink); font-size: 16px; line-height: 1.25; text-align: right; overflow-wrap: anywhere; }
+.nearby-land-price-meta { margin: 0; padding: 0 11px 8px; color: #587068; font-size: 11px; font-weight: 700; line-height: 1.4; text-align: right; }
+.nearby-land-price-note { margin: 0; padding: 8px 11px 9px; border-top: 1px solid #e7eeeb; background: #f7f9f8; color: #687b75; font-size: 10px; line-height: 1.5; }
+.nearby-land-price[data-status="loading"] .nearby-land-price-main strong,
+.nearby-land-price[data-status="empty"] .nearby-land-price-main strong,
+.nearby-land-price[data-status="error"] .nearby-land-price-main strong { color: #587068; font-size: 14px; }
 .parcel-identity { margin-top: 7px; padding: 7px; border: 1px solid #dce7e2; border-radius: 11px; background: #f5f9f7; }
 .parcel-identity-title { display: block; color: #274a3e; font-size: 13px; }
 .land-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin: 5px 0 0; }
@@ -555,6 +564,10 @@ button { color: inherit; }
   .detail-ledger-action { min-height: 36px; font-size: 12px; }
   .detail-highlight dt { font-size: 12px; }
   .detail-highlight dd { font-size: 17px; }
+  .nearby-land-price-main span { font-size: 13px; }
+  .nearby-land-price-main strong { font-size: 18px; }
+  .nearby-land-price-meta { font-size: 12px; }
+  .nearby-land-price-note { font-size: 11px; }
   .detail-actions .detail-report-action { min-width: 96px; padding: 0 15px; font-size: 13px; }
   .directions-toggle { min-height: 36px; font-size: 12px; }
   .copy-address-link.detail-copy-address { width: 36px; min-height: 36px; }
