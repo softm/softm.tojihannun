@@ -1,0 +1,65 @@
+name: Repair parcel comparison and verify
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/repair-parcel-comparison.py
+      - .github/workflows/parcel-comparison-repair.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: parcel-comparison-repair
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Apply source repair with strict anchors
+        run: |
+          set -euo pipefail
+          python3 scripts/repair-parcel-comparison.py
+          node --check market-data.js
+          node --check transaction-ui.js
+          node --check static-transactions.js
+          node --check distributed-transactions.js
+      - name: Full regression suite and production build
+        run: |
+          set -euo pipefail
+          npm ci
+          npm test
+          python3 -m unittest discover -s scripts/rtms -p 'test_*.py'
+          npm run build
+      - name: Browser regression with real published transactions
+        run: |
+          set -euo pipefail
+          npm install --prefix /tmp/parcel-comparison-browser playwright@1.56.1
+          /tmp/parcel-comparison-browser/node_modules/.bin/playwright install --with-deps chromium
+          PLAYWRIGHT_MODULE=/tmp/parcel-comparison-browser/node_modules/playwright/index.mjs node scripts/transaction-ui.browser.mjs
+      - name: Commit only verified application changes to main
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" || { echo 'Main changed during verification; rerun against current main.'; exit 1; }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add market-data.js transaction-ui.js static-transactions.js distributed-transactions.js index.html scripts/parcel-comparison.test.mjs scripts/transaction-ui.browser.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix: restore legal-dong comparison for short and incomplete parcel addresses'
+            git push origin HEAD:main
+          fi
+          echo "Verified application commit: $(git rev-parse HEAD)"
+      - name: Deploy verified main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy-pages.yml --ref main
