@@ -54,7 +54,7 @@ let html = fs.readFileSync('index.html','utf8');
 if (!html.includes('transaction-ui.css')) html = replaceOnce(html, '</head>', '    <link rel="stylesheet" href="./transaction-ui.css?v=20261117.14" />\n  </head>', 'stylesheet');
 if (!html.includes('src="./transaction-ui.js')) html = replaceOnce(html, '    <script src="./market-data.js', '    <script src="./transaction-ui.js?v=20261117.14"></script>\n    <script src="./market-data.js', 'script');
 html = html.replace(/(distributed-transactions\.js|static-transactions\.js)\?v=[^"']+/g, '$1?v=20261117.7');
-html = html.replace(/market-data\.js\?v=[^"']+/g, 'market-data.js?v=20261117.10');
+html = html.replace(/market-data\.js\?v=[^"']+/g, 'market-data.js?v=20261117.11');
 fs.writeFileSync('index.html', html);
 let build = fs.readFileSync('scripts/build-pages.mjs','utf8');
 if (!build.includes('"transaction-ui.js"')) build=replaceOnce(build, 'const publicFiles = [', 'const publicFiles = [\n  "transaction-ui.js",\n  "transaction-ui.css",', 'build');

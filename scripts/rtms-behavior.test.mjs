@@ -84,6 +84,19 @@ test('uncached saved-only lookup makes zero calls; explicit period stops after 3
   api.refreshParcel({...parcel,buildingName:'선영빌라'});assert.equal(calls.length,3);
   await api.loadTransactions(false,false,{more:true});assert.equal(calls.length,6);assert.equal(api.state.transactionGroups.coveredMonths,6);
 });
+test('selecting 2019 in the UI queries only three months and exposes the masked Ungdo-ri trade as comparison evidence',async()=>{
+  const masked={dealYear:'2019',dealMonth:'10',dealDay:'24',dealAmount:'10,500',dealArea:'1269',umdNm:'대산읍 웅도리',jibun:'6*',jimok:'임야'};
+  const {api,calls,get}=harness({snap:{entries:[]},respond:async url=>{
+    const month=new URL(String(url)).searchParams.get('DEAL_YMD');
+    return new Response(JSON.stringify({response:{header:{resultCode:'000'},body:{items:{item:month==='201910'?[masked]:[]},totalCount:month==='201910'?1:0}}}));
+  }});
+  api.setParcel({id:'ungdo-63-1',pnu:'4421010100100630001',address:'충청남도 서산시 대산읍 웅도리 63-1',number:'63-1'});
+  api.state.activeTab='transactions';get('#transactionRange').value='year-2019';
+  await get('#transactionRange').events.change();
+  assert.deepEqual(calls.map(url=>new URL(url).searchParams.get('DEAL_YMD')),['201912','201911','201910']);
+  assert.equal(api.state.transactionView,'nearby');assert.equal(api.state.transactionGroups.items.length,0);assert.equal(api.state.transactionGroups.comparable.length,1);
+  assert.equal(api.state.transactionGroups.comparable[0].amount,10500);assert.equal(api.state.transactionGroups.comparable[0].area,1269);assert.equal(api.state.transactionGroups.undisclosedCount,1);
+});
 test('MOLIT quota code 22 also stops after one request',async()=>{
   const {api,calls,get}=harness({snap:{entries:[]},respond:async()=>new Response(JSON.stringify({response:{header:{resultCode:'22',resultMsg:'LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR'}}}))});get('#transactionRange').value='3';await api.loadTransactions();assert.equal(calls.length,1);assert.equal(api.state.transactionGroups.loading,false);assert.equal(api.state.transactionSession.failures.size,1);
 });
