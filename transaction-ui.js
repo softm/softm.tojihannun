@@ -111,7 +111,6 @@
       $('transactionChartToggle').open=true;
     }
     panel.dataset.chartInitialized='true';
-    }
     return panel;
   }
   function reset() {
