@@ -37,7 +37,16 @@
   }
 
   // UI-only filters: they never change the underlying official-source rows.
-  let current = null, lastKey = '', limit = 20, order = 'date-desc', selectedArea = 'all';
+  const PAGE_SIZE = 10;
+  const VISIBLE_PAGE_BUTTONS = 5;
+  let current = null, lastKey = '', currentPage = 1, order = 'date-desc', selectedArea = 'all';
+  function paginationWindow(totalItems, requestedPage = 1) {
+    const totalPages = Math.max(1, Math.ceil(Math.max(0, totalItems) / PAGE_SIZE));
+    const page = Math.min(totalPages, Math.max(1, Math.trunc(Number(requestedPage)) || 1));
+    const start = Math.max(1, Math.min(page - Math.floor(VISIBLE_PAGE_BUTTONS / 2), totalPages - VISIBLE_PAGE_BUTTONS + 1));
+    const end = Math.min(totalPages, start + VISIBLE_PAGE_BUTTONS - 1);
+    return {page, totalPages, start, end, firstIndex:(page - 1) * PAGE_SIZE, lastIndex:Math.min(totalItems, page * PAGE_SIZE)};
+  }
   const areaKey = item => Number(item?.area) > 0 ? String(Math.round(Number(item.area))) : '';
   const medianAmount = items => {
     const amounts = items.map(item => Number(item.amount)).filter(n => Number.isFinite(n) && n > 0).sort((a,b)=>a-b);
@@ -98,7 +107,7 @@
       details.innerHTML='<summary>월별 거래단가 추이 <small>거래 월별 중위값 · 건별 면적 및 층수 차이 주의</small></summary>';
       // The monthly chart is the primary insight, not an optional hidden panel.
       details.open=true;
-      $('transactionListSection').before(details);details.append($('transactionChartCard'));
+      $('transactionStats').before(details);details.append($('transactionChartCard'));
       const filters=document.createElement('div');filters.id='transactionAreaFilters';filters.className='trade-area-filters';
       filters.setAttribute('role','group');filters.setAttribute('aria-label','전용면적별 거래 비교');
       details.querySelector('summary').after(filters);
@@ -111,11 +120,19 @@
       $('transactionChartToggle').open=true;
     }
     panel.dataset.chartInitialized='true';
+    if (!$('transactionPagination')) {
+      const pagination=document.createElement('nav');
+      pagination.id='transactionPagination';
+      pagination.className='trade-pagination';
+      pagination.setAttribute('aria-label','실거래 내역 페이지 이동');
+      $('transactionListSection').append(pagination);
+    }
+    $('transactionListCount')?.setAttribute('aria-live','polite');
     return panel;
   }
   function reset() {
     const panel=mount(); if(!panel)return;
-    current=null;lastKey='';limit=20;order='date-desc';selectedArea='all';
+    current=null;lastKey='';currentPage=1;order='date-desc';selectedArea='all';
     $('transactionChartToggle')?.setAttribute('open','');
     if ($('transactionAreaFilters')) $('transactionAreaFilters').replaceChildren();
     if($('transactionChartToggle'))$('transactionChartToggle').hidden=true;
@@ -128,7 +145,9 @@
     const raw=view==='nearby'?group.comparable:group.items;
     const items=sorted(filteredItems(raw,areaOptions(raw,current.type)),order);
     const host=$('transactionList');
-    host.innerHTML=items.slice(0,limit).map(item => {
+    const paging=paginationWindow(items.length,currentPage);
+    currentPage=paging.page;
+    host.innerHTML=items.slice(paging.firstIndex,paging.lastIndex).map(item => {
       const name=item.buildingName || [item.umdNm,item.jibun || '지번 미공개'].filter(Boolean).join(' ');
       const address=[item.umdNm,item.jibun].filter(Boolean).join(' ');
       const scope=item.exact?'공개 지번 일치':item.jibun?'같은 법정동 비교':'지번 미공개 · 필지 미확정';
@@ -146,8 +165,32 @@
         </div>
       </article>`;
     }).join('');
-    if(items.length>limit){const more=document.createElement('button');more.type='button';more.className='trade-more';more.textContent=`거래 20건 더 보기 · ${number(Math.min(limit,items.length))}/${number(items.length)}건 표시`;more.onclick=()=>{limit+=20;drawList();};host.append(more);}
-    $('transactionListCount').textContent=`${number(items.length)}건 · ${number(Math.min(limit,items.length))}건 표시`;
+    $('transactionListCount').textContent=items.length
+      ? `총 ${number(items.length)}건 · ${number(paging.firstIndex+1)}–${number(paging.lastIndex)}건 표시`
+      : '확인된 거래 0건';
+    const nav=$('transactionPagination');
+    nav.replaceChildren();
+    nav.hidden=paging.totalPages<=1 || !items.length;
+    if (!nav.hidden) {
+      const addButton=(label,target,disabled=false,selected=false)=>{
+        const button=document.createElement('button');
+        button.type='button';
+        button.textContent=label;
+        button.className=selected?'trade-page-button is-current':'trade-page-button';
+        button.disabled=disabled;
+        button.setAttribute('aria-label',selected?`현재 ${target}페이지`:`${target}페이지로 이동`);
+        if (selected) button.setAttribute('aria-current','page');
+        button.addEventListener('click',()=>{
+          if (target===currentPage) return;
+          currentPage=target;drawList();
+          $('transactionListSection').scrollIntoView({block:'start',behavior:'auto'});
+        });
+        nav.append(button);
+      };
+      addButton('이전',paging.page-1,paging.page===1);
+      for(let p=paging.start;p<=paging.end;p++) addButton(String(p),p,false,p===paging.page);
+      addButton('다음',paging.page+1,paging.page===paging.totalPages);
+    }
     $('transactionListSection').hidden=!items.length;
   }
   function render(props) {
@@ -155,7 +198,7 @@
     current=props;
     const {group,definition,view,type,period,onView,onReload,onStop}=props;
     const key=[group.scope,type,period,view].join('|');
-    if(key!==lastKey){lastKey=key;limit=20;order='date-desc';selectedArea='all';}
+    if(key!==lastKey){lastKey=key;currentPage=1;order='date-desc';selectedArea='all';}
     const nearby=view==='nearby', allItems=nearby?group.comparable:group.items;
     const options=areaOptions(allItems,type);
     if (selectedArea!=='all' && !options.some(option=>option.key===selectedArea)) selectedArea='all';
@@ -204,7 +247,7 @@
       const makeButton=(key,label)=>{
         const button=document.createElement('button');button.type='button';button.textContent=label;
         button.className='trade-area-chip';button.setAttribute('aria-pressed',String(selectedArea===key));
-        button.onclick=()=>{selectedArea=key;limit=20;render(current);};
+        button.onclick=()=>{selectedArea=key;currentPage=1;render(current);};
         filters.append(button);
       };
       makeButton('all',`전체 면적 · ${number(allItems.length)}건`);
@@ -216,10 +259,10 @@
     empty.hidden=Boolean(items.length);
     const emptyTitle=group.loading?'거래 내역 조회 중':failed?'거래 정보를 읽지 못했습니다':'해당 지번의 거래 자료를 아직 확인하지 못했습니다';
     empty.innerHTML=`<strong>${esc(emptyTitle)}</strong><p>${esc(group.loading?'거래 내역을 불러오고 있습니다.':failed?'네트워크 상태를 확인한 뒤 다시 불러오기를 눌러 주세요.':group.degraded?'분산 저장소 연결이 실패하여 중앙 일부 자료만 조회되었습니다. 실제 거래 존재 여부는 공식 실거래가 시스템에서 확인해 주세요.':'수집 범위 밖 계약이나 미확보 거래가 있을 수 있습니다. 조회 기간 또는 데이터 상태를 확인해 주세요.')}</p>`;
-    let sortRow=$('transactionSortRow');if(!sortRow){sortRow=document.createElement('div');sortRow.id='transactionSortRow';sortRow.className='trade-sort';sortRow.innerHTML='<label for="transactionSort">거래 정렬</label><select id="transactionSort"><option value="date-desc">최신 계약순</option><option value="date-asc">과거 계약순</option><option value="amount-desc">금액 높은순</option><option value="amount-asc">금액 낮은순</option><option value="unit-desc">단가 높은순</option></select>';$('transactionList').before(sortRow);$('transactionSort').onchange=e=>{order=e.target.value;limit=20;drawList();};}
+    let sortRow=$('transactionSortRow');if(!sortRow){sortRow=document.createElement('div');sortRow.id='transactionSortRow';sortRow.className='trade-sort';sortRow.innerHTML='<label for="transactionSort">거래 정렬</label><select id="transactionSort"><option value="date-desc">최신 계약순</option><option value="date-asc">과거 계약순</option><option value="amount-desc">금액 높은순</option><option value="amount-asc">금액 낮은순</option><option value="unit-desc">단가 높은순</option></select>';$('transactionList').before(sortRow);$('transactionSort').onchange=e=>{order=e.target.value;currentPage=1;drawList();};}
     $('transactionSort').value=order;
     drawList();
     $('transactionChartToggle').hidden=!items.length;
   }
-  window.TojiTransactionUI=Object.freeze({render,reset,coverage,sorted,money,areaOptions,filteredItems,medianAmount});
+  window.TojiTransactionUI=Object.freeze({render,reset,coverage,sorted,money,areaOptions,filteredItems,medianAmount,paginationWindow,PAGE_SIZE,VISIBLE_PAGE_BUTTONS});
 })();
