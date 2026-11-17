@@ -189,3 +189,30 @@ test('an in-flight apartment match preserves a manual selection and cannot leak 
   await api.loadCollectedTransactions();
   assert.equal(get('#transactionType').value,'land');
 });
+
+// FULL_HISTORY_STATIC_TEST_V1: private fixtures, not claims of actual contracts.
+test('default reads all published historical months and recent filters remain explicit',async()=>{
+ const {api,context,calls,get}=harness({snap:{entries:[]},key:''});
+ const seen=[];
+ context.window.TojiStaticTrades={lookup:async(area,type,options)=>{
+   seen.push(options);
+   const base={dealYear:'2016',dealMonth:'07',dealDay:'23',dealAmount:'20500',
+     excluUseAr:'59.7',floor:'3',umdNm:'광명동',jibun:'158-216'};
+   const all=[base,{...base,dealYear:'2026',dealMonth:'10',dealDay:'21',dealAmount:'51500'}];
+   const included=all.filter(r=>!options.months||options.months.includes(r.dealYear+r.dealMonth));
+   return {rows:included,completeMonths:included.map(r=>r.dealYear+r.dealMonth),verifiedAt:'2026-11-08T10:00:00Z'};
+ }};
+ await api.loadCollectedTransactions();
+ assert.equal(seen[0].months,undefined);
+ assert.deepEqual(clean(api.state.transactionItems.map(r=>r.date)),['2026-10-21','2016-07-23']);
+ assert.equal(api.state.transactionGroups.savedOnly,true);
+ assert.match(api.state.transactionGroups.periodLabel,/전체 기간/);
+ assert.equal(calls.length,0);
+ get('#transactionRange').value='6';await api.loadCollectedTransactions(true);
+ assert.equal(seen.at(-1).months.length,6);
+ assert.equal(api.state.transactionItems.length,1);
+ get('#transactionRange').value='saved';await api.loadCollectedTransactions(true);
+ assert.equal(seen.at(-1).months,undefined);
+ assert.equal(api.state.transactionItems.length,2);
+ assert.equal(calls.length,0);
+});

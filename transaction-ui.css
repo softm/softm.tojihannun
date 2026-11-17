@@ -358,3 +358,12 @@
  #detailPanelTransactions.collection-trades .price-month-readout{font-size:11px;padding:8px;}
  #detailPanelTransactions.collection-trades #transactionStats .market-stat:nth-child(3) strong{font-size:13px;}
 }
+
+/* FULL_HISTORY_CHART_V1: overflow belongs to the chart, never the page. */
+#detailPanelTransactions.collection-trades #transactionChart[data-history-scroll="true"] {
+  overflow-x:auto;overflow-y:hidden;max-width:100%;min-width:0;
+  overscroll-behavior-x:contain;scrollbar-width:thin;
+}
+#detailPanelTransactions.collection-trades #transactionChart[data-history-scroll="true"] svg {
+  width:var(--history-chart-width);max-width:none;height:238px;
+}

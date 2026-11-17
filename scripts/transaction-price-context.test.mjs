@@ -60,3 +60,15 @@ test('rendering makes no upstream requests or market-index claims',()=>{
   assert.match(source,/세로축 0부터/);assert.match(source,/혼합 거래 중앙값/);
   assert.match(source,/previous=false/);assert.match(source,/공급면적 기준 평당가와 다릅니다/);
 });
+
+// FULL_HISTORY_MODEL_TEST_V1
+ test('full-history view keeps old records and interior gaps without pre-contract empty years',()=>{
+   const rows=[{date:'2016-07-23',month:'201607',amount:20500,area:59.7},
+     {date:'2026-10-21',month:'202610',amount:51500,area:59.7}];
+   const m=p.model(rows,{metric:'total',allPeriod:true,coveredMonthKeys:['200601','201607','202610','202611']});
+   assert.equal(m.count,2);assert.equal(m.months[0].month,'201607');
+   assert.equal(m.months.at(-1).month,'202610');
+   assert.equal(m.months.length,124);
+   assert.equal(m.months.find(x=>x.month==='201608').value,null);
+   assert.equal(m.months.reduce((n,x)=>n+x.count,0),m.count);
+ });

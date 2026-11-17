@@ -66,7 +66,7 @@
     }
     return out;
   }
-  function model(items, {metric='total',type='apartment',areaKind='전용면적',scope='',selectedArea='all',options=[],coveredMonthKeys=[]} = {}) {
+  function model(items, {metric='total',type='apartment',areaKind='전용면적',scope='',selectedArea='all',options=[],coveredMonthKeys=[],allPeriod=false} = {}) {
     const eligible = (items || []).filter(item => !item.cancelled && !item.cancellationDate && !/^(O|Y|1|해제)$/i.test(str(item.cancel)));
     const rows = eligible.filter(item => valueOf(item,metric) !== null).sort((a,b)=>str(b.date).localeCompare(str(a.date)));
     const values = rows.map(item=>valueOf(item,metric));
@@ -79,7 +79,14 @@
       if(!byMonth.has(month))byMonth.set(month,[]);
       byMonth.get(month).push(valueOf(item,metric));
     }
-    const keys=[...new Set([...byMonth.keys(),...coveredMonthKeys.filter(validMonth)])].sort();
+    // FULL_HISTORY_CHART_V1: full history includes every observed transaction.
+    // Do not waste the chart on years before the first known trade. Interior
+    // missing months remain explicit gaps, never fabricated zero prices.
+    const observed=[...byMonth.keys()].sort();
+    const coverage=allPeriod&&observed.length
+      ? coveredMonthKeys.filter(key=>key>=observed[0]&&key<=observed.at(-1))
+      : coveredMonthKeys;
+    const keys=[...new Set([...byMonth.keys(),...coverage.filter(validMonth)])].sort();
     const months=calendarMonths(keys[0],keys.at(-1)).map(month=>{
       const values=byMonth.get(month)||[];
       return {month,count:values.length,value:median(values),low:values.length?Math.min(...values):null,high:values.length?Math.max(...values):null};
@@ -150,7 +157,15 @@
     const kicker=card.querySelector('.market-section-head > div > span');
     if(kicker)kicker.textContent=data.areaDescription;
     if(details?.querySelector('summary'))details.querySelector('summary').innerHTML=`${esc(heading)} 보기 <small>${esc(data.label)} · ${data.mixed?'혼합면적 대표선 표시 안 함':'월별 중앙값과 거래가격 범위'}</small>`;
-    const width=Math.max(270,Math.min(760,host.clientWidth||520)), height=238;
+    const viewportWidth=Math.max(270,Math.min(760,host.clientWidth||520));
+    const scrollable=data.months.length>24;
+    const width=scrollable?Math.max(viewportWidth,(data.months.length-1)*30+80):viewportWidth,height=238;
+    const previousScroll=host.scrollLeft;
+    const chartKey=[data.scope,data.selectedArea,data.metric,data.months[0]?.month,data.months.at(-1)?.month].join('|');
+    const changed=host.dataset.historyKey!==chartKey;
+    host.dataset.historyScroll=String(scrollable);
+    host.dataset.historyKey=chartKey;
+    host.style.setProperty('--history-chart-width',width+'px');
     const pad={left:58,right:22,top:24,bottom:45},cw=width-pad.left-pad.right,ch=height-pad.top-pad.bottom;
     const highest=Math.max(...points.map(point=>point.high));
     const magnitude=Math.pow(10,Math.floor(Math.log10(highest||1)));
@@ -158,7 +173,7 @@
     const x=index=>data.months.length===1?pad.left+cw/2:pad.left+index/(data.months.length-1)*cw;
     const y=value=>pad.top+ch-(value/top)*ch;
     const grid=[0,.25,.5,.75,1].map(ratio=>`<line class="market-chart-grid" x1="${pad.left}" x2="${width-pad.right}" y1="${y(top*ratio)}" y2="${y(top*ratio)}"/><text class="market-chart-label" x="${pad.left-8}" y="${y(top*ratio)+4}" text-anchor="end">${esc(formatPrice(top*ratio,data.metric,true))}</text>`).join('');
-    const labelStep=Math.max(1,Math.ceil(data.months.length/(width<380?4:6)));
+    const labelStep=scrollable?6:Math.max(1,Math.ceil(data.months.length/(width<380?4:6)));
     let path='',previous=false;
     const markers=data.months.map((point,index)=>{
       const xx=x(index),label=index%labelStep===0||index===data.months.length-1;
@@ -170,6 +185,7 @@
       return labelSvg+`<g class="price-month-point" data-month-index="${index}" tabindex="0" role="button" aria-label="${esc(title)}"><title>${esc(title)}</title><rect x="${xx-15}" y="${pad.top}" width="30" height="${ch}" fill="transparent"/><line class="price-chart-range" x1="${xx}" x2="${xx}" y1="${y(point.low)}" y2="${y(point.high)}"/><line class="price-chart-range" x1="${xx-5}" x2="${xx+5}" y1="${y(point.low)}" y2="${y(point.low)}"/><line class="price-chart-range" x1="${xx-5}" x2="${xx+5}" y1="${y(point.high)}" y2="${y(point.high)}"/><circle class="market-chart-dot${point.count<3?' small-sample':''}" cx="${xx}" cy="${y(point.value)}" r="5"/></g>`;
     }).join('');
     host.innerHTML=`<svg viewBox="0 0 ${width} ${height}" role="group" aria-label="${esc(heading+' · '+data.label+' · 세로축 0부터. '+points.map(point=>monthText(point,data)).join('; '))}">${grid}${!data.mixed?`<path class="market-chart-line" d="${path}"/>`:''}${markers}</svg>`;
+    host.scrollLeft=scrollable?(changed?host.scrollWidth:previousScroll):0;
     let readout=$('transactionMonthReadout');
     if(!readout){readout=document.createElement('p');readout.id='transactionMonthReadout';readout.className='price-month-readout';readout.setAttribute('role','status');host.after(readout);}
     readout.textContent=monthText(points.at(-1),data);
@@ -180,6 +196,7 @@
     });
     const meta=$('transactionChartMeta');
     if(meta)meta.textContent=`점: ${data.mixed?'혼합 거래 중앙값':'월별 중앙값'} · 세로선: 최저~최고 · ${data.mixed?'면적 혼합으로 연결선 숨김':'자료 없는 월은 연결하지 않음'} · 세로축 0부터`;
+    if(meta&&scrollable)meta.textContent+=' · 전체 기간 차트: 좌우로 이동해 과거 월 확인';
     let caveat=$('transactionPriceCaveat');
     if(!caveat){caveat=document.createElement('p');caveat.id='transactionPriceCaveat';caveat.className='price-caveat';card.append(caveat);}
     caveat.textContent='신고된 거래의 분포이지 시세지수가 아닙니다. 같은 면적대라도 층·향·동·상태에 따라 가격이 다르며, 최근 계약월은 추가 신고·취소로 바뀔 수 있습니다.';
