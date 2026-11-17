@@ -22,7 +22,7 @@ function harness({snap=snapshot,respond=async()=>new Response(JSON.stringify({re
     fetch:async (url,options)=>{if(String(url).startsWith('./rtms-verified'))return {ok:true,json:async()=>snap};calls.push(String(url));return respond(url,options,calls.length);}};
   const instrumented=source.replace('  bindEvents();',`  renderTransactionView = () => {state.transactionItems = state.transactionView === 'nearby' ? state.transactionGroups.comparable : state.transactionGroups.items;};
   waitForRtms = async (ms,signal) => {if(signal?.aborted) throw abortError();};
-  window.testApi = {state, parseParcelArea, normalizeLot, parcelLot, parseRtmsResponse, normalizeRtmsNodes, scopeTransactionItems, transactionMonths, loadTransactions: (force=false, allowInactive=false, options={}) => loadTransactions(force, allowInactive, {collectedOnly:false, ...options}), loadCollectedTransactions: loadTransactions, setParcel, refreshParcel, activate, fetchRtmsMonth, readMonthCache, saveMonthCache};
+  window.testApi = {state, parseParcelArea, normalizeLot, parcelLot, parcelComplexNames, classifyBuildingTransactionType, recommendTransactionType, parseRtmsResponse, normalizeRtmsNodes, scopeTransactionItems, transactionMonths, loadTransactions: (force=false, allowInactive=false, options={}) => loadTransactions(force, allowInactive, {collectedOnly:false, ...options}), loadCollectedTransactions: loadTransactions, setParcel, refreshParcel, activate, fetchRtmsMonth, readMonthCache, saveMonthCache};
   bindEvents();`);
   vm.runInNewContext(instrumented,context);
   const api=context.window.testApi;
@@ -48,6 +48,18 @@ test('actual official JSON rows keep exclusive area, prices and different floors
 });
 test('same date, price and area on different floors are not deduplicated away',()=>{
   const {api}=harness();const items=api.normalizeRtmsNodes([{...rows[0],floor:'1'},{...rows[0],floor:'3'}],'rowHouse');assert.equal(api.scopeTransactionItems(items,api.parseParcelArea(parcel),'rowHouse').items.length,2);
+});
+test('a verified road-address complex name links another cadastral lot without claiming an exact-lot match',()=>{
+  const {api}=harness();
+  const selected={id:'1153010900102130027',pnu:'1153010900102130027',address:'서울특별시 구로구 궁동 213-27',road:'서울특별시 구로구 오리로 1265 (궁동,우신빌라)',number:'213-27'};
+  api.setParcel(selected);
+  assert.equal(api.classifyBuildingTransactionType(selected),'rowHouse');
+  assert.equal(api.recommendTransactionType(selected),'rowHouse');
+  const deals=[{date:'2026-09-29',month:'202609',amount:54800,area:46.51,floor:'2',umdNm:'궁동',jibun:'213-21',buildingName:'우신빌라'}];
+  const scoped=api.scopeTransactionItems(deals,api.parseParcelArea(selected),'rowHouse');
+  assert.equal(scoped.exact,false);assert.equal(scoped.complexCount,1);assert.equal(scoped.items.length,1);
+  assert.equal(scoped.items[0].sameComplex,true);assert.equal(scoped.items[0].exact,false);
+  assert.deepEqual(clean(scoped.complexLots),['213-21']);assert.equal(scoped.comparable.length,0);
 });
 test('saved and legacy all never schedule 251 months; explicit years remain available',()=>{
   const {api}=harness(); assert.equal(api.transactionMonths('all').length,0);assert.equal(api.transactionMonths('saved').length,0);

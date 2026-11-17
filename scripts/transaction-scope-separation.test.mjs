@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 const source = fs.readFileSync(new URL("../market-data.js", import.meta.url), "utf8");
 test("exact parcel transactions are never replaced by nearby comparables", () => {
-  assert.match(source, /items: exact\.sort/);
-  assert.match(source, /comparable: comparable\.filter\(item => !item\.exact\)/);
+  assert.match(source, /items: selected\.sort/);
+  assert.match(source, /const selected = unique\.filter\(\(item\) => item\.exact \|\| item\.sameComplex\)/);
+  assert.match(source, /comparable: comparable\.filter\(item => !item\.exact && !item\.sameComplex\)/);
   assert.doesNotMatch(source, /const selected = exact\.length \? exact : comparable/);
 });
 test("user can explicitly switch transaction scope", () => {
