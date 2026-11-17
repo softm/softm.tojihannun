@@ -222,5 +222,5 @@
     drawList();
     $('transactionChartToggle').hidden=!items.length;
   }
-  window.TojiTransactionUI=Object.freeze({render,reset,coverage,sorted,money});
+  window.TojiTransactionUI=Object.freeze({render,reset,coverage,sorted,money,areaOptions,filteredItems,medianAmount});
 })();
