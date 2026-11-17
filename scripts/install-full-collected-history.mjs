@@ -92,10 +92,10 @@ write('transaction-ui.css',css);
 for(const file of ['index.html','scripts/transaction-ui-layout.mjs','scripts/install-transaction-ui.mjs',
  'scripts/install-unified-price-context.mjs']){
  let s=read(file);
- s=s.replace(/transaction-ui\.(js|css)\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.5');
- s=s.replace(/transaction-ui\.\$1\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.5');
- s=s.replace(/transaction-price-context\.js\?v=[\d.]+/g,'transaction-price-context.js?v=20261117.5');
- s=s.replace(/market-data\.js\?v=[\d.]+/g,'market-data.js?v=20261117.5');
+ s=s.replace(/transaction-ui\.(js|css)\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.6');
+ s=s.replace(/transaction-ui\.\$1\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.6');
+ s=s.replace(/transaction-price-context\.js\?v=[\d.]+/g,'transaction-price-context.js?v=20261117.6');
+ s=s.replace(/market-data\.js\?v=[\d.]+/g,'market-data.js?v=20261117.6');
  if(file==='scripts/install-transaction-ui.mjs')s=s.replace(/'\$1\?v=[\d.]+'/g,"'$1?v=20261117.5'");
  write(file,s);
 }

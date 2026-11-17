@@ -326,8 +326,10 @@
     });
   }
 
+  // Initial and newly selected parcels use 36 calendar months including this month.
+  const DEFAULT_TRANSACTION_RANGE = "36";
   function transactionMonths(value) {
-    const raw = String(value || "saved");
+    const raw = String(value || DEFAULT_TRANSACTION_RANGE);
     if (raw === "saved" || raw === "all") return [];
     if (raw === "3" || raw === "6") return recentMonths(Number(raw));
     if (/^year-(20\d{2})$/.test(raw)) {
@@ -722,7 +724,7 @@
     if (!items.length) renderMarketStats("#transactionStats", [{label: nearby ? "같은 법정동 비교" : "해당 필지 거래",
       value: group.loading ? "조회 중" : "미확인", note: "자료 미확보·지번 비공개·미조회는 거래 없음이 아닙니다"}]);
     window.TojiTransactionUI?.render({group, type:state.transactionType, definition:TRANSACTION_TYPES[state.transactionType],
-      view:state.transactionView, period:state.transactionSession?.period || "saved",
+      view:state.transactionView, period:state.transactionSession?.period || DEFAULT_TRANSACTION_RANGE,
       onView:(view) => {state.transactionView=view;renderTransactionSession(state.transactionSession);},
       onReload:() => void loadTransactions(true), onStop:() => {state.transactionController?.abort();
         if(state.transactionSession){state.transactionSession.loading=false;state.transactionSession.error="조회 중단. 다시 불러오기로 재시도할 수 있습니다.";renderTransactionSession(state.transactionSession);}}});
@@ -860,7 +862,7 @@
       applyTransactionType(recommendTransactionType());
     }
     const type = state.transactionType;
-    const selectedPeriod = String($("#transactionRange")?.value || "saved");
+    const selectedPeriod = String($("#transactionRange")?.value || DEFAULT_TRANSACTION_RANGE);
     const period = selectedPeriod === "all" ? "saved" : selectedPeriod;
     const months = transactionMonths(period);
     const cacheKey = `${area.lawdCode}:${area.emd}:${area.lot}:${type}:${period}`;
@@ -1212,7 +1214,7 @@
 
   function setParcel(parcel) {
     state.parcel = parcel || null;
-    if ($("#transactionRange")) $("#transactionRange").value = "saved";
+    if ($("#transactionRange")) $("#transactionRange").value = DEFAULT_TRANSACTION_RANGE;
     state.transactionController?.abort();
     state.auctionController?.abort();
     state.transactionRequest += 1;

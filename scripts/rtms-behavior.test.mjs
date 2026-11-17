@@ -27,6 +27,8 @@ function harness({snap=snapshot,respond=async()=>new Response(JSON.stringify({re
   vm.runInNewContext(instrumented,context);
   const api=context.window.testApi;
   api.setParcel(parcel);api.state.activeTab='transactions';
+  // Legacy source-mode regressions explicitly exercise saved evidence.
+  get('#transactionRange').value='saved';
   return {api,calls,get,context};
 }
 const clean=v=>JSON.parse(JSON.stringify(v));
@@ -74,7 +76,7 @@ test('MOLIT quota code 22 also stops after one request',async()=>{
   const {api,calls,get}=harness({snap:{entries:[]},respond:async()=>new Response(JSON.stringify({response:{header:{resultCode:'22',resultMsg:'LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR'}}}))});get('#transactionRange').value='3';await api.loadTransactions();assert.equal(calls.length,1);assert.equal(api.state.transactionGroups.loading,false);assert.equal(api.state.transactionSession.failures.size,1);
 });
 test('snapshot rows never leak into another lot or another legal dong',async()=>{
-  const {api,calls}=harness();api.setParcel({...parcel,pnu:'4121010100101580217',id:'other',number:'158-217대',address:'경기도 광명시 광명동 158-217'});await api.loadTransactions();assert.equal(api.state.transactionItems.length,0);assert.equal(api.state.transactionSession.snapshots.size,0);assert.equal(calls.length,0);
+  const {api,calls,get}=harness();api.setParcel({...parcel,pnu:'4121010100101580217',id:'other',number:'158-217대',address:'경기도 광명시 광명동 158-217'});get('#transactionRange').value='saved';await api.loadTransactions();assert.equal(api.state.transactionItems.length,0);assert.equal(api.state.transactionSession.snapshots.size,0);assert.equal(calls.length,0);
 });
 test('snapshot is parcel-only: nearby view is explicitly unqueried, not a fabricated zero',async()=>{
   const {api}=harness();await api.loadTransactions();assert.equal(api.state.transactionGroups.regionalCovered,false);assert.equal(api.state.transactionGroups.comparable.length,0);
@@ -191,7 +193,7 @@ test('an in-flight apartment match preserves a manual selection and cannot leak 
 });
 
 // FULL_HISTORY_STATIC_TEST_V1: private fixtures, not claims of actual contracts.
-test('default reads all published historical months and recent filters remain explicit',async()=>{
+test('explicit all-period selection reads historical months and recent filters remain available',async()=>{
  const {api,context,calls,get}=harness({snap:{entries:[]},key:''});
  const seen=[];
  context.window.TojiStaticTrades={lookup:async(area,type,options)=>{
@@ -215,4 +217,34 @@ test('default reads all published historical months and recent filters remain ex
  assert.equal(seen.at(-1).months,undefined);
  assert.equal(api.state.transactionItems.length,2);
  assert.equal(calls.length,0);
+});
+
+// DEFAULT_36_MONTHS_TEST_V1: all values below are synthetic regression fixtures.
+test('initial and new parcel defaults are 36 months; all-period option remains available',async()=>{
+ const {api,context,calls,get}=harness({snap:{entries:[]},key:''});
+ const seen=[];
+ const base={dealYear:'2023',dealMonth:'11',dealDay:'02',dealAmount:'20500',excluUseAr:'59.7',floor:'3',umdNm:'광명동',jibun:'158-216'};
+ const source=[base,{...base,dealMonth:'12'},{...base,dealYear:'2026',dealMonth:'10'},{...base,dealYear:'2026',dealMonth:'11'}];
+ context.window.TojiStaticTrades={lookup:async(_area,_type,options)=>{
+  seen.push(options);
+  const rows=source.filter(row=>!options.months||options.months.includes(row.dealYear+row.dealMonth));
+  return {rows,completeMonths:options.months||source.map(row=>row.dealYear+row.dealMonth),verifiedAt:'2026-11-08T10:00:00Z'};
+ }};
+ api.setParcel(parcel);
+ assert.equal(get('#transactionRange').value,'36');
+ assert.equal(api.transactionMonths().length,36);
+ await api.loadCollectedTransactions();
+ assert.equal(seen.at(-1).months.length,36);
+ assert.equal(seen.at(-1).months[0],'202611');
+ assert.equal(seen.at(-1).months.at(-1),'202312');
+ assert.equal(api.state.transactionItems.length,3);
+ assert.ok(api.state.transactionItems.every(row=>row.month>='202312'));
+ assert.equal(api.state.transactionGroups.totalMonths,36);
+ assert.equal(api.state.transactionGroups.savedOnly,false);
+ get('#transactionRange').value='saved';await api.loadCollectedTransactions(true);
+ assert.equal(seen.at(-1).months,undefined);
+ assert.equal(api.state.transactionItems.length,4);
+ api.setParcel({...parcel,id:'default-range-second-parcel'});
+ assert.equal(get('#transactionRange').value,'36');
+ assert.equal(calls.length,0,'range changes must use saved JSON, not upstream API scans');
 });
