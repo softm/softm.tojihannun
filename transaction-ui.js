@@ -178,7 +178,7 @@
         button.textContent=label;
         button.className=selected?'trade-page-button is-current':'trade-page-button';
         button.disabled=disabled;
-        button.setAttribute('aria-label',selected?`현재 ${target}페이지`:`${target}페이지로 이동`);
+        button.setAttribute('aria-label',label==='이전'?'이전 페이지':label==='다음'?'다음 페이지':selected?`현재 ${target}페이지`:`${target}페이지로 이동`);
         if (selected) button.setAttribute('aria-current','page');
         button.addEventListener('click',()=>{
           if (target===currentPage) return;
