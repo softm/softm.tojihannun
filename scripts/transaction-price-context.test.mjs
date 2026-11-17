@@ -59,6 +59,7 @@ test('rendering makes no upstream requests or market-index claims',()=>{
   assert.doesNotMatch(source,/\bfetch\s*\(/);assert.match(source,/시세지수가 아닙니다/);
   assert.match(source,/세로축 0부터/);assert.match(source,/혼합 거래 중앙값/);
   assert.match(source,/previous=false/);assert.match(source,/공급면적 기준 평당가와 다릅니다/);
+  assert.match(source,/showPointValues=points.length<=8/);assert.match(source,/price-chart-value/);
 });
 
 // FULL_HISTORY_MODEL_TEST_V1

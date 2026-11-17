@@ -219,8 +219,8 @@ test('explicit all-period selection reads historical months and recent filters r
  assert.equal(calls.length,0);
 });
 
-// DEFAULT_36_MONTHS_TEST_V1: all values below are synthetic regression fixtures.
-test('initial and new parcel defaults are 36 months; all-period option remains available',async()=>{
+// DEFAULT_60_MONTHS_TEST_V1: all values below are synthetic regression fixtures.
+test('initial and new parcel defaults are five years; all-period option remains available',async()=>{
  const {api,context,calls,get}=harness({snap:{entries:[]},key:''});
  const seen=[];
  const base={dealYear:'2023',dealMonth:'11',dealDay:'02',dealAmount:'20500',excluUseAr:'59.7',floor:'3',umdNm:'광명동',jibun:'158-216'};
@@ -231,20 +231,20 @@ test('initial and new parcel defaults are 36 months; all-period option remains a
   return {rows,completeMonths:options.months||source.map(row=>row.dealYear+row.dealMonth),verifiedAt:'2026-11-08T10:00:00Z'};
  }};
  api.setParcel(parcel);
- assert.equal(get('#transactionRange').value,'36');
- assert.equal(api.transactionMonths().length,36);
+ assert.equal(get('#transactionRange').value,'60');
+ assert.equal(api.transactionMonths().length,60);
  await api.loadCollectedTransactions();
- assert.equal(seen.at(-1).months.length,36);
+ assert.equal(seen.at(-1).months.length,60);
  assert.equal(seen.at(-1).months[0],'202611');
- assert.equal(seen.at(-1).months.at(-1),'202312');
- assert.equal(api.state.transactionItems.length,3);
- assert.ok(api.state.transactionItems.every(row=>row.month>='202312'));
- assert.equal(api.state.transactionGroups.totalMonths,36);
+ assert.equal(seen.at(-1).months.at(-1),'202112');
+ assert.equal(api.state.transactionItems.length,4);
+ assert.ok(api.state.transactionItems.every(row=>row.month>='202112'));
+ assert.equal(api.state.transactionGroups.totalMonths,60);
  assert.equal(api.state.transactionGroups.savedOnly,false);
  get('#transactionRange').value='saved';await api.loadCollectedTransactions(true);
  assert.equal(seen.at(-1).months,undefined);
  assert.equal(api.state.transactionItems.length,4);
  api.setParcel({...parcel,id:'default-range-second-parcel'});
- assert.equal(get('#transactionRange').value,'36');
+ assert.equal(get('#transactionRange').value,'60');
  assert.equal(calls.length,0,'range changes must use saved JSON, not upstream API scans');
 });
