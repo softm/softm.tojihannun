@@ -35,7 +35,36 @@
     };
     return copy.sort(comparators[order] || latest);
   }
-  let current = null, lastKey = '', limit = 20, order = 'date-desc';
+
+  // UI-only filters: they never change the underlying official-source rows.
+  let current = null, lastKey = '', limit = 20, order = 'date-desc', selectedArea = 'all';
+  const areaKey = item => Number(item?.area) > 0 ? String(Math.round(Number(item.area))) : '';
+  const medianAmount = items => {
+    const amounts = items.map(item => Number(item.amount)).filter(n => Number.isFinite(n) && n > 0).sort((a,b)=>a-b);
+    if (!amounts.length) return 0;
+    const middle = Math.floor(amounts.length / 2);
+    return amounts.length % 2 ? amounts[middle] : (amounts[middle - 1] + amounts[middle]) / 2;
+  };
+  function areaOptions(items, type) {
+    if (!['apartment','rowHouse','officetel'].includes(type)) return [];
+    const counts = new Map();
+    items.forEach(item => {
+      const key = areaKey(item);
+      if (key) counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    if (counts.size < 2) return [];
+    const ranked = [...counts].sort((a,b)=>b[1]-a[1] || Number(a[0])-Number(b[0]));
+    const shown = ranked.slice(0, 4);
+    const others = ranked.slice(4).reduce((total, item)=>total+item[1],0);
+    return [...shown.map(([key,count])=>({key,label:`약 ${key}㎡ · ${count}건`})),
+      ...(others ? [{key:'other',label:`기타 면적 · ${others}건`}] : [])];
+  }
+  function filteredItems(items, options = []) {
+    if (selectedArea === 'all') return items;
+    const keyset = new Set(options.filter(item=>item.key !== 'other').map(item=>item.key));
+    return items.filter(item=> selectedArea === 'other'
+      ? !keyset.has(areaKey(item)) : areaKey(item) === selectedArea);
+  }
   function mount() {
     const panel = $('detailPanelTransactions');
     if (!panel) return null;
@@ -66,14 +95,30 @@
     $('transactionCollection')?.remove();
     if (!$('transactionChartToggle') && $('transactionChartCard')) {
       const details=document.createElement('details');details.id='transactionChartToggle';details.className='trade-chart-toggle';
-      details.innerHTML='<summary>월별 거래단가 차트 보기 <small>면적·층·호실 구성에 따라 달라집니다</small></summary>';
+      details.innerHTML='<summary>월별 거래단가 추이 <small>거래 월별 중위값 · 건별 면적 및 층수 차이 주의</small></summary>';
+      // The monthly chart is the primary insight, not an optional hidden panel.
+      details.open=true;
       $('transactionListSection').after(details);details.append($('transactionChartCard'));
+      const filters=document.createElement('div');filters.id='transactionAreaFilters';filters.className='trade-area-filters';
+      filters.setAttribute('role','group');filters.setAttribute('aria-label','전용면적별 거래 비교');
+      details.querySelector('summary').after(filters);
+    }
+    if (!$('transactionInsight')) {
+      const insight=document.createElement('p');insight.id='transactionInsight';insight.className='trade-insight';
+      $('transactionStats').after(insight);
+    }
+    if (!$('transactionChartToggle').open && !panel.dataset.chartInitialized) {
+      $('transactionChartToggle').open=true;
+    }
+    panel.dataset.chartInitialized='true';
     }
     return panel;
   }
   function reset() {
     const panel=mount(); if(!panel)return;
-    current=null;lastKey='';limit=20;order='date-desc';
+    current=null;lastKey='';limit=20;order='date-desc';selectedArea='all';
+    $('transactionChartToggle')?.setAttribute('open','');
+    if ($('transactionAreaFilters')) $('transactionAreaFilters').replaceChildren();
     if($('transactionChartToggle'))$('transactionChartToggle').hidden=true;
     $('transactionEmpty')?.remove();$('transactionSortRow')?.remove();
     $('refreshTransactions').disabled=false;panel.removeAttribute('aria-busy');
@@ -81,7 +126,8 @@
   function drawList() {
     if(!current)return;
     const {group,view,definition}=current;
-    const items=sorted(view==='nearby'?group.comparable:group.items,order);
+    const raw=view==='nearby'?group.comparable:group.items;
+    const items=sorted(filteredItems(raw,areaOptions(raw,current.type)),order);
     const host=$('transactionList');
     host.innerHTML=items.slice(0,limit).map(item => {
       const name=item.buildingName || [item.umdNm,item.jibun || '지번 미공개'].filter(Boolean).join(' ');
@@ -110,8 +156,11 @@
     current=props;
     const {group,definition,view,type,period,onView,onReload,onStop}=props;
     const key=[group.scope,type,period,view].join('|');
-    if(key!==lastKey){lastKey=key;limit=20;order='date-desc';}
-    const nearby=view==='nearby', items=nearby?group.comparable:group.items;
+    if(key!==lastKey){lastKey=key;limit=20;order='date-desc';selectedArea='all';}
+    const nearby=view==='nearby', allItems=nearby?group.comparable:group.items;
+    const options=areaOptions(allItems,type);
+    if (selectedArea!=='all' && !options.some(option=>option.key===selectedArea)) selectedArea='all';
+    const items=filteredItems(allItems,options);
     const failed=Boolean(group.error || group.staticError);
     panel.setAttribute('aria-busy',String(Boolean(group.loading)));
     $('refreshTransactions').disabled=Boolean(group.loading);
@@ -132,11 +181,38 @@
     status.dataset.tone=failed?'error':group.loading?'loading':items.length?'success':'';
     status.textContent=failed?'거래 정보를 불러오지 못했습니다. 다시 시도해 주세요.':group.loading?'거래 내역을 불러오는 중입니다.':group.degraded?'분산 수집본 연결 실패 · 중앙 일부만 표시 중입니다. 이 화면의 0건은 거래가 없다는 뜻이 아닙니다.':items.length?'':'확보한 수집 범위에서 해당 거래를 확인하지 못했습니다. 실제 거래가 없다는 뜻이 아닙니다.';
     const newest=sorted(items)[0];
+    const priced=items.filter(item=>Number.isFinite(Number(item.amount)) && Number(item.amount)>0);
+    const low=priced.length?Math.min(...priced.map(item=>Number(item.amount))):0;
+    const high=priced.length?Math.max(...priced.map(item=>Number(item.amount))):0;
     $('transactionStats').innerHTML=newest?[
-      ['매매 거래',number(items.length)+'건',nearby?'같은 법정동 비교':'해당 지번 기준'],
-      ['최근 계약금액',money(newest.amount),'매매 신고금액'],
-      ['최근 계약일',text(newest.date).replaceAll('-','.'),`${definition.areaKind} ${number(newest.area,2)}㎡${newest.floor?' · '+newest.floor+'층':''}`]
+      ['최근 계약',money(newest.amount),`${text(newest.date).replaceAll('-','.')} · ${number(newest.area,2)}㎡${newest.floor?' · '+newest.floor+'층':''}`],
+      ['중위 매매금액',money(medianAmount(items)),`${number(items.length)}건 중위값 · 면적 차이 주의`],
+      ['최저 ~ 최고',`${money(low)} ~ ${money(high)}`,'확인된 거래금액의 범위'],
+      ['확인된 거래',number(items.length)+'건',nearby?'같은 법정동 비교 · 거리순 아님':'선택 지번의 공개 거래']
     ].map(([a,b,c])=>`<div class="market-stat"><span>${esc(a)}</span><strong>${esc(b)}</strong><small>${esc(c)}</small></div>`).join(''):'';
+    const insight=$('transactionInsight');
+    insight.hidden=!items.length;
+    if (items.length) {
+      const areas=new Set(items.map(areaKey).filter(Boolean));
+      insight.textContent=areas.size>1
+        ? '서로 다른 면적의 거래가 포함돼 있습니다. 아래 면적별 비교를 선택하면 차트·가격·거래목록이 함께 변경됩니다.'
+        : '선택한 기간의 실제 신고 거래를 요약합니다. 층수·시점에 따른 가격 차이를 함께 확인하세요.';
+    }
+    const filters=$('transactionAreaFilters');
+    filters.hidden=!options.length;
+    filters.replaceChildren();
+    if (options.length) {
+      const makeButton=(key,label)=>{
+        const button=document.createElement('button');button.type='button';button.textContent=label;
+        button.className='trade-area-chip';button.setAttribute('aria-pressed',String(selectedArea===key));
+        button.onclick=()=>{selectedArea=key;limit=20;render(current);};
+        filters.append(button);
+      };
+      makeButton('all',`전체 면적 · ${number(allItems.length)}건`);
+      options.forEach(option=>makeButton(option.key,option.label));
+    }
+    // Chart data and visible transaction list use exactly the same area filter.
+    window.TojihannunMarketData?.renderChartForItems?.(items);
     let empty=$('transactionEmpty');if(!empty){empty=document.createElement('div');empty.id='transactionEmpty';empty.className='trade-empty';$('transactionStats').after(empty);}
     empty.hidden=Boolean(items.length);
     const emptyTitle=group.loading?'거래 내역 조회 중':failed?'거래 정보를 읽지 못했습니다':'해당 지번의 거래 자료를 아직 확인하지 못했습니다';
