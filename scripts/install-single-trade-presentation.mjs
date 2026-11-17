@@ -71,6 +71,19 @@ if(!css.includes('SINGLE_TRADE_PRESENTATION_V1')){
 `;
  write('transaction-ui.css',css);
 }
+let browser=read('scripts/transaction-ui.browser.mjs');
+if(!browser.includes('SINGLE_TRADE_BROWSER_POLICY_V1')){
+ browser=once(browser,
+  "  assert.match(await page.locator('#transactionChartMeta').textContent(),/월별 중위값|세로축/);",
+  `  // SINGLE_TRADE_BROWSER_POLICY_V1: published exact-lot sample may contain only one contract.
+  if(expected>1)assert.match(await page.locator('#transactionChartMeta').textContent(),/월별 중위값|세로축/);
+  else {
+    assert.equal(await page.locator('#transactionChartToggle').isVisible(),false);
+    assert.equal(await page.locator('#transactionStats .market-stat').count(),1);
+    assert.equal(await page.locator('#transactionListSection').isVisible(),false);
+  }`, 'single versus multiple published sample');
+ write('scripts/transaction-ui.browser.mjs',browser);
+}
 // Invalidate only changed UI assets and keep existing installer versions aligned.
 const version='20261117.10';
 for(const path of ['index.html','scripts/transaction-ui-layout.mjs','scripts/install-transaction-ui.mjs','scripts/install-unified-price-context.mjs','scripts/install-full-collected-history.mjs','scripts/install-default-36-months.mjs']){
