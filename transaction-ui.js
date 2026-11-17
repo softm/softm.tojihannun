@@ -59,11 +59,11 @@
     return [...shown.map(([key,count])=>({key,label:`약 ${key}㎡ · ${count}건`})),
       ...(others ? [{key:'other',label:`기타 면적 · ${others}건`}] : [])];
   }
-  function filteredItems(items, options = []) {
-    if (selectedArea === 'all') return items;
+  function filteredItems(items, options = [], area = selectedArea) {
+    if (area === 'all') return items;
     const keyset = new Set(options.filter(item=>item.key !== 'other').map(item=>item.key));
-    return items.filter(item=> selectedArea === 'other'
-      ? !keyset.has(areaKey(item)) : areaKey(item) === selectedArea);
+    return items.filter(item=> area === 'other'
+      ? !keyset.has(areaKey(item)) : areaKey(item) === area);
   }
   function mount() {
     const panel = $('detailPanelTransactions');
