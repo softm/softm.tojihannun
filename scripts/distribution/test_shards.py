@@ -67,7 +67,7 @@ class DistributionTests(unittest.TestCase):
         previous=os.environ.get('GITHUB_REPOSITORY')
         os.environ['GITHUB_REPOSITORY']='softm/'+shard_id
         try:
-            self.assertEqual(s.request_budget(state,self.config,stream_id,now+timedelta(seconds=2)),daily-3)
+            self.assertEqual(s.request_budget(state,self.config,stream_id,now+timedelta(seconds=2)),min(self.config['requestBudget']['perRun'],daily-3))
         finally:
             if previous is None: os.environ.pop('GITHUB_REPOSITORY',None)
             else: os.environ['GITHUB_REPOSITORY']=previous
@@ -75,8 +75,8 @@ class DistributionTests(unittest.TestCase):
         for stream_id,limit in self.config['requestBudget']['perStreamDaily'].items():
             allocated=sum(s.shard_stream_limit(self.config,shard['id'],stream_id) for shard in self.config['shards'])
             self.assertEqual(allocated,limit)
-        self.assertEqual(self.config['requestBudget']['perStreamDaily']['land-sale'],1000)
-        self.assertEqual(self.config['requestBudget']['perStreamDaily']['apartment-sale'],10000)
+        self.assertEqual(self.config['requestBudget']['perStreamDaily']['land-sale'],1000000)
+        self.assertEqual(self.config['requestBudget']['perStreamDaily']['apartment-sale'],1000000)
 
     def test_one_gb_means_decimal_and_includes_all_files(self):
         self.config['allocation'].update(maxPublishedBytes=100,rotateAtBytes=90)
