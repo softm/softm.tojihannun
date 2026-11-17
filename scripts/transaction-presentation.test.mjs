@@ -10,7 +10,8 @@ test('transaction presentation has no collection card, operational link or progr
   assert.match(presentation,/최근 6개월/);
 });
 test('removing diagnostics preserves retry, transaction scope and local pagination',()=>{
-  for(const value of ['다시 불러오기','조회 중단','같은 법정동 비교','공개 지번 일치','const PAGE_SIZE = 10','paginationWindow','trade-pagination'])assert.ok(presentation.includes(value));
+  for(const value of ['다시 불러오기','조회 중단','같은 법정동 비교','공개 지번 일치','trade-pagination'])assert.ok(presentation.includes(value));
+  for(const value of ['const PAGE_SIZE = 10','function paginationWindow'])assert.ok(source.includes(value));
   assert.match(presentation,/paging\.style\.display=paging\.hidden\?'none':''/);
   assert.doesNotMatch(presentation,/\bfetch\s*\(/);
 });
