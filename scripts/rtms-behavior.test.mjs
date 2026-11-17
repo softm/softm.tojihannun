@@ -161,9 +161,10 @@ test('an exact recent apartment row selects apartment and loads normal history w
   await api.loadCollectedTransactions();
   assert.equal(get('#transactionType').value,'apartment');
   assert.equal(api.state.transactionItems.length,1);
-  assert.deepEqual(lookups.map(entry=>[entry.area.lot,entry.type]),[['747-1','apartment'],['747-1','apartment']]);
-  assert.deepEqual(clean(lookups[0].options.months),['202611','202610','202609']);
-  assert.equal(lookups[1].options.includeNearby,true);
+  assert.deepEqual(lookups.map(entry=>[entry.area.lot,entry.type]),[['747-1','land'],['747-1','apartment'],['747-1','apartment']]);
+  assert.equal(clean(lookups[0].options.months).length,60);
+  assert.deepEqual(clean(lookups[1].options.months),['202611','202610','202609']);
+  assert.equal(lookups[2].options.includeNearby,true);
   api.refreshParcel({...okgilParcel,buildingError:true});
   assert.equal(get('#transactionType').value,'apartment');
   assert.equal(calls.length,0);

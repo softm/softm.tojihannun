@@ -15,7 +15,7 @@ function harness(rows=[row]){
     fetch:async url=>{assert.match(String(url),/^\.\/rtms-verified/,'no government API requests');return {ok:true,json:async()=>({entries:[]})};},
     window:{location:{href:'https://tojihannun.designboard.net/'},__TOJI_RUNTIME_CONFIG__:{},TojiStaticTrades:{lookup:async(area,type,options)=>{calls.push({area,type,options});return {rows,completeMonths:['202610'],verifiedAt:'2026-11-17T00:00:00Z'};}}}};
   const injected=source.replace('  bindEvents();',`  renderTransactionView=()=>{state.transactionItems=state.transactionView==='nearby'?state.transactionGroups.comparable:state.transactionGroups.items;};
-  window.testApi={state,parseParcelArea,normalizeLot,scopeTransactionItems,loadTransactions,setParcel,selectTransactionView,renderTransactionSession};
+  window.testApi={state,parseParcelArea,normalizeLot,scopeTransactionItems,nearbyLandPriceSummary,loadTransactions,setParcel,selectTransactionView,renderTransactionSession};
   bindEvents();`);
   vm.runInNewContext(injected,context);
   const api=context.window.testApi;assert.ok(api,'test seam');api.setParcel(parcel);api.state.activeTab='transactions';get('#transactionRange').value='36';
@@ -30,10 +30,15 @@ test('road number is never mistaken for cadastral lot',()=>{
   assert.equal(api.parseParcelArea({...parcel,pnu:'4121010100',number:'',address:parcel.road}).lot,'');
   assert.equal(api.parseParcelArea({...parcel,pnu:'',number:'',address:'광명동 산 15-2'}).lot,'산15-2');
 });
+test('rural legal dong keeps its township parent for published transaction matching',()=>{
+  const {api}=harness();
+  const area=api.parseParcelArea({...parcel,pnu:'4421010100100630001',address:'충청남도 서산시 대산읍 용도리 63-1',number:'63-1'});
+  assert.equal(area.emd,'대산읍 용도리');assert.equal(area.sgg,'서산시');assert.equal(area.lot,'63-1');
+});
 test('short and full addresses load the same exact and comparison data',async()=>{
   for(const address of ['광명동 159-42','경기도 광명시 광명동 159-42']){
     const {api,calls}=harness([row,{...row,jibun:'159-43'},{...row,umdNm:'철산동'}]);api.setParcel({...parcel,address});await api.loadTransactions();
-    assert.equal(api.state.transactionGroups.items.length,1);assert.equal(api.state.transactionGroups.comparable.length,1);assert.equal(api.state.transactionView,'parcel');assert.equal(calls.length,1);assert.equal(calls[0].options.includeNearby,true);
+    assert.equal(api.state.transactionGroups.items.length,1);assert.equal(api.state.transactionGroups.comparable.length,1);assert.equal(api.state.transactionView,'parcel');const transactionCalls=calls.filter(call=>call.type===api.state.transactionType);assert.equal(transactionCalls.length,1);assert.equal(transactionCalls[0].options.includeNearby,true);
   }
 });
 test('no exact row automatically exposes same-dong analytics, not fabricated parcel records',async()=>{
@@ -43,15 +48,21 @@ test('no exact row automatically exposes same-dong analytics, not fabricated par
 });
 test('known legal region without an exact lot still loads comparison only',async()=>{
   const {api,calls}=harness();api.setParcel({...parcel,pnu:'4121010100',address:'광명동',number:''});await api.loadTransactions();
-  assert.equal(calls.length,1);assert.equal(calls[0].area.lot,'');assert.equal(api.state.transactionView,'nearby');assert.equal(api.state.transactionGroups.parcelIdentified,false);assert.equal(api.state.transactionGroups.items.length,0);assert.equal(api.state.transactionGroups.comparable.length,1);
+  const transactionCalls=calls.filter(call=>call.type===api.state.transactionType);assert.equal(transactionCalls.length,1);assert.equal(transactionCalls[0].area.lot,'');assert.equal(api.state.transactionView,'nearby');assert.equal(api.state.transactionGroups.parcelIdentified,false);assert.equal(api.state.transactionGroups.items.length,0);assert.equal(api.state.transactionGroups.comparable.length,1);
   api.selectTransactionView('parcel');assert.equal(api.state.transactionView,'nearby');
 });
 test('unknown legal region renders an identity error with neither fabricated zero nor stale rows',async()=>{
   const {api,calls}=harness();await api.loadTransactions();api.setParcel({...parcel,pnu:'',address:'',road:'',number:''});await api.loadTransactions();
-  assert.equal(calls.length,1);assert.equal(api.state.transactionGroups.regionIdentified,false);assert.equal(api.state.transactionGroups.identityError,true);assert.equal(api.state.transactionItems.length,0);assert.match(api.state.transactionGroups.error,/지번주소/);
+  assert.equal(calls.filter(call=>call.type===api.state.transactionType).length,1);assert.equal(api.state.transactionGroups.regionIdentified,false);assert.equal(api.state.transactionGroups.identityError,true);assert.equal(api.state.transactionItems.length,0);assert.match(api.state.transactionGroups.error,/지번주소/);
 });
 test('masked public lots still cannot become exact matches',()=>{
   const {api}=harness();for(const lot of ['159-*','159-**','159-42대','159-42 외 1필지'])assert.equal(api.normalizeLot(lot),'');
+});
+test('nearby land price converts transaction totals into a per-pyeong central range',()=>{
+  const {api}=harness();
+  const items=[100,200,300,400].map((amount,index)=>({amount,area:3.305785,date:`2026-0${index+1}-01`,cancellationDate:''}));
+  const summary=api.nearbyLandPriceSummary(items);
+  assert.equal(summary.count,4);assert.equal(summary.low,175);assert.equal(summary.high,325);assert.equal(summary.rangeLabel,'중앙 50% 범위');
 });
 test('central static reader allows missing lot only for an explicit regional comparison',async()=>{
   const calls=[];const files={
