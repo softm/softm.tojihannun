@@ -1,3 +1,4 @@
+// PARCEL_COMPARISON_20261117: regional reads do not require an exact lot.
 /* Static RTMS data only. This loader never calls MOLIT or any third-party API. */
 (() => {
   'use strict';
@@ -18,7 +19,7 @@
     return cache.get(key);
   }
   async function lookupCentral(area, type, {includeNearby = false, force = false, months} = {}) {
-    if (!/^\d{5}$/.test(area?.lawdCode || '') || !area.emd || !area.lot) return null;
+    if (!/^\d{5}$/.test(area?.lawdCode || '') || !area.emd || (!includeNearby && !area.lot)) return null;
     if (force) invalidate();
     const catalog = await json('index.json');
     const region = catalog.districts?.[area.lawdCode];

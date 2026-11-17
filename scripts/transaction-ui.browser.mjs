@@ -54,6 +54,33 @@ try{
     }
   };
   await page.goto(origin,{waitUntil:'domcontentloaded'});
+  // PARCEL_COMPARISON_20261117: real collected rows; user-reported short address.
+  for(const candidate of [
+    {id:'short-address-regression',pnu:'4121010100101590042',address:'광명동 159-42',road:'경기도 광명시 오리로 1034-1 (광명동)',number:'159-42대',buildings:[{use:'다세대주택'}]},
+    {id:'regional-only-regression',pnu:'4121010100',address:'광명동',number:'',buildings:[{use:'다세대주택'}]}
+  ]){
+    await page.evaluate(p=>{
+      const sheet=document.getElementById('detailSheet');sheet.classList.add('open');sheet.hidden=false;
+      document.querySelectorAll('[data-detail-panel]').forEach(e=>e.hidden=e.id!=='detailPanelTransactions');
+      window.TojihannunMarketData.setParcel(p);window.TojihannunMarketData.activate('transactions');
+    },candidate);
+    await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false'&&document.querySelector('#transactionScopeSwitch button'));
+    assert.doesNotMatch(await page.locator('#transactionStatus').textContent(),/식별정보|법정동을 확인하지 못/);
+    assert.equal(await page.locator('#transactionScopeSwitch button').count(),2);
+    await page.locator('#transactionScopeSwitch button').nth(1).click();
+    assert.ok(await page.locator('.trade-row').count()>0,'published same-dong comparison rows must render');
+    assert.ok(await page.locator('#transactionAreaFilters button').count()>0,'comparison area filters remain available');
+    assert.equal(await page.locator('#transactionChartToggle').isVisible(),true);
+    assert.equal(await page.locator('#transactionChartToggle').getAttribute('open'),'');
+    assert.match(await page.locator('#transactionAreaLabel').textContent(),/^광명동 · 같은 법정동 비교$/);
+    assert.doesNotMatch(await page.locator('#transactionPriceContext').textContent(),/159-42/,'comparison prices must not be labeled as the selected parcel price');
+    if(candidate.id==='regional-only-regression')assert.equal(await page.locator('#transactionScopeSwitch button').first().isDisabled(),true);
+    await page.setViewportSize({width:1280,height:850});
+    assert.equal(await page.locator('#transactionChartToggle').isVisible(),true);
+    await page.setViewportSize({width:360,height:800});
+    proof.checks.push(candidate.id+': scope tabs, real legal-dong rows, area filters and expanded chart at mobile/desktop widths');
+  }
+
   await page.evaluate(p=>{
     const sheet=document.getElementById('detailSheet');sheet.classList.add('open');sheet.hidden=false;
     document.querySelectorAll('[data-detail-panel]').forEach(e=>e.hidden=e.id!=='detailPanelTransactions');

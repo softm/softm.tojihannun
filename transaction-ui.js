@@ -1,3 +1,4 @@
+// PARCEL_COMPARISON_20261117: keep comparable and exact transactions explicitly separated.
 /* Transaction presentation. Collection diagnostics stay in the operations page. */
 (() => {
   'use strict';
@@ -74,6 +75,7 @@
   function renderPriceControls(allItems,options,definition){
   const controls=$('transactionPricingControls');
   controls.hidden=!allItems.length;
+  controls.querySelector('.price-control-heading strong').textContent=`비교할 ${definition.areaKind}`;
   const filters=$('transactionAreaFilters');filters.replaceChildren();filters.hidden=!options.length;
   controls.querySelector('.price-control-heading').hidden=!options.length;
   $('transactionAreaSelectionNote').textContent=areaSelectionManual?'선택한 면적 기준':'거래가 많은 면적 자동 선택';
@@ -165,6 +167,7 @@
     if ($('transactionAreaFilters')) $('transactionAreaFilters').replaceChildren();
     if($('transactionChartToggle'))$('transactionChartToggle').hidden=true;
     $('transactionEmpty')?.remove();$('transactionSortRow')?.remove();
+    for(const id of ['transactionPricingControls','transactionPriceContext','transactionInsight'])if($(id))$(id).hidden=true;
     $('refreshTransactions').disabled=false;panel.removeAttribute('aria-busy');
   }
   function drawList() {
@@ -236,11 +239,21 @@
     panel.setAttribute('aria-busy',String(Boolean(group.loading)));
     $('refreshTransactions').disabled=Boolean(group.loading);
     $('transactionHeading').textContent=`${definition.label} 매매 실거래`;
-    $('transactionAreaLabel').textContent=`${group.scope} · ${nearby?'같은 법정동 비교':'선택 지번 기준'}`;
+    const displayScope=nearby?group.regionScope||group.scope:group.scope;
+    $('transactionAreaLabel').textContent=`${displayScope} · ${nearby?'같은 법정동 비교':'선택 지번 기준'}`;
     const scope=$('transactionScopeSwitch');
-    if(scope){scope.className='transaction-scope-switch';scope.replaceChildren();for(const [mode,label,list]of[['parcel','해당 지번',group.items],['nearby','같은 법정동 비교',group.comparable]]){const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',String(view===mode));b.textContent=label+(list.length?' · '+number(list.length)+'건':group.loading?' · 조회 중':'');b.onclick=()=>onView(mode);scope.append(b);}}
+    if(scope){
+      scope.className='transaction-scope-switch';scope.replaceChildren();
+      for(const [mode,label,list]of[['parcel','해당 지번',group.items],['nearby','같은 법정동 비교',group.comparable]]){
+        const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',String(view===mode));
+        b.disabled=group.regionIdentified===false || (mode==='parcel' && group.parcelIdentified===false);
+        const unavailable=group.regionIdentified===false?' · 지역 미확인':mode==='parcel'&&group.parcelIdentified===false?' · 지번 미확인':'';
+        b.textContent=label+(unavailable || (list.length?' · '+number(list.length)+'건':group.loading?' · 조회 중':''));
+        b.onclick=()=>onView(mode);scope.append(b);
+      }
+    }
     const disclosure=$('transactionDisclosure');
-    if(disclosure){disclosure.hidden=!nearby&&!group.undisclosedCount;disclosure.textContent=nearby?'같은 법정동의 비교 자료입니다. 선택 필지의 거래나 거리순 주변 거래가 아닙니다.':`같은 법정동 ${number(group.undisclosedCount)}건은 지번 식별이 불가능해 해당 필지 거래에 포함하지 않았습니다.`;}
+    if(disclosure){disclosure.hidden=!nearby&&!group.undisclosedCount;disclosure.textContent=nearby?(group.autoNearby?'해당 지번 거래를 확인하지 못해 같은 법정동 비교를 표시합니다. 선택 필지의 거래나 거리순 주변 거래가 아닙니다.':'같은 법정동의 비교 자료입니다. 선택 필지의 거래나 거리순 주변 거래가 아닙니다.'):`같은 법정동 ${number(group.undisclosedCount)}건은 지번 식별이 불가능해 해당 필지 거래에 포함하지 않았습니다.`;}
     // Keep actionable loading/error controls only, with no collection-progress prose.
     const paging=$('transactionPaging');
     if(paging){
@@ -250,15 +263,17 @@
     }
     const status=$('transactionStatus');
     status.dataset.tone=failed?'error':group.loading?'loading':items.length?'success':'';
-    status.textContent=failed?'거래 정보를 불러오지 못했습니다. 다시 시도해 주세요.':group.loading?'거래 내역을 불러오는 중입니다.':group.degraded?'분산 수집본 연결 실패 · 중앙 일부만 표시 중입니다. 이 화면의 0건은 거래가 없다는 뜻이 아닙니다.':items.length?'':'확보한 수집 범위에서 해당 거래를 확인하지 못했습니다. 실제 거래가 없다는 뜻이 아닙니다.';
-    const priceModel=pricing.model(items,{metric:priceMode,type,areaKind:definition.areaKind,scope:group.scope,selectedArea,options,coveredMonthKeys:group.coveredMonthKeys||[],allPeriod:period==='saved'});
+    status.textContent=group.identityError?group.error:failed?'거래 정보를 불러오지 못했습니다. 다시 시도해 주세요.':group.loading?'거래 내역을 불러오는 중입니다.':group.degraded?'분산 수집본 연결 실패 · 중앙 일부만 표시 중입니다. 이 화면의 0건은 거래가 없다는 뜻이 아닙니다.':items.length?'':'확보한 수집 범위에서 해당 거래를 확인하지 못했습니다. 실제 거래가 없다는 뜻이 아닙니다.';
+    const priceModel=pricing.model(items,{metric:priceMode,type,areaKind:definition.areaKind,scope:displayScope,selectedArea,options,coveredMonthKeys:group.coveredMonthKeys||[],allPeriod:period==='saved'});
+    $('transactionPriceContext').hidden=!items.length;
+    $('transactionInsight').hidden=!items.length;
     renderPriceControls(allItems,options,definition);
     pricing.renderSummary(priceModel);
     pricing.renderChart(priceModel);
     let empty=$('transactionEmpty');if(!empty){empty=document.createElement('div');empty.id='transactionEmpty';empty.className='trade-empty';$('transactionStats').after(empty);}
     empty.hidden=Boolean(items.length);
-    const emptyTitle=group.loading?'거래 내역 조회 중':failed?'거래 정보를 읽지 못했습니다':'해당 지번의 거래 자료를 아직 확인하지 못했습니다';
-    empty.innerHTML=`<strong>${esc(emptyTitle)}</strong><p>${esc(group.loading?'거래 내역을 불러오고 있습니다.':failed?'네트워크 상태를 확인한 뒤 다시 불러오기를 눌러 주세요.':group.degraded?'분산 저장소 연결이 실패하여 중앙 일부 자료만 조회되었습니다. 실제 거래 존재 여부는 공식 실거래가 시스템에서 확인해 주세요.':'수집 범위 밖 계약이나 미확보 거래가 있을 수 있습니다. 조회 기간 또는 데이터 상태를 확인해 주세요.')}</p>`;
+    const emptyTitle=group.identityError?'조회할 지역을 확인하지 못했습니다':group.loading?'거래 내역 조회 중':failed?'거래 정보를 읽지 못했습니다':nearby?'같은 법정동의 거래 자료를 아직 확인하지 못했습니다':'해당 지번의 거래 자료를 아직 확인하지 못했습니다';
+    empty.innerHTML=`<strong>${esc(emptyTitle)}</strong><p>${esc(group.identityError?group.error:group.loading?'거래 내역을 불러오고 있습니다.':failed?'네트워크 상태를 확인한 뒤 다시 불러오기를 눌러 주세요.':group.degraded?'분산 저장소 연결이 실패하여 중앙 일부 자료만 조회되었습니다. 실제 거래 존재 여부는 공식 실거래가 시스템에서 확인해 주세요.':'수집 범위 밖 계약이나 미확보 거래가 있을 수 있습니다. 조회 기간 또는 데이터 상태를 확인해 주세요.')}</p>`;
     let sortRow=$('transactionSortRow');if(!sortRow){sortRow=document.createElement('div');sortRow.id='transactionSortRow';sortRow.className='trade-sort';sortRow.innerHTML='<label for="transactionSort">거래 정렬</label><select id="transactionSort"><option value="date-desc">최신 계약순</option><option value="date-asc">과거 계약순</option><option value="amount-desc">금액 높은순</option><option value="amount-asc">금액 낮은순</option><option value="unit-desc">단가 높은순</option></select>';$('transactionList').before(sortRow);$('transactionSort').onchange=e=>{order=e.target.value;currentPage=1;drawList();};}
     $('transactionSort').value=order;
     $('transactionSort').querySelector('[value="unit-desc"]').textContent='면적당 가격 높은순';

@@ -141,27 +141,40 @@
     return `${url}${url.includes("?") ? "&" : "?"}serviceKey=${encoded}`;
   }
 
+  // PARCEL_COMPARISON_20261117: selected cadastral identity and regional scope are independent.
   function parseParcelArea(parcel) {
-    const address = String(parcel?.address || parcel?.road || "").replace(/[(),]/g, " ").trim();
-    const tokens = address.split(/\s+/).filter(Boolean);
-    const lotIndex = tokens.findIndex((token) => /^(?:산\s*)?\d+(?:-\d+)?(?:번지)?$/.test(token));
-    const boundary = lotIndex >= 0 ? lotIndex : tokens.length;
-    let emdIndex = -1;
-    for (let index = boundary - 1; index >= 1; index -= 1) {
-      if (/(동|읍|면|리|가)$/.test(tokens[index])) {
-        emdIndex = index;
-        break;
+    const suffix = /\s*[전답과목임광염대장학차주창도철제천구유양수공체원종사묘잡]$/;
+    const legalName = /^[가-힣][가-힣0-9·.]*[동읍면리가]$/;
+    function addressParts(value, roadOnly = false) {
+      const raw = String(value || "").trim();
+      const tokens = raw.replace(/[(),]/g, " ").split(/\s+/).filter(Boolean);
+      const lotIndex = tokens.findIndex(token => /^(?:산)?\d+(?:-\d+)?(?:번지)?(?:[전답과목임광염대장학차주창도철제천구유양수공체원종사묘잡])?$/.test(token));
+      const roadIndex = tokens.findIndex(token => /(?:로|길)$/.test(token));
+      const isRoad = roadOnly || (roadIndex >= 0 && (lotIndex < 0 || roadIndex < lotIndex));
+      const boundary = isRoad && roadIndex >= 0 ? roadIndex : lotIndex >= 0 ? lotIndex : tokens.length;
+      let emdIndex = -1;
+      for (let index = boundary - 1; index >= 0; index -= 1) {
+        if (legalName.test(tokens[index])) { emdIndex = index; break; }
       }
+      // A parenthesized legal dong can supplement a road address. Its street number is NEVER a lot.
+      const parenthesized = [...raw.matchAll(/\(([^)]*)\)/g)].flatMap(match => match[1].split(/[\s,]+/));
+      const emd = emdIndex >= 0 ? tokens[emdIndex] : parenthesized.find(token => legalName.test(token)) || "";
+      const prefix = tokens.slice(0, emdIndex >= 0 ? emdIndex : boundary);
+      const sido = prefix.find(token => /(?:특별시|광역시|특별자치시|특별자치도|도)$/.test(token)) || "";
+      const sgg = prefix.filter(token => token !== sido && /(?:시|군|구)$/.test(token)).join(" ");
+      const addressLot = !isRoad && lotIndex >= 0
+        ? (tokens[lotIndex - 1] === "산" ? "산" : "") + tokens[lotIndex].replace(suffix, "") : "";
+      return {sido, sgg, emd, lot: normalizeLot(addressLot)};
     }
-    if (emdIndex < 0 && boundary > 1) emdIndex = boundary - 1;
+    const cadastral = addressParts(parcel?.address);
+    const road = addressParts(parcel?.road, true);
+    const pnu = String(parcel?.pnu || "").trim();
     return {
-      sido: tokens[0] || "",
-      sgg: emdIndex > 1 ? tokens.slice(1, emdIndex).join(" ") : "",
-      emd: emdIndex >= 0 ? tokens[emdIndex] : "",
-      lawdCode: /^\d{5}/.test(String(parcel?.pnu || "")) ? String(parcel.pnu).slice(0, 5) : "",
-      // Display labels may contain a cadastral suffix (e.g. 158-216대).
-      // Prefer the 19-digit parcel identifier; never loosen the public API's masked-lot check.
-      lot: parcelLot(parcel, lotIndex >= 0 ? tokens[lotIndex] : "")
+      sido: cadastral.sido || road.sido,
+      sgg: cadastral.sgg || road.sgg,
+      emd: cadastral.emd || road.emd,
+      lawdCode: /^\d{10}(?:[12]\d{8})?$/.test(pnu) ? pnu.slice(0, 5) : "",
+      lot: parcelLot(parcel, cadastral.lot)
     };
   }
 
@@ -655,6 +668,15 @@
     $("#transactionListSection").hidden = false;
   }
 
+  function selectTransactionView(view) {
+    const session = state.transactionSession;
+    if (!session || !["parcel", "nearby"].includes(view)) return;
+    if (!session.area.lawdCode || !session.area.emd || (view === "parcel" && !session.area.lot)) return;
+    session.viewManuallySelected = true;
+    state.transactionView = view;
+    renderTransactionSession(session);
+  }
+
   function renderTransactionView() {
     const group = state.transactionGroups;
     if (!group) return;
@@ -673,7 +695,7 @@
       const button = document.createElement("button"); button.type = "button";
       button.textContent = label + (count ? ` · ${count}건 확인` : mode === "parcel" ? " · 미확인" : known ? " · 확인된 거래 없음" : " · 미조회");
       button.setAttribute("aria-pressed", String(state.transactionView === mode));
-      button.addEventListener("click", () => { state.transactionView = mode; renderTransactionSession(state.transactionSession); });
+      button.addEventListener("click", () => { selectTransactionView(mode); });
       control.appendChild(button);
     }
     let disclosure = $("#transactionDisclosure");
@@ -725,7 +747,7 @@
       value: group.loading ? "조회 중" : "미확인", note: "자료 미확보·지번 비공개·미조회는 거래 없음이 아닙니다"}]);
     window.TojiTransactionUI?.render({group, type:state.transactionType, definition:TRANSACTION_TYPES[state.transactionType],
       view:state.transactionView, period:state.transactionSession?.period || DEFAULT_TRANSACTION_RANGE,
-      onView:(view) => {state.transactionView=view;renderTransactionSession(state.transactionSession);},
+      onView:selectTransactionView,
       onReload:() => void loadTransactions(true), onStop:() => {state.transactionController?.abort();
         if(state.transactionSession){state.transactionSession.loading=false;state.transactionSession.error="조회 중단. 다시 불러오기로 재시도할 수 있습니다.";renderTransactionSession(state.transactionSession);}}});
   }
@@ -819,12 +841,20 @@
       allItems.push(...session.directItems);
     }
     const scoped = scopeTransactionItems(allItems, session.area, session.type);
+    if (!session.loading && !session.error && !session.viewManuallySelected && !scoped.items.length && scoped.comparable.length) {
+      state.transactionView = "nearby";
+    }
     const expected = sessionMonths(session);
     const covered = coveredSessionMonths(session);
     const relevantFailures = [...session.failures.keys()].filter(month => expected.includes(month));
     const remaining = expected.filter(month => !covered.has(month) && !session.failures.has(month));
     const savedOnly = session.period === "saved";
     state.transactionGroups = {...scoped,
+      regionScope: session.area.emd,
+      parcelIdentified: Boolean(session.area.lot),
+      regionIdentified: Boolean(session.area.lawdCode && session.area.emd),
+      identityError: Boolean(session.identityError),
+      autoNearby: state.transactionView === "nearby" && !session.viewManuallySelected && !scoped.items.length,
       comparable: scoped.comparable,
       savedOnly, directAnswered: Boolean(session.directAnswered), directSource: session.directSource || "",
       requestedMonths: expected.length, totalMonths: expected.length,
@@ -848,12 +878,20 @@
     const parcel = state.parcel;
     if (!parcel || (!allowInactive && state.activeTab !== "transactions")) return;
     const area = parseParcelArea(parcel);
-    if (!area.lawdCode || !area.emd || !area.lot) {
-      setStatus("#transactionStatus", "선택 필지의 법정동·지번 식별정보를 확인하지 못했습니다. 거래 없음이 아닙니다.", "error"); return;
+    if (!area.lawdCode || !area.emd) {
+      state.transactionController?.abort();
+      state.transactionRequest += 1;
+      const period = String($("#transactionRange")?.value || DEFAULT_TRANSACTION_RANGE);
+      const session = {key:"unresolved", type:state.transactionType, area, period, months:transactionMonths(period),
+        results:new Map(), snapshots:new Map(), failures:new Map(), loading:false, identityError:true,
+        error:"선택 지역의 법정동을 확인하지 못했습니다. 지번주소로 다시 검색해 주세요. 거래 없음이 아닙니다."};
+      state.transactionSession = session;
+      renderTransactionSession(session);
+      return;
     }
     if (!state.transactionTypeManuallySelected) {
       const buildingType = classifyBuildingTransactionType(parcel);
-      if (window.TojiStaticTrades && (!buildingType || buildingType === "multiFamily")) {
+      if (area.lot && window.TojiStaticTrades && (!buildingType || buildingType === "multiFamily")) {
         const lookup = checkRecentApartmentTransactions(area);
         await lookup.promise;
         if (state.transactionApartmentLookup !== lookup || state.transactionTypeManuallySelected ||
@@ -877,8 +915,9 @@
     const fresh = !session || session.key !== cacheKey || (force && collectedOnly);
     if (fresh) {
       session = {key: cacheKey, type, area, period, months, results: new Map(), snapshots: new Map(), failures: new Map(), loading: true, error: "", snapshotAt: "", snapshotFresh: false};
+      session.viewManuallySelected = Boolean(options.view);
       state.transactionSession = session;
-      state.transactionView = options.view || "parcel";
+      state.transactionView = area.lot ? options.view || "parcel" : "nearby";
       state.transactionCacheKey = cacheKey;
       renderTransactionSession(session);
       const snapshots = await getVerifiedSnapshots();

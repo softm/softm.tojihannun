@@ -1,3 +1,4 @@
+// PARCEL_COMPARISON_20261117: regional reads do not require an exact lot.
 /* Distributed RTMS reader. Shard Pages are preferred only after an explicit serving=pages handoff.
    Any routing, CORS, gzip, integrity or availability failure falls back to the tracked central dataset. */
 (() => {
@@ -136,7 +137,7 @@
   }
 
   async function lookup(area, type, {includeNearby = false, force = false, months} = {}) {
-    if (!validCode(area?.lawdCode) || !area.emd || !area.lot || !/^[A-Za-z]+$/.test(String(type || ''))) return null;
+    if (!validCode(area?.lawdCode) || !area.emd || (!includeNearby && !area.lot) || !/^[A-Za-z]+$/.test(String(type || ''))) return null;
     const config = await registry(force);
     const shard = selectShard(config, area.lawdCode);
     if (!shard) return null;
