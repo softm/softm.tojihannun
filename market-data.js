@@ -26,6 +26,7 @@
     transactionController: null,
     auctionController: null,
     transactionRequest: 0,
+    transactionSelectionVersion: 0,
     auctionRequest: 0,
     transactionCacheKey: "",
     transactionType: "land",
@@ -988,6 +989,7 @@
     const collectedOnly = options.collectedOnly !== false;
     if (force && collectedOnly) snapshotPromise = undefined;
     const parcel = state.parcel;
+    const selectionVersion = state.transactionSelectionVersion;
     if (!parcel || (!allowInactive && state.activeTab !== "transactions")) return;
     const area = parseParcelArea(parcel);
     if (!area.lawdCode || !area.emd) {
@@ -1006,7 +1008,7 @@
       if (area.lot && window.TojiStaticTrades && (!buildingType || buildingType === "multiFamily")) {
         const lookup = checkRecentApartmentTransactions(area);
         await lookup.promise;
-        if (state.transactionApartmentLookup !== lookup || state.transactionTypeManuallySelected ||
+        if (selectionVersion !== state.transactionSelectionVersion || state.transactionApartmentLookup !== lookup || state.transactionTypeManuallySelected ||
             (!allowInactive && state.activeTab !== "transactions")) return;
       }
       applyTransactionType(recommendTransactionType());
@@ -1369,6 +1371,7 @@
     state.transactionController?.abort();
     state.auctionController?.abort();
     state.transactionRequest += 1;
+    state.transactionSelectionVersion += 1;
     state.nearbyPriceRequest += 1;
     state.auctionRequest += 1;
     state.transactionCacheKey = "";
@@ -1418,12 +1421,14 @@
 
   function bindEvents() {
     $("#transactionType")?.addEventListener("change", (event) => {
+      state.transactionSelectionVersion += 1;
       applyTransactionType(event.target.value, {manual: true});
       resetTransactionView();
       const historicalYear = /^year-20\d{2}$/.test(String($("#transactionRange")?.value || ""));
       if (state.activeTab === "transactions") return loadTransactions(true, false, {collectedOnly: !historicalYear});
     });
     $("#transactionRange")?.addEventListener("change", () => {
+      state.transactionSelectionVersion += 1;
       state.transactionCacheKey = "";
       const historicalYear = /^year-20\d{2}$/.test(String($("#transactionRange")?.value || ""));
       if (state.activeTab === "transactions") return loadTransactions(false, false, historicalYear
