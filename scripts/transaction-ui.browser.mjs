@@ -61,11 +61,12 @@ try{
   await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false'&&document.querySelector('.trade-row'));
   const expected=actual.filter(r=>r.lot===sample.lot).length;
   assert.match(await page.locator('#transactionListCount').textContent(),new RegExp(expected.toLocaleString('ko-KR')+'건'));
-  assert.equal(await page.locator('#transactionChartToggle').getAttribute('open'),null);
+  assert.equal(await page.locator('#transactionChartToggle').getAttribute('open'),'','monthly chart should open by default');
+  assert.match(await page.locator('#transactionChartMeta').textContent(),/월별 중위값|세로축/);
   await assertCleanPanel();
   assert.equal(await page.locator('#transactionPaging').isVisible(),false,'no empty diagnostics gap');
   assert.equal(await page.locator('#transactionRange option[value="saved"]').textContent(),'최근 6개월 우선');
-  proof.checks.push('published exact-lot records rendered without collection card or operational links; chart collapsed');
+  proof.checks.push('published exact-lot records rendered without collection card or operational links; chart expanded by default');
   for(const width of [320,360,390,768,1280]){
     await page.setViewportSize({width,height:850});
     const dimensions=await page.locator('#detailPanelTransactions').evaluate(e=>({client:e.clientWidth,scroll:e.scrollWidth}));
