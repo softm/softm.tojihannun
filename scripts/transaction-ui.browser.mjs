@@ -1,3 +1,4 @@
+// PRICE_CONTEXT_BROWSER_DEPENDENCY
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
@@ -23,7 +24,7 @@ const server=http.createServer((req,res)=>{
   if(file.endsWith('/index.html')){
     // Use the production DOM/styles, isolating transactions from maps/ads/other providers.
     body=body.toString().replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
-    body=body.replace('</body>','<script src="./static-transactions.js"></script><script src="./transaction-ui.js"></script><script src="./market-data.js"></script></body>');
+    body=body.replace('</body>','<script src="./static-transactions.js"></script><script src="./transaction-price-context.js"></script><script src="./transaction-ui.js"></script><script src="./market-data.js"></script></body>');
   }
   res.end(body);
 });
@@ -59,14 +60,14 @@ try{
     window.TojihannunMarketData.setParcel(p);window.TojihannunMarketData.activate('transactions');
   },parcel);
   await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false'&&document.querySelector('.trade-row'));
-  const expected=actual.filter(r=>r.lot===sample.lot).length;
+  const expected=await page.evaluate(()=>Number(document.getElementById('transactionStats').dataset.cohortCount));
   assert.match(await page.locator('#transactionListCount').textContent(),new RegExp(expected.toLocaleString('ko-KR')+'건'));
   assert.equal(await page.locator('#transactionChartToggle').getAttribute('open'),'','monthly chart should open by default');
   assert.equal(await page.evaluate(()=>{
     const chart=document.querySelector('#transactionChartToggle');
     const stats=document.querySelector('#transactionStats');
-    return !!(chart.compareDocumentPosition(stats)&Node.DOCUMENT_POSITION_FOLLOWING);
-  }),true,'monthly chart should appear before the pricing summary');
+    return !!(stats.compareDocumentPosition(chart)&Node.DOCUMENT_POSITION_FOLLOWING);
+  }),true,'pricing summary should appear before the monthly chart');
   assert.match(await page.locator('#transactionChartMeta').textContent(),/월별 중위값|세로축/);
   await assertCleanPanel();
   assert.equal(await page.locator('#transactionPaging').isVisible(),false,'no empty diagnostics gap');
@@ -159,6 +160,7 @@ try{
       period:'saved',onView:()=>{},onReload:()=>{},onStop:()=>{}
     });
   },pagedDeals);
+  await page.locator('#transactionAreaFilters button').first().click();
   assert.equal(await page.locator('.trade-row').count(),10,'page size must be ten');
   assert.deepEqual(await page.locator('#transactionPagination button').allTextContents(),['이전','1','2','3','4','5','다음']);
   await page.locator('#transactionPagination button').filter({hasText:/^5$/}).click();

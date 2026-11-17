@@ -331,3 +331,30 @@
     padding:6px 5px;
   }
 }
+
+/* UNIFIED_PRICE_CONTEXT_V1 */
+#detailPanelTransactions.collection-trades .trade-pricing-controls{margin:12px 0;padding:13px;border:1px solid #d2e3d8;border-radius:13px;background:#fff;min-width:0;}
+#detailPanelTransactions.collection-trades .price-control-heading{display:flex;flex-wrap:wrap;justify-content:space-between;gap:5px;font-size:13px;}
+#detailPanelTransactions.collection-trades .price-control-heading small{font-size:11px;color:#64796e;}
+#detailPanelTransactions.collection-trades .trade-pricing-controls .trade-area-filters{padding:10px 0;}
+#detailPanelTransactions.collection-trades .price-metric-label{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:#325b4a;}
+#detailPanelTransactions.collection-trades .price-metric-label select{height:42px;max-width:100%;min-width:0;flex:1;padding:0 9px;border:1px solid #c6ddcf;border-radius:9px;background:#fff;color:inherit;font:inherit;}
+#detailPanelTransactions.collection-trades .price-all-areas{display:flex;align-items:center;flex-wrap:wrap;gap:6px;max-width:100%;font-size:12px;}
+#detailPanelTransactions.collection-trades .price-all-areas select{min-width:0;max-width:100%;height:42px;font:inherit;}
+#detailPanelTransactions.collection-trades .trade-price-context{font-size:12px;font-weight:700;color:#225b45;line-height:1.6;margin:9px 0;overflow-wrap:anywhere;}
+#detailPanelTransactions.collection-trades .price-month-readout{margin:10px 0 4px;padding:10px;border-radius:9px;background:#eff7f2;border:1px solid #d8e7dd;font-size:12px;line-height:1.7;color:#254f3e;}
+#detailPanelTransactions.collection-trades .price-caveat{font-size:11px;line-height:1.65;color:#61756a;margin:7px 2px;}
+#detailPanelTransactions.collection-trades .price-chart-range{stroke:#9cb9ab;stroke-width:2;}
+#detailPanelTransactions.collection-trades .price-month-point{cursor:pointer;outline:none;}
+#detailPanelTransactions.collection-trades .price-month-point:focus-visible .market-chart-dot{stroke-width:4;stroke:#133d30;}
+#detailPanelTransactions.collection-trades .market-chart-dot.small-sample{stroke-dasharray:2 2;}
+#detailPanelTransactions.collection-trades .market-chart-label{font-size:11px;}
+#detailPanelTransactions.collection-trades .price-chart-count{font-size:10px;fill:#526c60;}
+#detailPanelTransactions.collection-trades .trade-chart-toggle{margin-top:13px;}
+#detailPanelTransactions.collection-trades #transactionStats .market-stat:nth-child(3) strong{font-size:15px;line-height:1.6;}
+@media(max-width:420px){
+ #detailPanelTransactions.collection-trades .trade-pricing-controls{padding:10px;}
+ #detailPanelTransactions.collection-trades .price-metric-label select{font-size:14px;}
+ #detailPanelTransactions.collection-trades .price-month-readout{font-size:11px;padding:8px;}
+ #detailPanelTransactions.collection-trades #transactionStats .market-stat:nth-child(3) strong{font-size:13px;}
+}

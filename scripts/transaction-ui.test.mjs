@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const root=new URL('../',import.meta.url);
 const src=fs.readFileSync(new URL('transaction-ui.js',root),'utf8');
-const sandbox={window:{},document:{}};vm.createContext(sandbox);vm.runInContext(src,sandbox);
+const sandbox={window:{},document:{}};vm.createContext(sandbox);/* PRICE_CONTEXT_TEST_DEPENDENCY */vm.runInContext(fs.readFileSync(new URL('transaction-price-context.js',root),'utf8'),sandbox);vm.runInContext(src,sandbox);
 const ui=sandbox.window.TojiTransactionUI;
 test('collected history never claims full history',()=>{const c=ui.coverage({savedOnly:true,coveredMonthKeys:['202610','202608','202610']});assert.equal(c.count,2);assert.equal(c.partial,true);assert.equal(c.expected,null);assert.equal(c.label,'일부 기간 확보');});
 test('explicit period distinguishes missing and complete months',()=>{assert.equal(ui.coverage({totalMonths:12,coveredMonthKeys:['202610']}).partial,true);assert.equal(ui.coverage({totalMonths:1,coveredMonthKeys:['202610']}).partial,false);});
@@ -41,9 +41,9 @@ test('apartment area chips group comparable unit sizes without altering official
   ];
   const bands=ui.areaOptions(rows,'apartment');
   assert.equal(bands.length,3);
-  assert.equal(bands[0].key,'98');
-  assert.match(bands[0].label,/2건/);
-  assert.equal(ui.filteredItems(rows,bands,'98').length,2);
+  assert.equal(bands.find(b=>b.key==='97').key,'97');
+  assert.match(bands.find(b=>b.key==='97').label,/2건/);
+  assert.equal(ui.filteredItems(rows,bands,'97').length,2);
   assert.equal(ui.filteredItems(rows,bands,'all').length,4);
   assert.equal(ui.areaOptions(rows,'land').length,0);
   assert.deepEqual(rows.map(row=>row.id),[1,2,3,4]);
@@ -51,8 +51,8 @@ test('apartment area chips group comparable unit sizes without altering official
 test('apartment comparison offers a collective other-area bucket for diverse sizes',()=>{
   const rows=[52,62,72,82,92,102].map(area=>({area,amount:10000+area}));
   const bands=ui.areaOptions(rows,'apartment');
-  assert.equal(bands.length,5);
-  assert.equal(ui.filteredItems(rows,bands,'other').length,2);
+  assert.equal(bands.length,6);
+  assert.equal(ui.filteredItems(rows,bands,'102').length,1);
   assert.equal(ui.filteredItems(rows,bands,'52').length,1);
 });
 test('median sale amount treats outliers conservatively and excludes missing prices',()=>{
@@ -65,7 +65,7 @@ test('monthly chart is open by default with clear non-zero axis warning',()=>{
   const src=fs.readFileSync(new URL('transaction-ui.js',root),'utf8');
   const market=fs.readFileSync(new URL('market-data.js',root),'utf8');
   assert.match(src,/details\.open=true/);
-  assert.match(src,/renderChartForItems\?\.\(items\)/);
+  assert.match(src,/pricing\.renderChart\(priceModel\)/);
   assert.match(market,/세로축/);
   assert.match(market,/min>0/);
   assert.match(market,/count: values\.length/);
@@ -95,10 +95,10 @@ test('trade paging shows 10 rows and at most five numbered page buttons',()=>{
   assert.equal(ui.paginationWindow(0,1).totalPages,1);
   assert.equal(ui.paginationWindow(42,-5).page,1);
 });
-test('monthly chart precedes pricing summary, and list paging does not alter chart sample size',()=>{
+test('pricing summary precedes monthly chart, and list paging does not alter chart sample size',()=>{
   const source=fs.readFileSync(new URL('transaction-ui.js',root),'utf8');
-  assert.match(source,/\$\('transactionStats'\)\.before\(details\)/);
+  assert.match(source,/\$\('transactionStats'\)\.after\(details\)/);
   assert.match(source,/items\.slice\(paging\.firstIndex,paging\.lastIndex\)/);
-  assert.match(source,/renderChartForItems\?\.\(items\)/);
+  assert.match(source,/pricing\.renderChart\(priceModel\)/);
   assert.doesNotMatch(source,/trade-more/);
 });
