@@ -36,6 +36,9 @@
     return copy.sort(comparators[order] || latest);
   }
 
+  // UNIFIED_PRICE_CONTEXT_V1: one price basis and one cohort for all visible analytics.
+  const pricing=window.TojiPriceContext;
+  let priceMode='total',areaSelectionManual=false;
   // UI-only filters: they never change the underlying official-source rows.
   const PAGE_SIZE = 10;
   const VISIBLE_PAGE_BUTTONS = 5;
@@ -47,33 +50,57 @@
     const end = Math.min(totalPages, start + VISIBLE_PAGE_BUTTONS - 1);
     return {page, totalPages, start, end, firstIndex:(page - 1) * PAGE_SIZE, lastIndex:Math.min(totalItems, page * PAGE_SIZE)};
   }
-  const areaKey = item => Number(item?.area) > 0 ? String(Math.round(Number(item.area))) : '';
+  const areaKey = item => pricing.areaKey(item);
   const medianAmount = items => {
     const amounts = items.map(item => Number(item.amount)).filter(n => Number.isFinite(n) && n > 0).sort((a,b)=>a-b);
     if (!amounts.length) return 0;
     const middle = Math.floor(amounts.length / 2);
     return amounts.length % 2 ? amounts[middle] : (amounts[middle - 1] + amounts[middle]) / 2;
   };
-  function areaOptions(items, type) {
-    if (!['apartment','rowHouse','officetel'].includes(type)) return [];
-    const counts = new Map();
-    items.forEach(item => {
-      const key = areaKey(item);
-      if (key) counts.set(key, (counts.get(key) || 0) + 1);
-    });
-    if (counts.size < 2) return [];
-    const ranked = [...counts].sort((a,b)=>b[1]-a[1] || Number(a[0])-Number(b[0]));
-    const shown = ranked.slice(0, 4);
-    const others = ranked.slice(4).reduce((total, item)=>total+item[1],0);
-    return [...shown.map(([key,count])=>({key,label:`약 ${key}㎡ · ${count}건`})),
-      ...(others ? [{key:'other',label:`기타 면적 · ${others}건`}] : [])];
+  function areaOptions(items,type){return pricing.areaOptions(items,type);}
+  function filteredItems(items,options=[],area=selectedArea){return pricing.filterArea(items,area);}
+  function mountPriceControls(){
+  if(!$('transactionPricingControls')){
+    const controls=document.createElement('section');controls.id='transactionPricingControls';controls.className='trade-pricing-controls';
+    controls.setAttribute('aria-label','실거래 비교 기준');
+    controls.innerHTML='<div class="price-control-heading"><strong>비교할 전용면적</strong><small id="transactionAreaSelectionNote"></small></div><label class="price-metric-label" for="transactionPriceMetric">가격 표시 기준<select id="transactionPriceMetric"><option value="total">매매총액 · 억/만원</option><option value="sqm">면적 ㎡당 가격</option><option value="area33">면적 3.3㎡당 가격</option></select></label>';
+    $('transactionStats').before(controls);
+    controls.querySelector('.price-metric-label').before($('transactionAreaFilters'));
+    const context=document.createElement('p');context.id='transactionPriceContext';context.className='trade-price-context';
+    controls.after(context);
+    $('transactionPriceMetric').onchange=event=>{priceMode=event.target.value;currentPage=1;render(current);};
   }
-  function filteredItems(items, options = [], area = selectedArea) {
-    if (area === 'all') return items;
-    const keyset = new Set(options.filter(item=>item.key !== 'other').map(item=>item.key));
-    return items.filter(item=> area === 'other'
-      ? !keyset.has(areaKey(item)) : areaKey(item) === area);
+}
+  function renderPriceControls(allItems,options,definition){
+  const controls=$('transactionPricingControls');
+  controls.hidden=!allItems.length;
+  const filters=$('transactionAreaFilters');filters.replaceChildren();filters.hidden=!options.length;
+  controls.querySelector('.price-control-heading').hidden=!options.length;
+  $('transactionAreaSelectionNote').textContent=areaSelectionManual?'선택한 면적 기준':'거래가 많은 면적 자동 선택';
+  const choose=key=>{selectedArea=key;areaSelectionManual=true;currentPage=1;render(current);};
+  const makeButton=(key,label,title)=>{
+    const button=document.createElement('button');button.type='button';button.className='trade-area-chip';button.textContent=label;
+    button.title=title||label;button.dataset.areaKey=key;button.setAttribute('aria-pressed',String(selectedArea===key));
+    button.onclick=()=>{choose(key);$('transactionAreaFilters').querySelector('[aria-pressed="true"]')?.focus({preventScroll:true});};
+    filters.append(button);
+  };
+  if(options.length){
+    makeButton('all',`전체 면적 · ${number(allItems.length)}건`,'혼합 면적의 분포입니다. 하나의 면적 시세로 해석하지 마세요.');
+    const frequent=[...options].sort((a,b)=>b.count-a.count||b.latest.localeCompare(a.latest)).slice(0,4);
+    const selected=options.find(option=>option.key===selectedArea);
+    if(selected&&!frequent.some(option=>option.key===selected.key))frequent.splice(3,1,selected);
+    frequent.sort((a,b)=>Number(a.key)-Number(b.key)).forEach(option=>makeButton(option.key,option.label,option.title));
+    if(options.length>4){
+      const label=document.createElement('label');label.className='price-all-areas';label.textContent='다른 전용면적 ';
+      const select=document.createElement('select');select.setAttribute('aria-label','모든 전용면적대');
+      select.innerHTML='<option value="all">전체 면적 (혼합)</option>'+options.map(option=>`<option value="${esc(option.key)}">${esc(option.label+' · '+option.title.split(' · ')[0])}</option>`).join('');
+      select.value=selectedArea;select.onchange=event=>choose(event.target.value);label.append(select);filters.append(label);
+    }
   }
+  const selector=$('transactionPriceMetric');selector.value=priceMode;
+  selector.querySelector('[value="sqm"]').textContent=`${definition.areaKind} ㎡당 가격`;
+  selector.querySelector('[value="area33"]').textContent=`${definition.areaKind} 3.3㎡당 가격`;
+}
   function mount() {
     const panel = $('detailPanelTransactions');
     if (!panel) return null;
@@ -107,7 +134,7 @@
       details.innerHTML='<summary>월별 거래단가 추이 <small>거래 월별 중위값 · 건별 면적 및 층수 차이 주의</small></summary>';
       // The monthly chart is the primary insight, not an optional hidden panel.
       details.open=true;
-      $('transactionStats').before(details);details.append($('transactionChartCard'));
+      $('transactionStats').after(details);details.append($('transactionChartCard'));
       const filters=document.createElement('div');filters.id='transactionAreaFilters';filters.className='trade-area-filters';
       filters.setAttribute('role','group');filters.setAttribute('aria-label','전용면적별 거래 비교');
       details.querySelector('summary').after(filters);
@@ -119,6 +146,7 @@
     if (!$('transactionChartToggle').open && !panel.dataset.chartInitialized) {
       $('transactionChartToggle').open=true;
     }
+    mountPriceControls();
     panel.dataset.chartInitialized='true';
     if (!$('transactionPagination')) {
       const pagination=document.createElement('nav');
@@ -132,7 +160,7 @@
   }
   function reset() {
     const panel=mount(); if(!panel)return;
-    current=null;lastKey='';currentPage=1;order='date-desc';selectedArea='all';
+    current=null;lastKey='';currentPage=1;order='date-desc';selectedArea='all';areaSelectionManual=false;priceMode='total';
     $('transactionChartToggle')?.setAttribute('open','');
     if ($('transactionAreaFilters')) $('transactionAreaFilters').replaceChildren();
     if($('transactionChartToggle'))$('transactionChartToggle').hidden=true;
@@ -143,7 +171,7 @@
     if(!current)return;
     const {group,view,definition}=current;
     const raw=view==='nearby'?group.comparable:group.items;
-    const items=sorted(filteredItems(raw,areaOptions(raw,current.type)),order);
+    const items=sorted(filteredItems(raw,areaOptions(raw,current.type)).filter(item=>pricing.valueOf(item,priceMode)!==null),order);
     const host=$('transactionList');
     const paging=paginationWindow(items.length,currentPage);
     currentPage=paging.page;
@@ -153,13 +181,13 @@
       const scope=item.exact?'공개 지번 일치':item.jibun?'같은 법정동 비교':'지번 미공개 · 필지 미확정';
       const extras=[item.dealType,item.jimok,item.landUse,item.buildingUse].filter(Boolean);
       return `<article class="trade-row trade-row--compact" aria-label="${esc([item.date,name,money(item.amount),scope].join(' · '))}">
-        <div class="trade-row-top"><time datetime="${esc(item.date)}">${esc(text(item.date).replaceAll('-','.'))}</time><strong>${esc(money(item.amount))}</strong></div>
+        <div class="trade-row-top"><time datetime="${esc(item.date)}">${esc(text(item.date).replaceAll('-','.'))}</time><strong>${esc(pricing.formatPrice(pricing.valueOf(item,priceMode),priceMode))}</strong></div>
         <div class="trade-row-inline">
           <strong class="trade-row-name" title="${esc(name)}">${esc(name)}</strong>
           ${address && address!==name ? `<span class="trade-row-address" title="${esc(address)}">${esc(address)}</span>` : ''}
           ${Number(item.area)>0 ? `<span class="trade-row-fact">${esc(definition.areaKind)} ${esc(number(item.area,2))}㎡</span>` : ''}
           ${item.floor ? `<span class="trade-row-fact">${esc(item.floor)}층</span>` : ''}
-          ${Number(item.unitPrice)>0 ? `<span class="trade-row-fact">${esc(number(item.unitPrice,1))}만원/㎡</span>` : ''}
+          ${priceMode!=='total' ? `<span class="trade-row-fact">매매총액 ${esc(money(item.amount))}</span>` : ''}
           ${extras.map(value=>`<span class="trade-row-fact">${esc(value)}</span>`).join('')}
           <span class="trade-row-scope-chip${item.exact?'':' neutral'}" title="${esc(scope)}">${item.exact?'지번 일치':item.jibun?'같은 동 비교':'지번 미확정'}</span>
         </div>
@@ -198,11 +226,12 @@
     current=props;
     const {group,definition,view,type,period,onView,onReload,onStop}=props;
     const key=[group.scope,type,period,view].join('|');
-    if(key!==lastKey){lastKey=key;currentPage=1;order='date-desc';selectedArea='all';}
+    if(key!==lastKey){lastKey=key;currentPage=1;order='date-desc';selectedArea='all';areaSelectionManual=false;priceMode=type==='land'?'sqm':'total';}
     const nearby=view==='nearby', allItems=nearby?group.comparable:group.items;
     const options=areaOptions(allItems,type);
-    if (selectedArea!=='all' && !options.some(option=>option.key===selectedArea)) selectedArea='all';
-    const items=filteredItems(allItems,options);
+    if(!areaSelectionManual)selectedArea=pricing.defaultArea(allItems,type);
+    if(selectedArea!=='all'&&!options.some(option=>option.key===selectedArea)&&!areaSelectionManual)selectedArea='all';
+    const items=filteredItems(allItems,options).filter(item=>pricing.valueOf(item,priceMode)!==null);
     const failed=Boolean(group.error || group.staticError);
     panel.setAttribute('aria-busy',String(Boolean(group.loading)));
     $('refreshTransactions').disabled=Boolean(group.loading);
@@ -222,45 +251,18 @@
     const status=$('transactionStatus');
     status.dataset.tone=failed?'error':group.loading?'loading':items.length?'success':'';
     status.textContent=failed?'거래 정보를 불러오지 못했습니다. 다시 시도해 주세요.':group.loading?'거래 내역을 불러오는 중입니다.':group.degraded?'분산 수집본 연결 실패 · 중앙 일부만 표시 중입니다. 이 화면의 0건은 거래가 없다는 뜻이 아닙니다.':items.length?'':'확보한 수집 범위에서 해당 거래를 확인하지 못했습니다. 실제 거래가 없다는 뜻이 아닙니다.';
-    const newest=sorted(items)[0];
-    const priced=items.filter(item=>Number.isFinite(Number(item.amount)) && Number(item.amount)>0);
-    const low=priced.length?Math.min(...priced.map(item=>Number(item.amount))):0;
-    const high=priced.length?Math.max(...priced.map(item=>Number(item.amount))):0;
-    $('transactionStats').innerHTML=newest?[
-      ['최근 계약',money(newest.amount),`${text(newest.date).replaceAll('-','.')} · ${number(newest.area,2)}㎡${newest.floor?' · '+newest.floor+'층':''}`],
-      ['중위 매매금액',money(medianAmount(items)),`${number(items.length)}건 중위값 · 면적 차이 주의`],
-      ['최저 ~ 최고',`${money(low)} ~ ${money(high)}`,'확인된 거래금액의 범위'],
-      ['확인된 거래',number(items.length)+'건',nearby?'같은 법정동 비교 · 거리순 아님':'선택 지번의 공개 거래']
-    ].map(([a,b,c])=>`<div class="market-stat"><span>${esc(a)}</span><strong>${esc(b)}</strong><small>${esc(c)}</small></div>`).join(''):'';
-    const insight=$('transactionInsight');
-    insight.hidden=!items.length;
-    if (items.length) {
-      const areas=new Set(items.map(areaKey).filter(Boolean));
-      insight.textContent=areas.size>1
-        ? '서로 다른 면적의 거래가 포함돼 있습니다. 아래 면적별 비교를 선택하면 차트·가격·거래목록이 함께 변경됩니다.'
-        : '선택한 기간의 실제 신고 거래를 요약합니다. 층수·시점에 따른 가격 차이를 함께 확인하세요.';
-    }
-    const filters=$('transactionAreaFilters');
-    filters.hidden=!options.length;
-    filters.replaceChildren();
-    if (options.length) {
-      const makeButton=(key,label)=>{
-        const button=document.createElement('button');button.type='button';button.textContent=label;
-        button.className='trade-area-chip';button.setAttribute('aria-pressed',String(selectedArea===key));
-        button.onclick=()=>{selectedArea=key;currentPage=1;render(current);};
-        filters.append(button);
-      };
-      makeButton('all',`전체 면적 · ${number(allItems.length)}건`);
-      options.forEach(option=>makeButton(option.key,option.label));
-    }
-    // Chart data and visible transaction list use exactly the same area filter.
-    window.TojihannunMarketData?.renderChartForItems?.(items);
+    const priceModel=pricing.model(items,{metric:priceMode,type,areaKind:definition.areaKind,scope:group.scope,selectedArea,options,coveredMonthKeys:group.coveredMonthKeys||[]});
+    renderPriceControls(allItems,options,definition);
+    pricing.renderSummary(priceModel);
+    pricing.renderChart(priceModel);
     let empty=$('transactionEmpty');if(!empty){empty=document.createElement('div');empty.id='transactionEmpty';empty.className='trade-empty';$('transactionStats').after(empty);}
     empty.hidden=Boolean(items.length);
     const emptyTitle=group.loading?'거래 내역 조회 중':failed?'거래 정보를 읽지 못했습니다':'해당 지번의 거래 자료를 아직 확인하지 못했습니다';
     empty.innerHTML=`<strong>${esc(emptyTitle)}</strong><p>${esc(group.loading?'거래 내역을 불러오고 있습니다.':failed?'네트워크 상태를 확인한 뒤 다시 불러오기를 눌러 주세요.':group.degraded?'분산 저장소 연결이 실패하여 중앙 일부 자료만 조회되었습니다. 실제 거래 존재 여부는 공식 실거래가 시스템에서 확인해 주세요.':'수집 범위 밖 계약이나 미확보 거래가 있을 수 있습니다. 조회 기간 또는 데이터 상태를 확인해 주세요.')}</p>`;
     let sortRow=$('transactionSortRow');if(!sortRow){sortRow=document.createElement('div');sortRow.id='transactionSortRow';sortRow.className='trade-sort';sortRow.innerHTML='<label for="transactionSort">거래 정렬</label><select id="transactionSort"><option value="date-desc">최신 계약순</option><option value="date-asc">과거 계약순</option><option value="amount-desc">금액 높은순</option><option value="amount-asc">금액 낮은순</option><option value="unit-desc">단가 높은순</option></select>';$('transactionList').before(sortRow);$('transactionSort').onchange=e=>{order=e.target.value;currentPage=1;drawList();};}
     $('transactionSort').value=order;
+    $('transactionSort').querySelector('[value="unit-desc"]').textContent='면적당 가격 높은순';
+    $('transactionListTitle').textContent=priceMode==='total'?'매매 거래목록':'면적당 가격 비교 목록';
     drawList();
     $('transactionChartToggle').hidden=!items.length;
   }

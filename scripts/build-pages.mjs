@@ -5,6 +5,7 @@ import {fileURLToPath} from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "dist");
 const publicFiles = [
+  "transaction-price-context.js",
   "collection-status.js",
   "distributed-status.js",
   "transaction-ui.js",
