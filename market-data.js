@@ -339,8 +339,8 @@
     });
   }
 
-  // Initial and newly selected parcels use 36 calendar months including this month.
-  const DEFAULT_TRANSACTION_RANGE = "36";
+  // Initial and newly selected parcels use five calendar years including this month.
+  const DEFAULT_TRANSACTION_RANGE = "60";
   function transactionMonths(value) {
     const raw = String(value || DEFAULT_TRANSACTION_RANGE);
     if (raw === "saved" || raw === "all") return [];
@@ -350,7 +350,7 @@
       if (year < 2006 || year > new Date().getFullYear()) return [];
       return Array.from({length: year === new Date().getFullYear() ? new Date().getMonth() + 1 : 12}, (_, index) => String(year) + String(index + 1).padStart(2, "0")).reverse();
     }
-    return recentMonths(Math.max(12, Math.min(36, Number(raw) || 24)));
+    return recentMonths(Math.max(12, Math.min(60, Number(raw) || 24)));
   }
 
   async function mapConcurrent(values, limit, handler) {

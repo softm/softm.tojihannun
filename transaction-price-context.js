@@ -192,6 +192,7 @@
     const y=value=>pad.top+ch-(value/top)*ch;
     const grid=[0,.25,.5,.75,1].map(ratio=>`<line class="market-chart-grid" x1="${pad.left}" x2="${width-pad.right}" y1="${y(top*ratio)}" y2="${y(top*ratio)}"/><text class="market-chart-label" x="${pad.left-8}" y="${y(top*ratio)+4}" text-anchor="end">${esc(formatPrice(top*ratio,data.metric,true))}</text>`).join('');
     const labelStep=scrollable?6:Math.max(1,Math.ceil(data.months.length/(width<380?4:6)));
+    const showPointValues=points.length<=8;
     let path='',previous=false;
     const markers=data.months.map((point,index)=>{
       const xx=x(index),label=index%labelStep===0||index===data.months.length-1;
@@ -200,7 +201,8 @@
       if(!data.mixed)path+=`${previous?'L':'M'}${xx.toFixed(1)},${y(point.value).toFixed(1)} `;
       previous=true;
       const title=monthText(point,data);
-      return labelSvg+`<g class="price-month-point" data-month-index="${index}" tabindex="0" role="button" aria-label="${esc(title)}"><title>${esc(title)}</title><rect x="${xx-15}" y="${pad.top}" width="30" height="${ch}" fill="transparent"/><line class="price-chart-range" x1="${xx}" x2="${xx}" y1="${y(point.low)}" y2="${y(point.high)}"/><line class="price-chart-range" x1="${xx-5}" x2="${xx+5}" y1="${y(point.low)}" y2="${y(point.low)}"/><line class="price-chart-range" x1="${xx-5}" x2="${xx+5}" y1="${y(point.high)}" y2="${y(point.high)}"/><circle class="market-chart-dot${point.count<3?' small-sample':''}" cx="${xx}" cy="${y(point.value)}" r="5"/></g>`;
+      const pointValue=showPointValues?`<text class="price-chart-value" x="${xx}" y="${Math.max(14,y(point.high)-10)}" text-anchor="middle">${esc(formatPrice(point.value,data.metric,true))}</text>`:'';
+      return labelSvg+`<g class="price-month-point" data-month-index="${index}" tabindex="0" role="button" aria-label="${esc(title)}"><title>${esc(title)}</title><rect x="${xx-15}" y="${pad.top}" width="30" height="${ch}" fill="transparent"/><line class="price-chart-range" x1="${xx}" x2="${xx}" y1="${y(point.low)}" y2="${y(point.high)}"/><line class="price-chart-range" x1="${xx-5}" x2="${xx+5}" y1="${y(point.low)}" y2="${y(point.low)}"/><line class="price-chart-range" x1="${xx-5}" x2="${xx+5}" y1="${y(point.high)}" y2="${y(point.high)}"/><circle class="market-chart-dot${point.count<3?' small-sample':''}" cx="${xx}" cy="${y(point.value)}" r="5"/>${pointValue}</g>`;
     }).join('');
     host.innerHTML=`<svg viewBox="0 0 ${width} ${height}" role="group" aria-label="${esc(heading+' · '+data.label+' · 세로축 0부터. '+points.map(point=>monthText(point,data)).join('; '))}">${grid}${!data.mixed?`<path class="market-chart-line" d="${path}"/>`:''}${markers}</svg>`;
     // Focus the last OBSERVED trade, not an empty recent coverage month.
