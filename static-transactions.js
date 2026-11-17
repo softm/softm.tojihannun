@@ -68,7 +68,9 @@
       }
     }
     const central = await lookupCentral(area, type, {includeNearby, force, months});
-    if (central) return {...central, degraded: true, distributedError, source:'중앙 임시 수집자료 (전체 이력 아님)'};
+    if (central) return distributedError
+      ? {...central, degraded: true, distributedError, source:'중앙 임시 수집자료 (전체 이력 아님)'}
+      : central;
     if (distributedError) throw new Error('분산 실거래 자료 연결 실패: ' + distributedError);
     return null;
   }
