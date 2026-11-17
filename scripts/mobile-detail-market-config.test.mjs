@@ -45,7 +45,7 @@ test("실거래는 용도별 API와 필지 우선·유사면적 비교 기준을
   assert.match(html, /id="transactionType"[\s\S]*?value="land"[\s\S]*?value="apartment"[\s\S]*?value="factory"/);
   assert.match(html, /<option value="48">최근 4년<\/option>/);
   assert.match(html, /<option value="60" selected>최근 5년<\/option>/);
-  assert.match(html, /transaction-ui\.css\?v=20261117\.14/);
+  assert.match(html, /transaction-ui\.css\?v=20261117\.15/);
   assert.match(html, /vendor\/echarts-toji\.min\.js\?v=20261117\.2/);
   assert.match(html, /transaction-price-context\.js\?v=20261117\.13/);
   assert.match(html, /market-data\.js\?v=20261117\.12/);
