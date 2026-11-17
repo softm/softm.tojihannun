@@ -33,6 +33,9 @@ try{
  await page.evaluate(()=>{
   const sheet=document.getElementById('detailSheet');sheet.hidden=false;sheet.classList.add('open');
   document.querySelectorAll('[data-detail-panel]').forEach(el=>el.hidden=el.id!=='detailPanelTransactions');
+  // This test isolates the transaction renderer; map/app shell is not executed.
+  document.getElementById('transactionType').value='apartment';
+  document.querySelectorAll('.detail-tabs').forEach(el=>{el.style.display='none';});
   const panel=document.getElementById('detailPanelTransactions');
   for(const id of ['transactionScopeSwitch','transactionDisclosure','transactionPaging']){
    if(!document.getElementById(id)){const el=document.createElement('div');el.id=id;document.getElementById('transactionStatus').before(el);}
