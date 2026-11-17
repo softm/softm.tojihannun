@@ -159,6 +159,7 @@ jobs:
         if: steps.worker.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -173,6 +174,12 @@ jobs:
           run=result.get('run',{})
           summary=result.get('summary',{})
           backlog=int(summary.get('completedTasks',0)) < int(summary.get('expectedTasks',0))
+          mode=os.environ.get('INPUT_MODE','auto')
+          # Auto finishes a daily recent refresh in consecutive batches after
+          # backfill completion. Weekly/yearly verification modes likewise keep
+          # their own mode until their queue is exhausted.
+          revalidation_mode=mode in ('auto','refresh-year','audit-history')
+          work_remaining=backlog or revalidation_mode
           healthy=run.get('status') in ('success','partial') and int(run.get('success',0))>0
           streams=config.get('requestBudget',{}).get('perStreamDaily',{})
           available=[
@@ -180,16 +187,17 @@ jobs:
               if s.request_budget(state,config,sid)>0
               and not s.cooldown_active(state.get('streamCooldowns',{}).get(sid))
           ]
-          should_continue=bool(available) and backlog and healthy and not s.cooldown_active(state.get('apiCooldown'))
+          should_continue=bool(available) and work_remaining and healthy and not s.cooldown_active(state.get('apiCooldown'))
           usage=s.request_usage(state,config)
           print(json.dumps({'availableStreams':available,
                             'remainingAcrossStreams':usage.get('remaining24h'),
-                            'backlog':backlog,'healthy':healthy,'continue':should_continue},
+                            'backlog':backlog,'mode':mode,'workRemaining':work_remaining,
+                            'healthy':healthy,'continue':should_continue},
                            ensure_ascii=False))
           if not should_continue:
               raise SystemExit(0)
           url='https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/actions/workflows/collect.yml/dispatches'
-          body=json.dumps({'ref':'main','inputs':{'mode':'auto'}}).encode()
+          body=json.dumps({'ref':'main','inputs':{'mode':mode}}).encode()
           req=urllib.request.Request(url,data=body,method='POST',headers={
               'Authorization':'Bearer '+os.environ['GH_TOKEN'],
               'Accept':'application/vnd.github+json',
