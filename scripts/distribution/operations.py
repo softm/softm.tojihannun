@@ -84,12 +84,46 @@ def current_phase(pipe):
             return phase
     return None
 
+def recent_month_window(asof, months):
+    year, month = map(int, asof[:7].split('-'))
+    end_index = year * 12 + month - 1
+    start_index = end_index - (months - 1)
+    start_year, start_month0 = divmod(start_index, 12)
+    return f'{start_year:04d}-{start_month0 + 1:02d}-01', asof
+
+def history_audit_tasks(pipe, streams=None):
+    # Audit one calendar month across every historical year. Repeating this
+    # monthly covers all 12 calendar months over a year without a full recrawl.
+    audit_month = int(pipe.asof[5:7])
+    end_year = int(pipe.asof[:4])
+    for year in range(2006, end_year + 1):
+        point = f'{year:04d}-{audit_month:02d}-01'
+        yield from pipe.plan('refresh', streams=streams, month_start=point, month_end=point)
+
 def task_queue(pipe, mode, streams=None):
     seen = set()
-    if mode in ('auto', 'backfill'):
+    special = mode in ('refresh-year', 'audit-history')
+    # Weekly/yearly verification begins only after the historical backfill is
+    # complete. Hourly auto already prioritizes failed/pending segments before then.
+    if special and current_phase(pipe) is not None:
+        return
+    if mode in ('auto', 'backfill', 'refresh-year', 'audit-history'):
         for task in pending_tasks(pipe, streams):
             seen.add(task)
             yield task
+    if mode == 'refresh-year':
+        start, end = recent_month_window(pipe.asof, 12)
+        for task in pipe.plan('refresh', streams=streams, month_start=start, month_end=end):
+            if task not in seen:
+                seen.add(task)
+                yield task
+        return
+    if mode == 'audit-history':
+        for task in history_audit_tasks(pipe, streams):
+            if task not in seen:
+                seen.add(task)
+                yield task
+        return
     if mode not in ('auto','backfill'):
         for task in pipe.plan(mode, streams=streams):
             if task not in seen:
@@ -273,5 +307,5 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     for field in ('root','control','legacy','shard','source-commit'):
         parser.add_argument('--'+field, required=True)
-    parser.add_argument('--mode', choices=['auto','backfill','refresh','bootstrap','build'], default='auto')
+    parser.add_argument('--mode', choices=['auto','backfill','refresh','refresh-year','audit-history','bootstrap','build'], default='auto')
     sys.exit(worker(parser.parse_args()))
