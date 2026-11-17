@@ -32,7 +32,7 @@ try{
    document.querySelectorAll('[data-detail-panel]').forEach(el=>el.hidden=el.id!=='detailPanelTransactions');
    const panel=document.getElementById('detailPanelTransactions');
    if(!document.getElementById('transactionScopeSwitch')){const nav=document.createElement('div');nav.id='transactionScopeSwitch';panel.querySelector('.market-panel-head').after(nav);}
-   window.TojiTransactionUI.render({group:{scope:'검증동 1-1',items,comparable:[],loading:false,staticError:false,error:'',degraded:false,coveredMonthKeys:['202606','202607','202608','202609','202610','202611']},definition:{label:'아파트',areaKind:'전용면적'},view:'parcel',type:'apartment',period:'saved',onView:()=>{},onReload:()=>{},onStop:()=>{}});
+   window.TojiTransactionUI.render({group:{scope:'검증동 1-1',items,comparable:[],loading:false,staticError:false,error:'',degraded:false,coveredMonthKeys:['202606','202607','202608','202609','202610','202611']},definition:{label:'아파트',areaKind:'전용면적'},view:'parcel',type:'apartment',period:'6',onView:()=>{},onReload:()=>{},onStop:()=>{}});
  },fixture);
  assert.equal(await page.locator('#transactionPriceMetric').inputValue(),'total');
  assert.equal(await page.locator('#transactionAreaFilters [aria-pressed="true"]').getAttribute('data-area-key'),'84');

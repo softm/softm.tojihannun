@@ -77,12 +77,12 @@ if(!ui.includes('UNIFIED_PRICE_CONTEXT_V1')){
 }
 
 let html=read('index.html');
-if(!html.includes('src="./transaction-price-context.js'))html=once(html,'    <script src="./transaction-ui.js','    <script src="./transaction-price-context.js?v=20261117.4"></script>\n    <script src="./transaction-ui.js','price asset order');
-html=html.replace(/transaction-ui\.(js|css)\?v=[^"']+/g,'transaction-ui.$1?v=20261117.4');write('index.html',html);
+if(!html.includes('src="./transaction-price-context.js'))html=once(html,'    <script src="./transaction-ui.js','    <script src="./transaction-price-context.js?v=20261117.5"></script>\n    <script src="./transaction-ui.js','price asset order');
+html=html.replace(/transaction-ui\.(js|css)\?v=[^"']+/g,'transaction-ui.$1?v=20261117.5');write('index.html',html);
 let build=read('scripts/build-pages.mjs');
 if(!build.includes('"transaction-price-context.js"'))build=once(build,'const publicFiles = [','const publicFiles = [\n  "transaction-price-context.js",','published price module');write('scripts/build-pages.mjs',build);
-let layout=read('scripts/transaction-ui-layout.mjs').replace(/transaction-ui\.\$1\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.4');write('scripts/transaction-ui-layout.mjs',layout);
-let installer=read('scripts/install-transaction-ui.mjs').replace(/transaction-ui\.(js|css)\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.4');write('scripts/install-transaction-ui.mjs',installer);
+let layout=read('scripts/transaction-ui-layout.mjs').replace(/transaction-ui\.\$1\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.5');write('scripts/transaction-ui-layout.mjs',layout);
+let installer=read('scripts/install-transaction-ui.mjs').replace(/transaction-ui\.(js|css)\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.5');write('scripts/install-transaction-ui.mjs',installer);
 
 let css=read('transaction-ui.css');
 if(!css.includes('UNIFIED_PRICE_CONTEXT_V1'))css+=`

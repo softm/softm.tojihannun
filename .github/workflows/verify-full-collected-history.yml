@@ -1,0 +1,81 @@
+name: Verify full collected transaction history
+on:
+  push:
+    branches: [feat/all-collected-history-20261117]
+    paths:
+      - .github/workflows/verify-full-collected-history.yml
+      - scripts/install-full-collected-history.mjs
+      - scripts/full-collected-history.browser.mjs
+      - scripts/verify-full-collected-history.mjs
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: full-collected-history-review
+  cancel-in-progress: true
+jobs:
+  verify:
+    if: github.ref_name == 'feat/all-collected-history-20261117'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Integrate full-period default on review branch
+        run: |
+          set -euo pipefail
+          node --check scripts/install-full-collected-history.mjs
+          node scripts/install-full-collected-history.mjs
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const path='scripts/transaction-price-context.browser.mjs';
+          let source=fs.readFileSync(path,'utf8');
+          // This fixture intentionally verifies an explicit June-November window,
+          // including the empty last month. Full history now uses observed bounds.
+          source=source.replace("type:'apartment',period:'saved',onView:","type:'apartment',period:'6',onView:");
+          fs.writeFileSync(path,source);
+          JS
+          node --check transaction-ui.js
+          node --check transaction-price-context.js
+          node --check market-data.js
+      - name: Unit tests, RTMS regressions and production build
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/full-history
+          npm ci
+          npm test | tee test-results/full-history/unit.txt
+          python3 -m unittest discover -s scripts/rtms -p 'test_*.py'
+          npm run build
+      - name: Verify preserved price controls, paging and historical display
+        run: |
+          set -euo pipefail
+          npm install --prefix /tmp/full-history-browser playwright@1.56.1
+          /tmp/full-history-browser/node_modules/.bin/playwright install --with-deps chromium
+          export PLAYWRIGHT_MODULE=/tmp/full-history-browser/node_modules/playwright/index.mjs
+          node scripts/transaction-ui.browser.mjs
+          node scripts/transaction-price-context.browser.mjs
+          node scripts/full-collected-history.browser.mjs
+      - name: Compare complete and recent periods using published JSON only
+        run: node scripts/verify-full-collected-history.mjs
+      - name: Commit verified integration to the review branch only
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add market-data.js transaction-ui.js transaction-ui.css transaction-price-context.js index.html scripts/transaction-ui-layout.mjs scripts/install-transaction-ui.mjs scripts/install-unified-price-context.mjs scripts/transaction-ui.browser.mjs scripts/mobile-detail-market-config.test.mjs scripts/transaction-presentation.test.mjs scripts/rtms-behavior.test.mjs scripts/transaction-price-context.test.mjs scripts/transaction-price-context.browser.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat: apply verified all-period transaction browsing'
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+          git rev-parse HEAD > test-results/full-history/commit.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-collected-history-proof
+          path: test-results/
+          retention-days: 1

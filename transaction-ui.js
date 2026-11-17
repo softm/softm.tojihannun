@@ -120,7 +120,7 @@
       const refresh = $('refreshTransactions');
       if (refresh) {refresh.setAttribute('aria-label','실거래 내역 새로고침');refresh.title='실거래 내역 새로고침';refresh.insertAdjacentHTML('beforeend','<span>새로고침</span>');}
       const saved = $('transactionRange')?.querySelector('[value="saved"]');
-      if (saved) saved.textContent = '최근 6개월 우선';
+      if (saved) saved.textContent = '전체 기간';
       for (const option of $('transactionRange')?.options || []) if (option.value.startsWith('year-')) option.textContent = `${option.value.slice(5)}년`;
       const listCaption = $('transactionListSection')?.querySelector('.market-section-head span');
       if (listCaption) listCaption.textContent = '계약일 기준 · 취소 제외';
@@ -251,7 +251,7 @@
     const status=$('transactionStatus');
     status.dataset.tone=failed?'error':group.loading?'loading':items.length?'success':'';
     status.textContent=failed?'거래 정보를 불러오지 못했습니다. 다시 시도해 주세요.':group.loading?'거래 내역을 불러오는 중입니다.':group.degraded?'분산 수집본 연결 실패 · 중앙 일부만 표시 중입니다. 이 화면의 0건은 거래가 없다는 뜻이 아닙니다.':items.length?'':'확보한 수집 범위에서 해당 거래를 확인하지 못했습니다. 실제 거래가 없다는 뜻이 아닙니다.';
-    const priceModel=pricing.model(items,{metric:priceMode,type,areaKind:definition.areaKind,scope:group.scope,selectedArea,options,coveredMonthKeys:group.coveredMonthKeys||[]});
+    const priceModel=pricing.model(items,{metric:priceMode,type,areaKind:definition.areaKind,scope:group.scope,selectedArea,options,coveredMonthKeys:group.coveredMonthKeys||[],allPeriod:period==='saved'});
     renderPriceControls(allItems,options,definition);
     pricing.renderSummary(priceModel);
     pricing.renderChart(priceModel);
