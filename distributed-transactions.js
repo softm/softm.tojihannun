@@ -5,6 +5,7 @@
 
   const REGISTRY_URL = new URL('./data/transactions/storage-registry.json', document.baseURI);
   const MAX_JSON_BYTES = 2_000_000;
+  const MAX_LEGACY_DISTRICT_INDEX_BYTES = 20_000_000;
   const MAX_CHUNK_BYTES = 50_000_000;
   const cache = new Map();
   let registryPromise = null;
@@ -149,34 +150,56 @@
     if (!region) return null;
     if (region.index !== area.lawdCode + '/index.json') throw new Error('Distributed district route mismatch');
 
-    const index = await fetchJson(new URL(region.index, publishedBase));
-    if (index?.schemaVersion !== 2 || index.district !== area.lawdCode) throw new Error('Distributed district mismatch');
-
     const stream = type + '-sale';
-    const covered = index.coverage?.[stream];
+    // New publications expose a small stream-specific manifest. Older shards
+    // still use the district-wide index, which may exceed the old 2 MB limit.
+    let index;
+    let streamSpecific = false;
+    try {
+      index = await fetchJson(new URL(area.lawdCode + '/' + stream + '/index.json', publishedBase));
+      streamSpecific = true;
+    } catch (error) {
+      if (/size limit/i.test(String(error?.message || ''))) throw error;
+      index = await fetchJson(new URL(region.index, publishedBase), {limit:MAX_LEGACY_DISTRICT_INDEX_BYTES});
+    }
+    if (index?.schemaVersion !== 2 || index.district !== area.lawdCode ||
+        (streamSpecific && index.stream !== stream)) throw new Error('Distributed district/stream mismatch');
+
+    const covered = streamSpecific ? index.coverage : index.coverage?.[stream];
     if (!Array.isArray(covered) || !covered.length) return null;
     if (covered.some(month => !validMonth(month))) throw new Error('Invalid distributed coverage month');
 
-    const groups = index.groups?.[stream] || {};
+    const groups = (streamSpecific ? index.groups : index.groups?.[stream]) || {};
     const names = Object.keys(groups).filter(name => norm(name) === norm(area.emd));
     if (names.length > 1) throw new Error('Ambiguous distributed legal dong');
 
-    const rows = [];
+    const tasks = [];
     for (const name of names) {
       const parts = groups[name];
       if (!Array.isArray(parts)) throw new Error('Invalid distributed group');
       for (const part of parts) {
         if (!covered.includes(part.month)) throw new Error('Distributed part outside coverage');
         if (months && !months.includes(part.month)) continue;
-        const chunkUrl = safePart(publishedBase, shard, area, stream, part);
-        const data = await fetchChunk(chunkUrl);
-        if (data?.schemaVersion !== 2 || data.district !== area.lawdCode || data.stream !== stream ||
-            norm(data.emd) !== norm(area.emd) || !Array.isArray(data.rows) || data.rows.length !== part.rows) {
-          throw new Error('Distributed shard scope/count mismatch');
-        }
-        rows.push(...mapRows(data, area, type, includeNearby));
+        tasks.push({name, part, url:safePart(publishedBase, shard, area, stream, part)});
       }
     }
+    // A large district can have many months. Keep browser network concurrency
+    // bounded and retain source order for deterministic row presentation.
+    const batches = new Array(tasks.length);
+    let cursor = 0;
+    await Promise.all(Array.from({length:Math.min(4,tasks.length)}, async () => {
+      while (cursor < tasks.length) {
+        const i = cursor++;
+        const task = tasks[i];
+        const data = await fetchChunk(task.url);
+        if (data?.schemaVersion !== 2 || data.district !== area.lawdCode || data.stream !== stream ||
+            norm(data.emd) !== norm(area.emd) || !Array.isArray(data.rows) || data.rows.length !== task.part.rows) {
+          throw new Error('Distributed shard scope/count mismatch');
+        }
+        batches[i] = mapRows(data, area, type, includeNearby);
+      }
+    }));
+    const rows = batches.flat();
 
     return {
       type, lawdCode:area.lawdCode, emd:area.emd, lot:area.lot,
