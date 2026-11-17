@@ -570,7 +570,7 @@
   function renderTransactionChart(items) {
     const groups = new Map();
     items.forEach((item) => {
-      if (!/^\\d{6}$/.test(String(item.month || "")) || !(Number(item.unitPrice) > 0)) return;
+      if (!/^\d{6}$/.test(String(item.month || "")) || !(Number(item.unitPrice) > 0)) return;
       if (!groups.has(item.month)) groups.set(item.month, []);
       groups.get(item.month).push(Number(item.unitPrice));
     });
