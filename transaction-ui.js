@@ -55,7 +55,7 @@
       const refresh = $('refreshTransactions');
       if (refresh) {refresh.setAttribute('aria-label','실거래 내역 새로고침');refresh.title='실거래 내역 새로고침';refresh.insertAdjacentHTML('beforeend','<span>새로고침</span>');}
       const saved = $('transactionRange')?.querySelector('[value="saved"]');
-      if (saved) saved.textContent = '전체 기간';
+      if (saved) saved.textContent = '최근 6개월 우선';
       for (const option of $('transactionRange')?.options || []) if (option.value.startsWith('year-')) option.textContent = `${option.value.slice(5)}년`;
       const listCaption = $('transactionListSection')?.querySelector('.market-section-head span');
       if (listCaption) listCaption.textContent = '계약일 기준 · 취소 제외';
