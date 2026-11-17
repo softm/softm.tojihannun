@@ -31,6 +31,15 @@ jobs:
           set -euo pipefail
           node --check scripts/install-full-collected-history.mjs
           node scripts/install-full-collected-history.mjs
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const path='scripts/transaction-price-context.browser.mjs';
+          let source=fs.readFileSync(path,'utf8');
+          // This fixture intentionally verifies an explicit June-November window,
+          // including the empty last month. Full history now uses observed bounds.
+          source=source.replace("type:'apartment',period:'saved',onView:","type:'apartment',period:'6',onView:");
+          fs.writeFileSync(path,source);
+          JS
           node --check transaction-ui.js
           node --check transaction-price-context.js
           node --check market-data.js
@@ -58,7 +67,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add market-data.js transaction-ui.js transaction-ui.css transaction-price-context.js index.html scripts/transaction-ui-layout.mjs scripts/install-transaction-ui.mjs scripts/install-unified-price-context.mjs scripts/transaction-ui.browser.mjs scripts/mobile-detail-market-config.test.mjs scripts/transaction-presentation.test.mjs scripts/rtms-behavior.test.mjs scripts/transaction-price-context.test.mjs
+          git add market-data.js transaction-ui.js transaction-ui.css transaction-price-context.js index.html scripts/transaction-ui-layout.mjs scripts/install-transaction-ui.mjs scripts/install-unified-price-context.mjs scripts/transaction-ui.browser.mjs scripts/mobile-detail-market-config.test.mjs scripts/transaction-presentation.test.mjs scripts/rtms-behavior.test.mjs scripts/transaction-price-context.test.mjs scripts/transaction-price-context.browser.mjs
           if ! git diff --cached --quiet; then
             git commit -m 'feat: apply verified all-period transaction browsing'
             git push origin HEAD:${{ github.ref_name }}
