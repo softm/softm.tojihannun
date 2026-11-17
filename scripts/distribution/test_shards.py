@@ -112,6 +112,14 @@ class DistributionTests(unittest.TestCase):
         for p in chunks:
             self.assertFalse(p.with_suffix('').exists())
             self.assertEqual(json.loads(gzip.decompress(p.read_bytes()))['schemaVersion'],2)
+        stream_index_files = list((self.root/'site/published').glob('*/*/index.json'))
+        self.assertTrue(stream_index_files, 'each published transaction stream needs a bounded manifest')
+        for p in stream_index_files:
+            index=s.load(p)
+            self.assertEqual(index['schemaVersion'],2)
+            self.assertIn(index['stream'],p.parts)
+            self.assertIsInstance(index['coverage'],list)
+            self.assertIsInstance(index['groups'],dict)
         self.assertFalse((self.root/'site/collection-state.json').exists())
         self.assertFalse((self.root/'site/segments').exists())
         self.assertFalse(result['deployment']['verified'])
