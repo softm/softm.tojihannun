@@ -292,7 +292,14 @@
     $('transactionInsight').hidden=!items.length;
     renderPriceControls(allItems,options,definition);
     pricing.renderSummary(priceModel);
-    pricing.renderChart(priceModel);
+    try {
+      pricing.renderChart(priceModel);
+    } catch(error) {
+      console.error('Transaction chart render failed',error);
+      const chart=$('transactionChart');
+      if(chart)chart.innerHTML='<p class="price-chart-error">차트를 표시하지 못했습니다. 거래 목록은 계속 확인할 수 있습니다.</p>';
+      if($('transactionChartMeta'))$('transactionChartMeta').textContent='차트 표시 오류 · 거래 목록과 조회 결과는 유지됩니다.';
+    }
     let empty=$('transactionEmpty');if(!empty){empty=document.createElement('div');empty.id='transactionEmpty';empty.className='trade-empty';$('transactionStats').after(empty);}
     empty.hidden=Boolean(items.length);
     const emptyTitle=group.identityError?'조회할 지역을 확인하지 못했습니다':group.loading?'거래 내역 조회 중':failed?'거래 정보를 읽지 못했습니다':nearby?'같은 법정동의 거래 자료를 아직 확인하지 못했습니다':'해당 지번의 거래 자료를 아직 확인하지 못했습니다';
