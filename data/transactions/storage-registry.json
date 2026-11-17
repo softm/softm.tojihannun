@@ -1,9 +1,9 @@
 {
   "schemaVersion": 3,
-  "revision": "twenty-shard-million-quota-v10",
+  "revision": "twenty-shard-revalidation-v11",
   "mode": "collecting",
   "bootstrapSourceRef": "f328c729eece4fe45f1b403a1af1fcd62fa5de46",
-  "note": "20개 shard Pages 우선 조회와 중앙 폴백 유지. 12개 실거래 OpenAPI별 운영계정 일일 1,000,000회 한도를 적용하고, 이전 공유 저한도 ledger는 보존하되 신규 API별 독립 쿼터 계산에서는 제외합니다.",
+  "note": "20개 shard Pages 우선 조회와 중앙 폴백 유지. 백필 100% 이후 최근 3개월 일상 refresh, 주 1회 최근 12개월 재검증, 월 1회 전 기간 순환 표본 검증을 수행하며 실패 구간을 우선 재시도합니다. 12개 운영계정 OpenAPI는 각각 일일 1,000,000회 한도로 관리합니다.",
   "allocation": {
     "unit": "bytes",
     "maxPublishedBytes": 1000000000,
@@ -37,7 +37,7 @@
       "realestate-data-019": 508,
       "realestate-data-020": 391
     },
-    "scope": "per OpenAPI service rolling-24h quota; each stream is budgeted independently across 20 shards. Defaults follow current data.go.kr development-account traffic listings; override when an approved operating-account quota differs.",
+    "scope": "per OpenAPI service rolling-24h quota; 12 operating-account streams are budgeted independently across 20 shards.",
     "perStreamDaily": {
       "apartment-sale": 1000000,
       "rowHouse-sale": 1000000,
@@ -1089,11 +1089,14 @@
     "aggregateRequestCeilingPerDay": 1600
   },
   "apiTraffic": {
-    "approvedDaily": 10000,
-    "operationalDaily": 9800,
-    "reserveDaily": 200,
-    "source": "user-confirmed current data.go.kr account limit",
-    "increasePolicy": "Raise only after user confirms a higher approved production-account limit."
+    "approvedDaily": 1000000,
+    "operationalDaily": 1000000,
+    "reserveDaily": 0,
+    "approvedDailyPerService": 1000000,
+    "serviceCount": 12,
+    "aggregateApprovedDaily": 12000000,
+    "source": "user-confirmed data.go.kr operating-account traffic limit",
+    "increasePolicy": "Keep collector-side per-stream accounting aligned with the approved operating-account quota."
   },
   "collectionPhases": [
     {
@@ -1124,5 +1127,17 @@
       "end": "2009-12",
       "priority": 4
     }
-  ]
+  ],
+  "refreshPolicy": {
+    "enabled": true,
+    "hourlyAuto": "failed/pending segments first; during backfill use 3 backfill turns per 1 recent-refresh turn; after 100% finish eligible recent refresh batches consecutively",
+    "recentRefreshMonths": 3,
+    "segmentMinAgeHours": 20,
+    "weeklyRecentMonths": 12,
+    "weeklyMode": "refresh-year",
+    "monthlyHistoryAudit": "each month re-fetch the same calendar month across every historical year; all 12 calendar months are audited over 12 months",
+    "monthlyMode": "audit-history",
+    "failureRetry": "pending/failed segments remain explicit and are retried before ordinary work after their cooldown",
+    "safety": "replace a segment only after all pages and rows validate; preserve the last good segment on source/network failure"
+  }
 }
