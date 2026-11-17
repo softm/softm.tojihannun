@@ -76,8 +76,10 @@
   const controls=$('transactionPricingControls');
   controls.hidden=!allItems.length;
   controls.querySelector('.price-control-heading strong').textContent=`비교할 ${definition.areaKind}`;
-  const filters=$('transactionAreaFilters');filters.replaceChildren();filters.hidden=!options.length;
-  controls.querySelector('.price-control-heading').hidden=!options.length;
+  // SINGLE_TRADE_PRESENTATION_V1: no competing area choices for one available row.
+  const singleAvailableTrade=allItems.length===1;
+  const filters=$('transactionAreaFilters');filters.replaceChildren();filters.hidden=!options.length||singleAvailableTrade;
+  controls.querySelector('.price-control-heading').hidden=!options.length||singleAvailableTrade;
   $('transactionAreaSelectionNote').textContent=areaSelectionManual?'선택한 면적 기준':'거래가 많은 면적 자동 선택';
   const choose=key=>{selectedArea=key;areaSelectionManual=true;currentPage=1;render(current);};
   const makeButton=(key,label,title)=>{
@@ -222,7 +224,9 @@
       for(let p=paging.start;p<=paging.end;p++) addButton(String(p),p,false,p===paging.page);
       addButton('다음',paging.page+1,paging.page===paging.totalPages);
     }
-    $('transactionListSection').hidden=!items.length;
+    // The sole contract is already shown in full in the summary card.
+    $('transactionListSection').hidden=items.length<=1;
+    if($('transactionSortRow'))$('transactionSortRow').hidden=items.length<=1;
   }
   function render(props) {
     const panel=mount();if(!panel)return;
@@ -279,7 +283,7 @@
     $('transactionSort').querySelector('[value="unit-desc"]').textContent='면적당 가격 높은순';
     $('transactionListTitle').textContent=priceMode==='total'?'매매 거래목록':'면적당 가격 비교 목록';
     drawList();
-    $('transactionChartToggle').hidden=!items.length;
+    $('transactionChartToggle').hidden=priceModel.count<=1;
   }
   window.TojiTransactionUI=Object.freeze({render,reset,coverage,sorted,money,areaOptions,filteredItems,medianAmount,paginationWindow,PAGE_SIZE,VISIBLE_PAGE_BUTTONS});
 })();

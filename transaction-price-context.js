@@ -111,6 +111,13 @@
     const lastNote=data.latestRows.length===1
       ? `${data.latestDate.replaceAll('-','.')} · ${data.areaKind} ${num(latest.area,4)}㎡${latest.floor?' · '+latest.floor+'층':''}`
       : `${data.latestDate.replaceAll('-','.')} 같은 날 ${num(data.latestRows.length)}건의 범위`;
+    // SINGLE_TRADE_PRESENTATION_V1: one observed price is not four statistics.
+    if(data.count===1){
+      const facts=[latest.buildingName,lastNote,latest.dealType,latest.jimok,latest.landUse,latest.buildingUse];
+      if(data.metric!=='total')facts.push('매매총액 '+formatPrice(Number(latest.amount),'total'));
+      return [[data.metric==='total'?'확인된 계약 1건':'확인된 계약 1건 · '+data.label,
+        formatPrice(data.values[0],data.metric),facts.filter(Boolean).join(' · ')]];
+    }
     return [
       [`최근 계약${data.metric==='total'?'금액':'단가'}`,rangeText(data.latestRows.map(item=>valueOf(item,data.metric)),data.metric),lastNote],
       [data.mixed?'혼합 거래 중앙값':data.metric==='total'?'대표 거래금액':'대표 거래단가',formatPrice(data.median,data.metric),`${num(data.count)}건을 가격순으로 놓은 중앙값${data.smallSample?' · 표본 적음':''}`],
@@ -121,16 +128,18 @@
   function renderSummary(data) {
     const stats=$('transactionStats');
     if(stats){stats.dataset.metric=data.metric;stats.dataset.cohortCount=String(data.count);stats.innerHTML=summaryRows(data).map(([label,value,note])=>`<div class="market-stat"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></div>`).join('');}
+    if(stats){stats.dataset.sampleState=data.count===1?'single':data.count?'multiple':'empty';stats.hidden=!data.count;}
     const context=$('transactionPriceContext');
     if(context){context.hidden=!data.count;context.textContent=`${data.scope} · ${data.areaDescription} · ${data.label} 기준 · ${num(data.count)}건`;}
     const insight=$('transactionInsight');
     if(insight){
       insight.hidden=!data.count;
       const messages=[];
-      if(data.mixed)messages.push('서로 다른 면적을 합친 분포입니다. 가격 수준을 비교하려면 전용면적을 하나 선택하세요.');
+      if(data.count===1)messages.push('선택한 조건에서 확인된 거래가 1건입니다. 한 건의 신고가격만으로 현재 시세나 가격 흐름을 판단할 수 없습니다.');
+      else if(data.mixed)messages.push('서로 다른 면적을 합친 분포입니다. 가격 수준을 비교하려면 전용면적을 하나 선택하세요.');
       else messages.push('위 요약·아래 차트·거래목록은 같은 면적 선택과 같은 가격 기준입니다.');
       if(data.metric!=='total')messages.push(`${data.areaKind}으로 나눈 가격입니다.${data.areaKind==='전용면적'?' 공급면적 기준 평당가와 다릅니다.':''}`);
-      if(data.smallSample)messages.push('거래가 적어 일반 시세를 대표하지 않을 수 있습니다.');
+      if(data.smallSample&&data.count!==1)messages.push('거래가 적어 일반 시세를 대표하지 않을 수 있습니다.');
       if(data.excluded)messages.push(`면적·금액 미확인 ${num(data.excluded)}건은 단가 계산에서 제외했습니다.`);
       insight.textContent=messages.join(' ');
     }
@@ -146,10 +155,19 @@
     const host=$('transactionChart'),card=$('transactionChartCard'),details=$('transactionChartToggle');
     if(!host||!card)return;
     const points=data.months.filter(point=>point.count);
-    card.hidden=!points.length;
-    if(details)details.hidden=!points.length;
-    if(!points.length){host.replaceChildren();return;}
+    const showChart=data.count>1&&points.length>0;
     card.dataset.metric=data.metric;card.dataset.cohortCount=String(data.count);
+    card.hidden=!showChart;
+    if(details)details.hidden=!showChart;
+    if(!showChart){
+      host.replaceChildren();host.scrollLeft=0;
+      host.dataset.historyScroll='false';delete host.dataset.historyKey;
+      host.style.removeProperty('--history-chart-width');
+      $('transactionMonthReadout')?.remove();
+      $('transactionPriceCaveat')?.remove();
+      if($('transactionChartMeta'))$('transactionChartMeta').textContent='';
+      return;
+    }
     const heading=data.mixed?'월별 신고가격 분포':data.metric==='total'?'월별 매매금액':'월별 면적당 가격';
     if($('transactionChartTitle'))$('transactionChartTitle').textContent=heading;
     const unit=card.querySelector('.market-section-head > small');
@@ -185,7 +203,10 @@
       return labelSvg+`<g class="price-month-point" data-month-index="${index}" tabindex="0" role="button" aria-label="${esc(title)}"><title>${esc(title)}</title><rect x="${xx-15}" y="${pad.top}" width="30" height="${ch}" fill="transparent"/><line class="price-chart-range" x1="${xx}" x2="${xx}" y1="${y(point.low)}" y2="${y(point.high)}"/><line class="price-chart-range" x1="${xx-5}" x2="${xx+5}" y1="${y(point.low)}" y2="${y(point.low)}"/><line class="price-chart-range" x1="${xx-5}" x2="${xx+5}" y1="${y(point.high)}" y2="${y(point.high)}"/><circle class="market-chart-dot${point.count<3?' small-sample':''}" cx="${xx}" cy="${y(point.value)}" r="5"/></g>`;
     }).join('');
     host.innerHTML=`<svg viewBox="0 0 ${width} ${height}" role="group" aria-label="${esc(heading+' · '+data.label+' · 세로축 0부터. '+points.map(point=>monthText(point,data)).join('; '))}">${grid}${!data.mixed?`<path class="market-chart-line" d="${path}"/>`:''}${markers}</svg>`;
-    host.scrollLeft=scrollable?(changed?host.scrollWidth:previousScroll):0;
+    // Focus the last OBSERVED trade, not an empty recent coverage month.
+    const lastObservedIndex=data.months.findLastIndex(point=>point.count>0);
+    const lastObservedOffset=Math.max(0,x(lastObservedIndex)-(host.clientWidth||viewportWidth)/2);
+    host.scrollLeft=scrollable?(changed?lastObservedOffset:previousScroll):0;
     let readout=$('transactionMonthReadout');
     if(!readout){readout=document.createElement('p');readout.id='transactionMonthReadout';readout.className='price-month-readout';readout.setAttribute('role','status');host.after(readout);}
     readout.textContent=monthText(points.at(-1),data);

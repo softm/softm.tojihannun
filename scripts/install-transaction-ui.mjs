@@ -51,8 +51,8 @@ if (!js.includes(marker)) {
   fs.writeFileSync('market-data.js', js);
 }
 let html = fs.readFileSync('index.html','utf8');
-if (!html.includes('transaction-ui.css')) html = replaceOnce(html, '</head>', '    <link rel="stylesheet" href="./transaction-ui.css?v=20261117.6" />\n  </head>', 'stylesheet');
-if (!html.includes('src="./transaction-ui.js')) html = replaceOnce(html, '    <script src="./market-data.js', '    <script src="./transaction-ui.js?v=20261117.6"></script>\n    <script src="./market-data.js', 'script');
+if (!html.includes('transaction-ui.css')) html = replaceOnce(html, '</head>', '    <link rel="stylesheet" href="./transaction-ui.css?v=20261117.10" />\n  </head>', 'stylesheet');
+if (!html.includes('src="./transaction-ui.js')) html = replaceOnce(html, '    <script src="./market-data.js', '    <script src="./transaction-ui.js?v=20261117.10"></script>\n    <script src="./market-data.js', 'script');
 html = html.replace(/(distributed-transactions\.js|market-data\.js|static-transactions\.js)\?v=[^"']+/g, '$1?v=20261117.6');
 fs.writeFileSync('index.html', html);
 let build = fs.readFileSync('scripts/build-pages.mjs','utf8');

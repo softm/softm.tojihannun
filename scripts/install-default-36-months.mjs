@@ -99,9 +99,9 @@ if (!browser.includes('DEFAULT_36_MONTHS_BROWSER_V1')) {
 // Keep scripts used by the existing main-branch UI workflow from restoring stale asset URLs.
 for (const path of ['index.html','scripts/transaction-ui-layout.mjs','scripts/install-transaction-ui.mjs','scripts/install-unified-price-context.mjs','scripts/install-full-collected-history.mjs']) {
   let source = read(path);
-  source = source.replace(/transaction-ui\.(js|css)\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.6');
-  source = source.replace(/transaction-ui\.\$1\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.6');
-  source = source.replace(/transaction-price-context\.js\?v=[\d.]+/g,'transaction-price-context.js?v=20261117.6');
+  source = source.replace(/transaction-ui\.(js|css)\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.10');
+  source = source.replace(/transaction-ui\.\$1\?v=[\d.]+/g,'transaction-ui.$1?v=20261117.10');
+  source = source.replace(/transaction-price-context\.js\?v=[\d.]+/g,'transaction-price-context.js?v=20261117.10');
   source = source.replace(/market-data\.js\?v=[\d.]+/g,'market-data.js?v=20261117.6');
   if (path==='scripts/install-transaction-ui.mjs') source = source.replace(/'\$1\?v=[\d.]+'/g,"'$1?v=20261117.6'");
   write(path,source);

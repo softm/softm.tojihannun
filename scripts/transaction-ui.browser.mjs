@@ -95,7 +95,13 @@ try{
     const stats=document.querySelector('#transactionStats');
     return !!(stats.compareDocumentPosition(chart)&Node.DOCUMENT_POSITION_FOLLOWING);
   }),true,'pricing summary should appear before the monthly chart');
-  assert.match(await page.locator('#transactionChartMeta').textContent(),/월별 중위값|세로축/);
+  // SINGLE_TRADE_BROWSER_POLICY_V1: published exact-lot sample may contain only one contract.
+  if(expected>1)assert.match(await page.locator('#transactionChartMeta').textContent(),/월별 중위값|세로축/);
+  else {
+    assert.equal(await page.locator('#transactionChartToggle').isVisible(),false);
+    assert.equal(await page.locator('#transactionStats .market-stat').count(),1);
+    assert.equal(await page.locator('#transactionListSection').isVisible(),false);
+  }
   await assertCleanPanel();
   assert.equal(await page.locator('#transactionPaging').isVisible(),false,'no empty diagnostics gap');
   assert.equal(await page.locator('#transactionRange option[value="saved"]').textContent(),'전체 기간');
