@@ -55,16 +55,22 @@
     const includeNearby = options.includeNearby === true;
     const force = options.force === true;
     const months = options.months;
+    let distributedError = '';
     if (window.TojiDistributedTrades) {
       try {
         const remote = await window.TojiDistributedTrades.lookup(area, type, {includeNearby, force, months});
         if (remote) return remote;
-      } catch {
-        // A shard handoff must never make parcel lookup unavailable. The tracked
-        // central dataset remains the safety fallback until the shard is stable.
+      } catch (error) {
+        // Retain previously published central rows, but DO NOT silently treat
+        // a degraded fallback as a complete history or as zero transactions.
+        distributedError = String(error?.message || error || '분산 저장소 조회 실패').slice(0, 240);
+        console.warn('Distributed RTMS unavailable; trying partial central dataset:', distributedError);
       }
     }
-    return lookupCentral(area, type, {includeNearby, force, months});
+    const central = await lookupCentral(area, type, {includeNearby, force, months});
+    if (central) return {...central, degraded: true, distributedError, source:'중앙 임시 수집자료 (전체 이력 아님)'};
+    if (distributedError) throw new Error('분산 실거래 자료 연결 실패: ' + distributedError);
+    return null;
   }
   window.TojiStaticTrades = Object.freeze({lookup,invalidate});
 })();
