@@ -9,7 +9,9 @@ test("exact parcel transactions are never replaced by nearby comparables", () =>
 });
 test("user can explicitly switch transaction scope", () => {
   assert.match(source, /transactionScopeSwitch/);
-  assert.match(source, /state\.transactionView = mode/);
+  // Both the original inline handler and shared validated handler set the selected view.
+  // parcel-comparison.test.mjs additionally executes manual switching and verifies it persists.
+  assert.match(source, /state\.transactionView = (?:mode|view)/);
   // Scope guidance is rendered by the transaction UI, not the static footer.
   const ui=fs.readFileSync(new URL("../transaction-ui.js", import.meta.url), "utf8");
   assert.match(ui, /onView\(mode\)/);
