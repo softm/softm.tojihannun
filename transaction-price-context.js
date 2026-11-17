@@ -144,7 +144,7 @@
       insight.textContent=messages.join(' ');
     }
   }
-  let lastModel=null, resizeFrame=0;
+  let lastModel=null, chart=null, chartObserver=null;
   function monthText(point,data) {
     const label=`${point.month.slice(0,4)}.${point.month.slice(4)}`;
     if(!point.count)return `${label} · 표시 자료 없음 (가격 0 아님)`;
@@ -160,9 +160,10 @@
     card.hidden=!showChart;
     if(details)details.hidden=!showChart;
     if(!showChart){
-      host.replaceChildren();host.scrollLeft=0;
-      host.dataset.historyScroll='false';delete host.dataset.historyKey;
-      host.style.removeProperty('--history-chart-width');
+      chartObserver?.disconnect();chartObserver=null;
+      if(chart){chart.dispose();chart=null;}
+      host.replaceChildren();
+      host.dataset.renderer='';host.dataset.trendLine='hidden';host.dataset.historyZoom='false';
       $('transactionMonthReadout')?.remove();
       $('transactionPriceCaveat')?.remove();
       if($('transactionChartMeta'))$('transactionChartMeta').textContent='';
@@ -175,59 +176,81 @@
     const kicker=card.querySelector('.market-section-head > div > span');
     if(kicker)kicker.textContent=data.areaDescription;
     if(details?.querySelector('summary'))details.querySelector('summary').innerHTML=`${esc(heading)} 보기 <small>${esc(data.label)} · ${data.mixed?'혼합면적 대표선 표시 안 함':'월별 중앙값과 거래가격 범위'}</small>`;
-    const viewportWidth=Math.max(270,Math.min(760,host.clientWidth||520));
-    const scrollable=data.months.length>24;
-    const width=scrollable?Math.max(viewportWidth,(data.months.length-1)*30+80):viewportWidth,height=238;
-    const previousScroll=host.scrollLeft;
-    const chartKey=[data.scope,data.selectedArea,data.metric,data.months[0]?.month,data.months.at(-1)?.month].join('|');
-    const changed=host.dataset.historyKey!==chartKey;
-    host.dataset.historyScroll=String(scrollable);
-    host.dataset.historyKey=chartKey;
-    host.style.setProperty('--history-chart-width',width+'px');
-    const pad={left:58,right:22,top:24,bottom:45},cw=width-pad.left-pad.right,ch=height-pad.top-pad.bottom;
-    const highest=Math.max(...points.map(point=>point.high));
-    const magnitude=Math.pow(10,Math.floor(Math.log10(highest||1)));
-    const top=Math.ceil((highest||1)/magnitude*4)/4*magnitude*1.05;
-    const x=index=>data.months.length===1?pad.left+cw/2:pad.left+index/(data.months.length-1)*cw;
-    const y=value=>pad.top+ch-(value/top)*ch;
-    const grid=[0,.25,.5,.75,1].map(ratio=>`<line class="market-chart-grid" x1="${pad.left}" x2="${width-pad.right}" y1="${y(top*ratio)}" y2="${y(top*ratio)}"/><text class="market-chart-label" x="${pad.left-8}" y="${y(top*ratio)+4}" text-anchor="end">${esc(formatPrice(top*ratio,data.metric,true))}</text>`).join('');
-    const labelStep=scrollable?6:Math.max(1,Math.ceil(data.months.length/(width<380?4:6)));
-    const showPointValues=points.length<=8;
-    let path='',previous=false;
-    const markers=data.months.map((point,index)=>{
-      const xx=x(index),label=index%labelStep===0||index===data.months.length-1;
-      const labelSvg=label?`<text class="market-chart-label" x="${xx}" y="${height-25}" text-anchor="middle">${point.month.slice(2,4)}.${point.month.slice(4)}</text><text class="price-chart-count" x="${xx}" y="${height-9}" text-anchor="middle">${point.count?point.count+'건':'미확인'}</text>`:'';
-      if(!point.count){previous=false;return labelSvg;}
-      if(!data.mixed)path+=`${previous?'L':'M'}${xx.toFixed(1)},${y(point.value).toFixed(1)} `;
-      previous=true;
-      const title=monthText(point,data);
-      const pointValue=showPointValues?`<text class="price-chart-value" x="${xx}" y="${Math.max(14,y(point.high)-10)}" text-anchor="middle">${esc(formatPrice(point.value,data.metric,true))}</text>`:'';
-      return labelSvg+`<g class="price-month-point" data-month-index="${index}" tabindex="0" role="button" aria-label="${esc(title)}"><title>${esc(title)}</title><rect x="${xx-15}" y="${pad.top}" width="30" height="${ch}" fill="transparent"/><line class="price-chart-range" x1="${xx}" x2="${xx}" y1="${y(point.low)}" y2="${y(point.high)}"/><line class="price-chart-range" x1="${xx-5}" x2="${xx+5}" y1="${y(point.low)}" y2="${y(point.low)}"/><line class="price-chart-range" x1="${xx-5}" x2="${xx+5}" y1="${y(point.high)}" y2="${y(point.high)}"/><circle class="market-chart-dot${point.count<3?' small-sample':''}" cx="${xx}" cy="${y(point.value)}" r="5"/>${pointValue}</g>`;
-    }).join('');
-    host.innerHTML=`<svg viewBox="0 0 ${width} ${height}" role="group" aria-label="${esc(heading+' · '+data.label+' · 세로축 0부터. '+points.map(point=>monthText(point,data)).join('; '))}">${grid}${!data.mixed?`<path class="market-chart-line" d="${path}"/>`:''}${markers}</svg>`;
-    // Focus the last OBSERVED trade, not an empty recent coverage month.
-    const lastObservedIndex=data.months.findLastIndex(point=>point.count>0);
-    const lastObservedOffset=Math.max(0,x(lastObservedIndex)-(host.clientWidth||viewportWidth)/2);
-    host.scrollLeft=scrollable?(changed?lastObservedOffset:previousScroll):0;
+    const echarts=globalThis.TojiECharts;
+    if(!echarts){host.innerHTML='<p class="price-chart-error">차트 모듈을 불러오지 못했습니다. 새로고침해 주세요.</p>';return;}
     let readout=$('transactionMonthReadout');
     if(!readout){readout=document.createElement('p');readout.id='transactionMonthReadout';readout.className='price-month-readout';readout.setAttribute('role','status');host.after(readout);}
     readout.textContent=monthText(points.at(-1),data);
-    host.querySelectorAll('[data-month-index]').forEach(node=>{
-      const select=()=>{readout.textContent=monthText(data.months[Number(node.dataset.monthIndex)],data);};
-      node.addEventListener('click',select);node.addEventListener('focus',select);
-      node.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();select();}});
+    chartObserver?.disconnect();
+    if(chart)chart.dispose();
+    host.replaceChildren();
+    chart=echarts.init(host,null,{renderer:'svg'});
+    const hasLongRange=data.months.length>24;
+    const showPointValues=points.length<=8;
+    host.dataset.renderer='echarts-svg';host.dataset.trendLine=data.mixed?'hidden':'shown';
+    host.dataset.historyZoom=String(hasLongRange);host.dataset.observedMonths=String(points.length);
+    const monthLabels=data.months.map(point=>`${point.month.slice(2,4)}.${point.month.slice(4)}`);
+    const rangeData=data.months.map((point,index)=>point.count?[index,point.low,point.high,point.count]:null).filter(Boolean);
+    const rangeSeries={
+      name:'최저~최고',type:'custom',silent:true,z:1,data:rangeData,
+      renderItem(params,api){
+        const low=api.coord([api.value(0),api.value(1)]),high=api.coord([api.value(0),api.value(2)]),half=5;
+        const style={stroke:'#8fb5a5',lineWidth:2};
+        return {type:'group',children:[
+          {type:'line',shape:{x1:low[0],y1:low[1],x2:high[0],y2:high[1]},style},
+          {type:'line',shape:{x1:low[0]-half,y1:low[1],x2:low[0]+half,y2:low[1]},style},
+          {type:'line',shape:{x1:high[0]-half,y1:high[1],x2:high[0]+half,y2:high[1]},style}
+        ]};
+      },encode:{x:0,y:[1,2]}
+    };
+    const lineSeries={
+      name:'월별 중앙값',type:'line',z:2,connectNulls:false,symbol:'none',smooth:false,
+      data:data.months.map(point=>point.count?point.value:null),
+      lineStyle:{color:'#176b54',width:3},itemStyle:{color:'#176b54'}
+    };
+    const pointSeries={
+      name:'거래가격',type:'scatter',z:3,symbolSize:11,
+      data:data.months.map((point,index)=>point.count?{value:[index,point.value],itemStyle:{color:point.count<3?'#fff':'#176b54',borderColor:'#176b54',borderWidth:3}}:null).filter(Boolean),
+      label:{show:showPointValues,position:'top',distance:8,color:'#245647',fontSize:11,fontWeight:800,
+        formatter:params=>formatPrice(params.value[1],data.metric,true)},
+      emphasis:{scale:1.35,itemStyle:{shadowBlur:8,shadowColor:'rgba(23,107,84,.3)'}}
+    };
+    const selectMonth=params=>{
+      const index=Array.isArray(params.value)?Number(params.value[0]):Number(params.dataIndex);
+      const point=data.months[index];if(point?.count)readout.textContent=monthText(point,data);
+    };
+    chart.setOption({
+      animation:false,
+      aria:{enabled:true,decal:{show:false},label:{description:`${heading}. ${data.label}. 세로축은 0부터 시작합니다.`}},
+      grid:{left:64,right:18,top:34,bottom:hasLongRange?70:42,containLabel:false},
+      tooltip:{trigger:'axis',confine:true,backgroundColor:'rgba(24,58,47,.96)',borderWidth:0,padding:[9,11],textStyle:{color:'#fff',fontSize:12},
+        formatter:params=>{const median=params?.find(item=>item.seriesName==='월별 중앙값');const observed=params?.find(item=>item.seriesName==='거래가격');
+          const index=Number(median?.dataIndex??observed?.value?.[0]??params?.[0]?.dataIndex);const point=data.months[index];return point?esc(monthText(point,data)).replaceAll(' · ','<br>'):'';}},
+      axisPointer:{link:[{xAxisIndex:'all'}],label:{show:false}},
+      xAxis:{type:'category',data:monthLabels,boundaryGap:true,axisLine:{lineStyle:{color:'#b9cdc3'}},axisTick:{show:false},
+        axisLabel:{color:'#63786e',fontSize:10,interval:(index)=>index%6===0||index===data.months.length-1,
+          formatter:(value,index)=>`${value}\n${data.months[index].count?data.months[index].count+'건':'-'}`}},
+      yAxis:{type:'value',min:0,scale:false,splitNumber:4,axisLine:{show:false},axisTick:{show:false},
+        axisLabel:{color:'#526c60',fontSize:10,formatter:value=>formatPrice(value,data.metric,true)},splitLine:{lineStyle:{color:'#e3ece7'}}},
+      dataZoom:hasLongRange?[
+        {type:'inside',xAxisIndex:0,startValue:Math.max(0,data.months.length-24),endValue:data.months.length-1,zoomOnMouseWheel:false,moveOnMouseWheel:true,moveOnMouseMove:true},
+        {type:'slider',xAxisIndex:0,height:18,bottom:8,startValue:Math.max(0,data.months.length-24),endValue:data.months.length-1,brushSelect:false,showDetail:false,borderColor:'#d3e2da',fillerColor:'rgba(23,107,84,.18)',handleStyle:{color:'#176b54'},moveHandleStyle:{color:'#176b54'}}
+      ]:[],
+      series:[rangeSeries,...(data.mixed?[]:[lineSeries]),pointSeries]
     });
+    chart.on('click',selectMonth);
+    chartObserver=new ResizeObserver(()=>chart?.resize());
+    chartObserver.observe(host);
+    const a11y=document.createElement('div');a11y.className='price-chart-a11y';
+    a11y.innerHTML=points.map(point=>`<button type="button" data-month-index="${data.months.indexOf(point)}">${esc(monthText(point,data))}</button>`).join('');
+    a11y.querySelectorAll('button').forEach(button=>button.addEventListener('focus',()=>selectMonth({value:[Number(button.dataset.monthIndex)]})));
+    host.append(a11y);
     const meta=$('transactionChartMeta');
     if(meta)meta.textContent=`점: ${data.mixed?'혼합 거래 중앙값':'월별 중앙값'} · 세로선: 최저~최고 · ${data.mixed?'면적 혼합으로 연결선 숨김':'자료 없는 월은 연결하지 않음'} · 세로축 0부터`;
-    if(meta&&scrollable)meta.textContent+=' · 전체 기간 차트: 좌우로 이동해 과거 월 확인';
+    if(meta&&hasLongRange)meta.textContent+=' · 아래 막대를 움직이거나 차트를 밀어 과거 월 확인';
     let caveat=$('transactionPriceCaveat');
     if(!caveat){caveat=document.createElement('p');caveat.id='transactionPriceCaveat';caveat.className='price-caveat';card.append(caveat);}
     caveat.textContent='신고된 거래의 분포이지 시세지수가 아닙니다. 같은 면적대라도 층·향·동·상태에 따라 가격이 다르며, 최근 계약월은 추가 신고·취소로 바뀔 수 있습니다.';
   }
-  window.addEventListener?.('resize',()=>{
-    if(!lastModel)return;
-    if(resizeFrame)window.cancelAnimationFrame(resizeFrame);
-    resizeFrame=window.requestAnimationFrame(()=>{resizeFrame=0;renderChart(lastModel);});
-  });
   window.TojiPriceContext=Object.freeze({areaKey,areaOptions,defaultArea,filterArea,valueOf,median,formatPrice,metricLabel,calendarMonths,model,summaryRows,renderSummary,renderChart,residential});
 })();

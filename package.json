@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "build": "node scripts/build-pages.mjs",
+    "build": "node scripts/build-echarts.mjs && node scripts/build-pages.mjs",
     "test": "node --test scripts/*.test.mjs"
   },
   "dependencies": {
     "@ssabrojs/hwpxjs": "^0.4.0",
     "docx": "^9.10.0",
+    "echarts": "^6.1.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "ol": "10.6.1",
@@ -18,5 +19,8 @@
   },
   "overrides": {
     "image-size": "2.0.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

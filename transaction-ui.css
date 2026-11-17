@@ -344,13 +344,9 @@
 #detailPanelTransactions.collection-trades .trade-price-context{font-size:12px;font-weight:700;color:#225b45;line-height:1.6;margin:9px 0;overflow-wrap:anywhere;}
 #detailPanelTransactions.collection-trades .price-month-readout{margin:10px 0 4px;padding:10px;border-radius:9px;background:#eff7f2;border:1px solid #d8e7dd;font-size:12px;line-height:1.7;color:#254f3e;}
 #detailPanelTransactions.collection-trades .price-caveat{font-size:11px;line-height:1.65;color:#61756a;margin:7px 2px;}
-#detailPanelTransactions.collection-trades .price-chart-range{stroke:#9cb9ab;stroke-width:2;}
-#detailPanelTransactions.collection-trades .price-month-point{cursor:pointer;outline:none;}
-#detailPanelTransactions.collection-trades .price-month-point:focus-visible .market-chart-dot{stroke-width:4;stroke:#133d30;}
-#detailPanelTransactions.collection-trades .market-chart-dot.small-sample{stroke-dasharray:2 2;}
-#detailPanelTransactions.collection-trades .market-chart-label{font-size:11px;}
-#detailPanelTransactions.collection-trades .price-chart-count{font-size:10px;fill:#526c60;}
-#detailPanelTransactions.collection-trades .price-chart-value{fill:#245647;font-size:10px;font-weight:900;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;}
+#detailPanelTransactions.collection-trades #transactionChart{position:relative;width:100%;height:300px;min-width:0;overflow:hidden;touch-action:pan-y;}
+#detailPanelTransactions.collection-trades .price-chart-a11y{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}
+#detailPanelTransactions.collection-trades .price-chart-error{display:grid;place-items:center;height:100%;margin:0;color:#7b4f35;font-size:12px;text-align:center;}
 #detailPanelTransactions.collection-trades .trade-chart-toggle{margin-top:13px;}
 #detailPanelTransactions.collection-trades #transactionStats .market-stat:nth-child(3) strong{font-size:15px;line-height:1.6;}
 @media(max-width:420px){
@@ -358,15 +354,6 @@
  #detailPanelTransactions.collection-trades .price-metric-label select{font-size:14px;}
  #detailPanelTransactions.collection-trades .price-month-readout{font-size:11px;padding:8px;}
  #detailPanelTransactions.collection-trades #transactionStats .market-stat:nth-child(3) strong{font-size:13px;}
-}
-
-/* FULL_HISTORY_CHART_V1: overflow belongs to the chart, never the page. */
-#detailPanelTransactions.collection-trades #transactionChart[data-history-scroll="true"] {
-  overflow-x:auto;overflow-y:hidden;max-width:100%;min-width:0;
-  overscroll-behavior-x:contain;scrollbar-width:thin;
-}
-#detailPanelTransactions.collection-trades #transactionChart[data-history-scroll="true"] svg {
-  width:var(--history-chart-width);max-width:none;height:238px;
 }
 
 /* SINGLE_TRADE_PRESENTATION_V1: one contract, one summary, no empty statistics. */
