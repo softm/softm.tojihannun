@@ -66,7 +66,7 @@
     }
     return out;
   }
-  function model(items, {metric='total',type='apartment',areaKind='전용면적',scope='',selectedArea='all',options=[],coveredMonthKeys=[],allPeriod=false} = {}) {
+  function model(items, {metric='total',type='apartment',areaKind='전용면적',scope='',selectedArea='all',options=[]} = {}) {
     const eligible = (items || []).filter(item => !item.cancelled && !item.cancellationDate && !/^(O|Y|1|해제)$/i.test(str(item.cancel)));
     const rows = eligible.filter(item => valueOf(item,metric) !== null).sort((a,b)=>str(b.date).localeCompare(str(a.date)));
     const values = rows.map(item=>valueOf(item,metric));
@@ -79,16 +79,11 @@
       if(!byMonth.has(month))byMonth.set(month,[]);
       byMonth.get(month).push(valueOf(item,metric));
     }
-    // FULL_HISTORY_CHART_V1: full history includes every observed transaction.
-    // Do not waste the chart on years before the first known trade. Interior
-    // missing months remain explicit gaps, never fabricated zero prices.
+    // TRANSACTION_MONTH_AXIS_V1: show only months with an observed transaction.
+    // Months without a contract are omitted instead of rendered as empty slots.
     const observed=[...byMonth.keys()].sort();
-    const coverage=allPeriod&&observed.length
-      ? coveredMonthKeys.filter(key=>key>=observed[0]&&key<=observed.at(-1))
-      : coveredMonthKeys;
-    const keys=[...new Set([...byMonth.keys(),...coverage.filter(validMonth)])].sort();
-    const months=calendarMonths(keys[0],keys.at(-1)).map(month=>{
-      const values=byMonth.get(month)||[];
+    const months=observed.map(month=>{
+      const values=byMonth.get(month);
       return {month,count:values.length,value:median(values),low:values.length?Math.min(...values):null,high:values.length?Math.max(...values):null};
     });
     const bands = new Set(rows.map(areaKey));
@@ -190,29 +185,33 @@
     host.dataset.renderer='echarts-svg';host.dataset.trendLine=data.mixed?'hidden':'shown';
     host.dataset.historyZoom=String(hasLongRange);host.dataset.observedMonths=String(points.length);
     const monthLabels=data.months.map(point=>`${point.month.slice(2,4)}.${point.month.slice(4)}`);
-    const rangeData=data.months.map((point,index)=>point.count?[index,point.low,point.high,point.count]:null).filter(Boolean);
-    const rangeSeries={
-      name:'최저~최고',type:'custom',silent:true,z:1,data:rangeData,
-      renderItem(params,api){
-        const low=api.coord([api.value(0),api.value(1)]),high=api.coord([api.value(0),api.value(2)]),half=5;
-        const style={stroke:'#8fb5a5',lineWidth:2};
-        return {type:'group',children:[
-          {type:'line',shape:{x1:low[0],y1:low[1],x2:high[0],y2:high[1]},style},
-          {type:'line',shape:{x1:low[0]-half,y1:low[1],x2:low[0]+half,y2:low[1]},style},
-          {type:'line',shape:{x1:high[0]-half,y1:high[1],x2:high[0]+half,y2:high[1]},style}
-        ]};
-      },encode:{x:0,y:[1,2]}
+    const labelStep=Math.max(1,Math.ceil(data.months.length/6));
+    const monthIndex=new Map(data.months.map((point,index)=>[point.month,index]));
+    const dealPoints=[...data.rows].sort((a,b)=>str(a.date).localeCompare(str(b.date))).map(item=>{
+      const month=validMonth(item.month)?item.month:str(item.date).slice(0,7).replace('-','');
+      return [monthIndex.get(month),valueOf(item,data.metric)];
+    }).filter(point=>Number.isInteger(point[0])&&positive(point[1]));
+    const priceSeriesName=data.metric==='total'?'거래별 매매금액':`거래별 ${data.areaKind} ${data.metric==='area33'?'3.3㎡당':'㎡당'} 가격`;
+    const countSeries={
+      name:'월 거래 건수',type:'bar',yAxisIndex:1,z:0,barMaxWidth:22,
+      data:data.months.map(point=>point.count),
+      itemStyle:{color:'rgba(121,185,157,.48)',borderRadius:[4,4,0,0]},
+      emphasis:{itemStyle:{color:'rgba(77,157,122,.72)'}}
     };
     const lineSeries={
-      name:'월별 중앙값',type:'line',z:2,connectNulls:false,symbol:'none',smooth:false,
-      data:data.months.map(point=>point.count?point.value:null),
-      lineStyle:{color:'#176b54',width:3},itemStyle:{color:'#176b54'}
+      name:priceSeriesName,type:'line',z:2,connectNulls:false,symbol:'circle',symbolSize:7,smooth:false,
+      data:dealPoints,
+      lineStyle:{color:'#176b54',width:3},itemStyle:{color:'#fff',borderColor:'#176b54',borderWidth:2},
+      label:{show:showPointValues,position:'top',distance:7,color:'#245647',fontSize:10,fontWeight:800,
+        formatter:params=>formatPrice(params.value[1],data.metric,true)},
+      emphasis:{scale:1.35,itemStyle:{shadowBlur:8,shadowColor:'rgba(23,107,84,.3)'}}
     };
     const pointSeries={
-      name:'거래가격',type:'scatter',z:3,symbolSize:11,
-      data:data.months.map((point,index)=>point.count?{value:[index,point.value],itemStyle:{color:point.count<3?'#fff':'#176b54',borderColor:'#176b54',borderWidth:3}}:null).filter(Boolean),
+      name:priceSeriesName,type:'scatter',z:3,symbolSize:9,
+      data:dealPoints,
       label:{show:showPointValues,position:'top',distance:8,color:'#245647',fontSize:11,fontWeight:800,
         formatter:params=>formatPrice(params.value[1],data.metric,true)},
+      itemStyle:{color:'#fff',borderColor:'#176b54',borderWidth:2},
       emphasis:{scale:1.35,itemStyle:{shadowBlur:8,shadowColor:'rgba(23,107,84,.3)'}}
     };
     const selectMonth=params=>{
@@ -221,22 +220,27 @@
     };
     chart.setOption({
       animation:false,
-      aria:{enabled:true,decal:{show:false},label:{description:`${heading}. ${data.label}. 세로축은 0부터 시작합니다.`}},
-      grid:{left:64,right:18,top:34,bottom:hasLongRange?70:42,containLabel:false},
+      aria:{enabled:true,decal:{show:false},label:{description:`${heading}. ${data.label}. 거래가 있는 월만 연속 표시하며 왼쪽은 가격, 오른쪽은 거래 건수입니다.`}},
+      legend:{top:2,left:0,itemWidth:18,itemHeight:8,textStyle:{color:'#526c60',fontSize:10},data:[priceSeriesName,'월 거래 건수']},
+      grid:{left:64,right:48,top:48,bottom:hasLongRange?70:42,containLabel:false},
       tooltip:{trigger:'axis',confine:true,backgroundColor:'rgba(24,58,47,.96)',borderWidth:0,padding:[9,11],textStyle:{color:'#fff',fontSize:12},
-        formatter:params=>{const median=params?.find(item=>item.seriesName==='월별 중앙값');const observed=params?.find(item=>item.seriesName==='거래가격');
-          const index=Number(median?.dataIndex??observed?.value?.[0]??params?.[0]?.dataIndex);const point=data.months[index];return point?esc(monthText(point,data)).replaceAll(' · ','<br>'):'';}},
+        formatter:params=>{const price=params?.find(item=>item.seriesName===priceSeriesName);const count=params?.find(item=>item.seriesName==='월 거래 건수');
+          const index=Number(price?.value?.[0]??count?.dataIndex??params?.[0]?.dataIndex);const point=data.months[index];return point?esc(monthText(point,data)).replaceAll(' · ','<br>'):'';}},
       axisPointer:{link:[{xAxisIndex:'all'}],label:{show:false}},
       xAxis:{type:'category',data:monthLabels,boundaryGap:true,axisLine:{lineStyle:{color:'#b9cdc3'}},axisTick:{show:false},
-        axisLabel:{color:'#63786e',fontSize:10,interval:(index)=>index%6===0||index===data.months.length-1,
-          formatter:(value,index)=>`${value}\n${data.months[index].count?data.months[index].count+'건':'-'}`}},
-      yAxis:{type:'value',min:0,scale:false,splitNumber:4,axisLine:{show:false},axisTick:{show:false},
-        axisLabel:{color:'#526c60',fontSize:10,formatter:value=>formatPrice(value,data.metric,true)},splitLine:{lineStyle:{color:'#e3ece7'}}},
+        axisLabel:{color:'#63786e',fontSize:10,interval:(index)=>index%labelStep===0||index===data.months.length-1,
+          formatter:(value,index)=>`${value}\n${data.months[index].count}건`}},
+      yAxis:[
+        {type:'value',name:data.metric==='total'?'거래가격':'면적당 가격',nameTextStyle:{color:'#526c60',fontSize:10},min:0,scale:false,splitNumber:4,axisLine:{show:false},axisTick:{show:false},
+          axisLabel:{color:'#526c60',fontSize:10,formatter:value=>formatPrice(value,data.metric,true)},splitLine:{lineStyle:{color:'#e3ece7'}}},
+        {type:'value',name:'월 거래',nameTextStyle:{color:'#647970',fontSize:10},min:0,minInterval:1,splitNumber:4,axisLine:{show:false},axisTick:{show:false},
+          axisLabel:{color:'#647970',fontSize:10,formatter:value=>`${value}건`},splitLine:{show:false}}
+      ],
       dataZoom:hasLongRange?[
         {type:'inside',xAxisIndex:0,startValue:Math.max(0,data.months.length-24),endValue:data.months.length-1,zoomOnMouseWheel:false,moveOnMouseWheel:true,moveOnMouseMove:true},
         {type:'slider',xAxisIndex:0,height:18,bottom:8,startValue:Math.max(0,data.months.length-24),endValue:data.months.length-1,brushSelect:false,showDetail:false,borderColor:'#d3e2da',fillerColor:'rgba(23,107,84,.18)',handleStyle:{color:'#176b54'},moveHandleStyle:{color:'#176b54'}}
       ]:[],
-      series:[rangeSeries,...(data.mixed?[]:[lineSeries]),pointSeries]
+      series:[countSeries,...(data.mixed?[]:[lineSeries]),...(data.mixed?[pointSeries]:[])]
     });
     chart.on('click',selectMonth);
     chartObserver=new ResizeObserver(()=>chart?.resize());
@@ -246,8 +250,8 @@
     a11y.querySelectorAll('button').forEach(button=>button.addEventListener('focus',()=>selectMonth({value:[Number(button.dataset.monthIndex)]})));
     host.append(a11y);
     const meta=$('transactionChartMeta');
-    if(meta)meta.textContent=`점: ${data.mixed?'혼합 거래 중앙값':'월별 중앙값'} · 세로선: 최저~최고 · ${data.mixed?'면적 혼합으로 연결선 숨김':'자료 없는 월은 연결하지 않음'} · 세로축 0부터`;
-    if(meta&&hasLongRange)meta.textContent+=' · 아래 막대를 움직이거나 차트를 밀어 과거 월 확인';
+    if(meta)meta.textContent=`${data.mixed?'점':'선·점'}: 거래별 ${data.label} · 연한 막대: 월 거래 건수 · 거래 없는 월 제외 · 가격축 0부터`;
+    if(meta&&hasLongRange)meta.textContent+=' · 아래 막대를 움직이거나 차트를 밀어 이전 거래월 확인';
     let caveat=$('transactionPriceCaveat');
     if(!caveat){caveat=document.createElement('p');caveat.id='transactionPriceCaveat';caveat.className='price-caveat';card.append(caveat);}
     caveat.textContent='신고된 거래의 분포이지 시세지수가 아닙니다. 같은 면적대라도 층·향·동·상태에 따라 가격이 다르며, 최근 계약월은 추가 신고·취소로 바뀔 수 있습니다.';
