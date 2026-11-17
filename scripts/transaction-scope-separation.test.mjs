@@ -4,8 +4,8 @@ import fs from "node:fs";
 const source = fs.readFileSync(new URL("../market-data.js", import.meta.url), "utf8");
 test("exact parcel transactions are never replaced by nearby comparables", () => {
   assert.match(source, /items: selected\.sort/);
-  assert.match(source, /const selected = unique\.filter\(\(item\) => item\.exact \|\| item\.sameComplex\)/);
-  assert.match(source, /comparable: comparable\.filter\(item => !item\.exact && !item\.sameComplex\)/);
+  assert.match(source, /const selected = unique\.filter\(\(item\) => item\.exact \|\| item\.inferred \|\| item\.sameComplex\)/);
+  assert.match(source, /comparable: comparable\.filter\(item => !item\.exact && !item\.inferred && !item\.sameComplex\)/);
   assert.doesNotMatch(source, /const selected = exact\.length \? exact : comparable/);
 });
 test("user can explicitly switch transaction scope", () => {
@@ -19,4 +19,6 @@ test("user can explicitly switch transaction scope", () => {
   assert.match(ui, /같은 법정동 비교/);
   assert.match(ui, /지번 식별이 불가능해 해당 필지 거래에 포함하지 않았습니다/);
   assert.match(ui, /선택 필지의 거래나 거리순 주변 거래가 아닙니다/);
+  assert.match(ui, /면적·지목·용도지역·마스킹 지번이 모두 일치/);
+  assert.match(ui, /해당 필지 거래로 확정할 수 없습니다/);
 });

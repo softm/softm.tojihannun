@@ -84,8 +84,8 @@ test('uncached saved-only lookup makes zero calls; explicit period stops after 3
   api.refreshParcel({...parcel,buildingName:'선영빌라'});assert.equal(calls.length,3);
   await api.loadTransactions(false,false,{more:true});assert.equal(calls.length,6);assert.equal(api.state.transactionGroups.coveredMonths,6);
 });
-test('selecting 2019 in the UI queries only three months and exposes the masked Ungdo-ri trade as comparison evidence',async()=>{
-  const masked={dealYear:'2019',dealMonth:'10',dealDay:'24',dealAmount:'10,500',dealArea:'1269',umdNm:'대산읍 웅도리',jibun:'6*',jimok:'임야'};
+test('selecting 2019 infers the masked Ungdo-ri trade only after parcel facts match',async()=>{
+  const masked={dealYear:'2019',dealMonth:'10',dealDay:'24',dealAmount:'10,500',dealArea:'1269',umdNm:'대산읍 웅도리',jibun:'6*',jimok:'임야',landUse:'자연녹지지역'};
   const {api,calls,get,context}=harness({snap:{entries:[]},respond:async url=>{
     const month=new URL(String(url)).searchParams.get('DEAL_YMD');
     return new Response(JSON.stringify({response:{header:{resultCode:'000'},body:{items:{item:month==='201910'?[masked]:[]},totalCount:month==='201910'?1:0}}}));
@@ -94,7 +94,8 @@ test('selecting 2019 in the UI queries only three months and exposes the masked 
   context.window.TojiStaticTrades={lookup:async(_area,type)=>type==='apartment'
     ? new Promise(resolve=>{releaseApartmentLookup=resolve;})
     : null};
-  api.setParcel({id:'ungdo-63-1',pnu:'4421010100100630001',address:'충청남도 서산시 대산읍 웅도리 63-1',number:'63-1'});
+  const ungdo={id:'ungdo-63-1',pnu:'4421010100100630001',address:'충청남도 서산시 대산읍 웅도리 63-1',number:'63-1'};
+  api.setParcel(ungdo);
   api.state.activeTab='transactions';
   const staleDefaultLookup=api.loadCollectedTransactions();
   await Promise.resolve();
@@ -105,6 +106,10 @@ test('selecting 2019 in the UI queries only three months and exposes the masked 
   assert.deepEqual(calls.map(url=>new URL(url).searchParams.get('DEAL_YMD')),['201912','201911','201910']);
   assert.equal(api.state.transactionView,'nearby');assert.equal(api.state.transactionGroups.items.length,0);assert.equal(api.state.transactionGroups.comparable.length,1);
   assert.equal(api.state.transactionGroups.comparable[0].amount,10500);assert.equal(api.state.transactionGroups.comparable[0].area,1269);assert.equal(api.state.transactionGroups.undisclosedCount,1);
+  api.refreshParcel({...ungdo,landRegister:{base:{lndpclAr:1269,lndcgrCodeNm:'임야'},characteristic:{prposArea1Nm:'자연녹지지역'}}});
+  assert.equal(api.state.transactionView,'parcel');assert.equal(api.state.transactionGroups.items.length,1);assert.equal(api.state.transactionGroups.comparable.length,0);
+  assert.equal(api.state.transactionGroups.items[0].exact,false);assert.equal(api.state.transactionGroups.items[0].inferred,true);assert.equal(api.state.transactionGroups.inferredCount,1);
+  assert.deepEqual(clean(api.state.transactionGroups.items[0].inferredEvidence),['마스킹 지번 6* ↔ 63-1','면적 1,269㎡ 일치','지목 임야 일치','용도지역 자연녹지지역 일치']);
 });
 test('MOLIT quota code 22 also stops after one request',async()=>{
   const {api,calls,get}=harness({snap:{entries:[]},respond:async()=>new Response(JSON.stringify({response:{header:{resultCode:'22',resultMsg:'LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR'}}}))});get('#transactionRange').value='3';await api.loadTransactions();assert.equal(calls.length,1);assert.equal(api.state.transactionGroups.loading,false);assert.equal(api.state.transactionSession.failures.size,1);
@@ -255,7 +260,7 @@ test('explicit all-period selection reads historical months and recent filters r
 });
 
 // DEFAULT_60_MONTHS_TEST_V1: all values below are synthetic regression fixtures.
-test('initial and new parcel defaults are five years; all-period option remains available',async()=>{
+test('initial range defaults to five years and the user selection survives parcel changes',async()=>{
  const {api,context,calls,get}=harness({snap:{entries:[]},key:''});
  const seen=[];
  const base={dealYear:'2023',dealMonth:'11',dealDay:'02',dealAmount:'20500',excluUseAr:'59.7',floor:'3',umdNm:'광명동',jibun:'158-216'};
@@ -265,7 +270,7 @@ test('initial and new parcel defaults are five years; all-period option remains 
   const rows=source.filter(row=>!options.months||options.months.includes(row.dealYear+row.dealMonth));
   return {rows,completeMonths:options.months||source.map(row=>row.dealYear+row.dealMonth),verifiedAt:'2026-11-08T10:00:00Z'};
  }};
- api.setParcel(parcel);
+ get('#transactionRange').value='60';api.setParcel(parcel);
  assert.equal(get('#transactionRange').value,'60');
  assert.equal(api.transactionMonths().length,60);
  await api.loadCollectedTransactions();
@@ -280,6 +285,6 @@ test('initial and new parcel defaults are five years; all-period option remains 
  assert.equal(seen.at(-1).months,undefined);
  assert.equal(api.state.transactionItems.length,4);
  api.setParcel({...parcel,id:'default-range-second-parcel'});
- assert.equal(get('#transactionRange').value,'60');
+ assert.equal(get('#transactionRange').value,'saved');
  assert.equal(calls.length,0,'range changes must use saved JSON, not upstream API scans');
 });
