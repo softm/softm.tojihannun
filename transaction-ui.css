@@ -275,3 +275,59 @@
 @media(prefers-reduced-motion:reduce) {
   #detailPanelTransactions.collection-trades .trade-chart-toggle > summary::after {transition:none;}
 }
+
+/* Page navigation: 10 rows per page, at most five numbered pages visible. */
+#detailPanelTransactions.collection-trades .trade-pagination {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:14px 0 4px;
+  padding:10px 0 2px;
+  border-top:1px solid #e3ece6;
+}
+#detailPanelTransactions.collection-trades .trade-pagination[hidden] {display:none!important;}
+#detailPanelTransactions.collection-trades .trade-page-button {
+  min-width:38px;
+  min-height:40px;
+  padding:6px 10px;
+  border:1px solid #d1e1d7;
+  border-radius:9px;
+  background:#fff;
+  color:#376654;
+  font:inherit;
+  font-size:13px;
+  font-weight:750;
+  line-height:1.3;
+  cursor:pointer;
+}
+#detailPanelTransactions.collection-trades .trade-page-button.is-current {
+  background:#176b54;
+  border-color:#176b54;
+  color:#fff;
+}
+#detailPanelTransactions.collection-trades .trade-page-button:disabled {
+  opacity:.35;
+  cursor:default;
+}
+#detailPanelTransactions.collection-trades .trade-page-button:hover:not(:disabled):not(.is-current) {
+  background:#e9f5ee;
+}
+#detailPanelTransactions.collection-trades #transactionListSection {
+  scroll-margin-top:18px;
+}
+@media(max-width:420px) {
+  #detailPanelTransactions.collection-trades .trade-pagination {gap:4px;}
+  #detailPanelTransactions.collection-trades .trade-page-button {
+    min-width:32px;
+    min-height:39px;
+    padding:6px 7px;
+    font-size:12px;
+  }
+  #detailPanelTransactions.collection-trades .trade-page-button:first-child,
+  #detailPanelTransactions.collection-trades .trade-page-button:last-child {
+    min-width:39px;
+    padding:6px 5px;
+  }
+}
