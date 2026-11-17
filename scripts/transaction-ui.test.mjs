@@ -31,3 +31,42 @@ test('default static lookup remains exact and excludes cancellations',async()=>{
 test('comparison data never turns a masked lot into an exact match',async()=>{const {api,area,calls}=await loader();const result=await api.lookup(area,'rowHouse',{includeNearby:true});assert.equal(result.rows.length,3);assert.equal(result.rows.filter(r=>r.jibun==='94-9').length,1);assert.equal(result.rows.filter(r=>r.jibun==='').length,1);assert.ok(calls.every(u=>u.startsWith('https://example.test/data/transactions/published/')));});
 test('manual reload fetches published files again',async()=>{const {api,area,calls}=await loader();await api.lookup(area,'rowHouse');const n=calls.length;await api.lookup(area,'rowHouse');assert.equal(calls.length,n);await api.lookup(area,'rowHouse',{force:true});assert.ok(calls.length>n);});
 test('uncollected region is distinct from a failed published file',async()=>{const {api,area}=await loader();assert.equal(await api.lookup({...area,lawdCode:'99999'},'rowHouse'),null);const bad=await loader({'41210/dong.json':null});await assert.rejects(bad.api.lookup(bad.area,'rowHouse'),/unavailable/);});
+
+test('apartment area chips group comparable unit sizes without altering official transactions',()=>{
+  const rows=[
+    {id:1,area:97.97,amount:82800},
+    {id:2,area:97.97,amount:81500},
+    {id:3,area:84.99,amount:70000},
+    {id:4,area:59.7,amount:51500}
+  ];
+  const bands=ui.areaOptions(rows,'apartment');
+  assert.equal(bands.length,3);
+  assert.equal(bands[0].key,'98');
+  assert.match(bands[0].label,/2건/);
+  assert.equal(ui.filteredItems(rows,bands,'98').length,2);
+  assert.equal(ui.filteredItems(rows,bands,'all').length,4);
+  assert.equal(ui.areaOptions(rows,'land').length,0);
+  assert.deepEqual(rows.map(row=>row.id),[1,2,3,4]);
+});
+test('apartment comparison offers a collective other-area bucket for diverse sizes',()=>{
+  const rows=[52,62,72,82,92,102].map(area=>({area,amount:10000+area}));
+  const bands=ui.areaOptions(rows,'apartment');
+  assert.equal(bands.length,5);
+  assert.equal(ui.filteredItems(rows,bands,'other').length,2);
+  assert.equal(ui.filteredItems(rows,bands,'52').length,1);
+});
+test('median sale amount treats outliers conservatively and excludes missing prices',()=>{
+  const deals=[{amount:80000},{amount:90000},{amount:82000},{amount:0}];
+  assert.equal(ui.medianAmount(deals),82000);
+  assert.equal(ui.medianAmount([{amount:80000},{amount:90000}]),85000);
+  assert.equal(ui.medianAmount([{amount:null}]),0);
+});
+test('monthly chart is open by default with clear non-zero axis warning',()=>{
+  const src=fs.readFileSync(new URL('transaction-ui.js',root),'utf8');
+  const market=fs.readFileSync(new URL('market-data.js',root),'utf8');
+  assert.match(src,/details\.open=true/);
+  assert.match(src,/renderChartForItems\?\.\(items\)/);
+  assert.match(market,/세로축/);
+  assert.match(market,/min>0/);
+  assert.match(market,/count: values\.length/);
+});
