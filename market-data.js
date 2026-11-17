@@ -1420,13 +1420,20 @@
     $("#transactionType")?.addEventListener("change", (event) => {
       applyTransactionType(event.target.value, {manual: true});
       resetTransactionView();
-      if (state.activeTab === "transactions") void loadTransactions(true);
+      const historicalYear = /^year-20\d{2}$/.test(String($("#transactionRange")?.value || ""));
+      if (state.activeTab === "transactions") return loadTransactions(true, false, {collectedOnly: !historicalYear});
     });
     $("#transactionRange")?.addEventListener("change", () => {
       state.transactionCacheKey = "";
-      if (state.activeTab === "transactions") void loadTransactions(false, false, {view: state.transactionView});
+      const historicalYear = /^year-20\d{2}$/.test(String($("#transactionRange")?.value || ""));
+      if (state.activeTab === "transactions") return loadTransactions(false, false, historicalYear
+        ? {collectedOnly: false}
+        : {view: state.transactionView, collectedOnly: true});
     });
-    $("#refreshTransactions")?.addEventListener("click", () => void loadTransactions(true));
+    $("#refreshTransactions")?.addEventListener("click", () => {
+      const historicalYear = /^year-20\d{2}$/.test(String($("#transactionRange")?.value || ""));
+      return loadTransactions(true, false, {collectedOnly: !historicalYear});
+    });
     $("#refreshAuctions")?.addEventListener("click", () => void loadAuctions(true));
     $("#openOnbidSearch")?.addEventListener("click", () => openOfficialSite(ONBID_SEARCH_URL, "온비드"));
     $("#openCourtAuction")?.addEventListener("click", () => openOfficialSite(COURT_AUCTION_URL, "법원경매"));
