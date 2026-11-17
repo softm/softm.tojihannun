@@ -91,7 +91,9 @@ try{
   assert.match(await page.locator('#transactionDisclosure').textContent(),/선택 필지의 거래/);
   await page.locator('#transactionSort').selectOption('amount-desc');
   assert.equal(await page.locator('#transactionSort').inputValue(),'amount-desc');
-  const total=actual.filter(r=>r.lot!==sample.lot).length;
+  // The default shows only recent collected months, not every historical fixture.
+  // Pagination thresholds must use the number of rows actually loaded for this period.
+  const total=Number((await page.locator('#transactionListCount').textContent()).replace(/,/g,'').match(/(\d+)건/)?.[1] || 0);
   let steps=0;
   while(await page.locator('.trade-more').count() && (await page.locator('.trade-row').count())<Math.min(total,220) && steps++<12)await page.locator('.trade-more').click();
   if(total>200)assert.ok(await page.locator('.trade-row').count()>200,'no old 200-record cutoff');
