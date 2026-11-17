@@ -92,4 +92,28 @@ class OperationTests(unittest.TestCase):
         self.assertTrue(refresh.intersection(tasks))
         self.assertTrue(any('/' in t for t in tasks))
 
+    def test_scheduled_revalidation_waits_for_full_backfill(self):
+        self.assertEqual(list(o.task_queue(self.pipe,'refresh-year')), [])
+        self.assertEqual(list(o.task_queue(self.pipe,'audit-history')), [])
+
+    def test_weekly_revalidation_targets_latest_twelve_calendar_months(self):
+        with patch.object(o,'current_phase',return_value=None):
+            tasks=list(o.task_queue(self.pipe,'refresh-year'))
+        months={task.split('/')[2] for task in tasks}
+        self.assertTrue(months)
+        self.assertEqual(min(months),'202512')
+        self.assertEqual(max(months),'202611')
+        self.assertEqual(len(months),12)
+        self.assertEqual(len(tasks),len(set(tasks)))
+
+    def test_monthly_history_audit_rotates_same_calendar_month_across_years(self):
+        with patch.object(o,'current_phase',return_value=None):
+            tasks=list(o.task_queue(self.pipe,'audit-history'))
+        months={task.split('/')[2] for task in tasks}
+        self.assertTrue(months)
+        self.assertTrue(all(month.endswith('11') for month in months))
+        self.assertIn('200611',months)
+        self.assertIn('202611',months)
+        self.assertEqual(len(tasks),len(set(tasks)))
+
 if __name__=='__main__':unittest.main()
