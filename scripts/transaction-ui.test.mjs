@@ -14,6 +14,7 @@ test('money values retain ten-thousand-won units',()=>{assert.equal(ui.money(515
 test('sorting does not mutate exported data',()=>{const items=[{date:'2026-01-01',amount:100},{date:'2026-02-01',amount:50}];assert.equal(ui.sorted(items)[0].date,'2026-02-01');assert.equal(ui.sorted(items,'amount-desc')[0].amount,100);assert.equal(items[0].date,'2026-01-01');});
 test('only disclosed same-dong comparison lots can open a parcel',()=>{assert.equal(ui.canOpenParcel({jibun:'213-21'},'nearby'),true);assert.equal(ui.canOpenParcel({jibun:'산 12-3'},'nearby'),true);assert.equal(ui.canOpenParcel({jibun:''},'nearby'),false);assert.equal(ui.canOpenParcel({jibun:'213-21'},'parcel'),false);});
 test('UI uses no source API requests or fixed overlays',()=>{assert.doesNotMatch(src,/\bfetch\s*\(/);const css=fs.readFileSync(new URL('transaction-ui.css',root),'utf8');assert.doesNotMatch(css,/position\s*:\s*fixed/);assert.match(src,/const PAGE_SIZE = 10/);assert.match(src,/const VISIBLE_PAGE_BUTTONS = 5/);assert.doesNotMatch(src,/Math\.min\(items\.length, 200\)/);});
+test('chart errors do not block transaction results or leave loading stuck',()=>{assert.match(src,/try \{\s*pricing\.renderChart\(priceModel\)/);assert.match(src,/차트를 표시하지 못했습니다\. 거래 목록은 계속 확인할 수 있습니다/);});
 
 async function loader(overrides={}){
   const row={date:'2026-10-21',amount:51500,umdNm:'광명동',lot:'94-9',exactLotPublic:true,type:'rowHouse',deal:'sale',exclusiveArea:59.7,buildingName:'테스트 전용',floor:3};

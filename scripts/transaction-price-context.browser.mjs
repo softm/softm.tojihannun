@@ -8,7 +8,7 @@ const server=http.createServer((req,res)=>{
  const u=new URL(req.url,'http://localhost');const file=path.resolve(root,'.'+decodeURIComponent(u.pathname==='/'?'/index.html':u.pathname));
  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||fs.statSync(file).isDirectory()){res.writeHead(404);res.end();return;}
  let content=fs.readFileSync(file);res.setHeader('content-type',mime[path.extname(file)]||'application/octet-stream');
- if(file.endsWith('/index.html'))content=content.toString().replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace('</body>','<script src="./transaction-price-context.js"></script><script src="./transaction-ui.js"></script></body>');
+ if(file.endsWith('/index.html'))content=content.toString().replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace('</body>','<script src="./vendor/echarts-toji.min.js"></script><script src="./transaction-price-context.js"></script><script src="./transaction-ui.js"></script></body>');
  res.end(content);
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -34,6 +34,8 @@ try{
    if(!document.getElementById('transactionScopeSwitch')){const nav=document.createElement('div');nav.id='transactionScopeSwitch';panel.querySelector('.market-panel-head').after(nav);}
    window.TojiTransactionUI.render({group:{scope:'검증동 1-1',items,comparable:[],loading:false,staticError:false,error:'',degraded:false,coveredMonthKeys:['202606','202607','202608','202609','202610','202611']},definition:{label:'아파트',areaKind:'전용면적'},view:'parcel',type:'apartment',period:'6',onView:()=>{},onReload:()=>{},onStop:()=>{}});
  },fixture);
+ await page.waitForTimeout(200);
+ if(!await page.locator('#transactionMonthReadout').count())throw new Error(`Chart did not render: ${errors.join(' | ')||'no page error captured'}`);
  assert.equal(await page.locator('#transactionPriceMetric').inputValue(),'total');
  assert.equal(await page.locator('#transactionAreaFilters [aria-pressed="true"]').getAttribute('data-area-key'),'84');
  assert.match(await page.locator('#transactionPriceContext').textContent(),/84㎡대.*84\.97~84\.99㎡.*매매총액.*7건/);

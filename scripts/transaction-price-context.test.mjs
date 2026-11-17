@@ -63,6 +63,8 @@ test('rendering makes no upstream requests or market-index claims',()=>{
   assert.match(source,/name:priceSeriesName,type:'line'/);assert.match(source,/type:'inside'/);assert.match(source,/type:'slider'/);
   assert.match(source,/name:'월 거래 건수',type:'bar',yAxisIndex:1/);
   assert.match(source,/거래 없는 월 제외/);
+  const entry=fs.readFileSync(new URL('./echarts-entry.js',import.meta.url),'utf8');
+  assert.match(entry,/BarChart/);assert.match(entry,/LegendComponent/);
 });
 
 // FULL_HISTORY_MODEL_TEST_V1

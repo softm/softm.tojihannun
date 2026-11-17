@@ -24,7 +24,7 @@ const server=http.createServer((req,res)=>{
   if(file.endsWith('/index.html')){
     // Use the production DOM/styles, isolating transactions from maps/ads/other providers.
     body=body.toString().replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
-    body=body.replace('</body>','<script src="./static-transactions.js"></script><script src="./transaction-price-context.js"></script><script src="./transaction-ui.js"></script><script src="./market-data.js"></script></body>');
+    body=body.replace('</body>','<script src="./static-transactions.js"></script><script src="./vendor/echarts-toji.min.js"></script><script src="./transaction-price-context.js"></script><script src="./transaction-ui.js"></script><script src="./market-data.js"></script></body>');
   }
   res.end(body);
 });
@@ -96,7 +96,10 @@ try{
     return !!(stats.compareDocumentPosition(chart)&Node.DOCUMENT_POSITION_FOLLOWING);
   }),true,'pricing summary should appear before the monthly chart');
   // SINGLE_TRADE_BROWSER_POLICY_V1: published exact-lot sample may contain only one contract.
-  if(expected>1)assert.match(await page.locator('#transactionChartMeta').textContent(),/월별 중위값|세로축/);
+  if(expected>1){
+    assert.match(await page.locator('#transactionChartMeta').textContent(),/월 거래 건수|가격축/);
+    assert.equal(await page.locator('#transactionChart').getAttribute('data-renderer'),'echarts-svg');
+  }
   else {
     assert.equal(await page.locator('#transactionChartToggle').isVisible(),false);
     assert.equal(await page.locator('#transactionStats .market-stat').count(),1);
