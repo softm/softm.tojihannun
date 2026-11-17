@@ -299,6 +299,14 @@ def publish(pipe, root, config, shard, run):
                               'gzipBytes':len(gz),'sha256':digest(body),'gzipSha256':digest(gz),'month':month})
     for code, index in district_index.items():
         write_json(stage/'published'/code/'index.json',index)
+        # Browsers need only one transaction type at a time. The legacy
+        # all-stream index grows beyond the 2 MB manifest limit as backfills
+        # finish; publish bounded per-stream indexes without changing chunks.
+        for sid, months in sorted(index['coverage'].items()):
+            write_json(stage/'published'/code/sid/'index.json', {
+                'schemaVersion':2, 'district':code, 'stream':sid,
+                'coverage':months, 'groups':index['groups'].get(sid, {}),
+                'updatedAt':index['updatedAt']})
         catalog[code] = {'index':code+'/index.json','name':pipe.districts[code]['name'],'updatedAt':index['updatedAt']}
     write_json(stage/'published/index.json', {'schemaVersion':2,'generatedAt':utc(),'districts':catalog,'fullCountryComplete':False})
     manifest = pipe.status()
