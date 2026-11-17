@@ -172,6 +172,9 @@
     for(const id of ['transactionPricingControls','transactionPriceContext','transactionInsight'])if($(id))$(id).hidden=true;
     $('refreshTransactions').disabled=false;panel.removeAttribute('aria-busy');
   }
+  function canOpenParcel(item,view) {
+    return view==='nearby' && /^(?:산\s*)?\d+(?:-\d+)?$/.test(text(item?.jibun).trim());
+  }
   function drawList() {
     if(!current)return;
     const {group,view,definition}=current;
@@ -180,12 +183,15 @@
     const host=$('transactionList');
     const paging=paginationWindow(items.length,currentPage);
     currentPage=paging.page;
-    host.innerHTML=items.slice(paging.firstIndex,paging.lastIndex).map(item => {
+    const visibleItems=items.slice(paging.firstIndex,paging.lastIndex);
+    host.innerHTML=visibleItems.map((item,index) => {
       const name=item.buildingName || [item.umdNm,item.jibun || '지번 미공개'].filter(Boolean).join(' ');
       const address=[item.umdNm,item.jibun].filter(Boolean).join(' ');
       const scope=item.exact?'공개 지번 일치':item.sameComplex?'동일 단지 거래':item.jibun?'같은 법정동 비교':'지번 미공개 · 필지 미확정';
       const extras=[item.dealType,item.jimok,item.landUse,item.buildingUse].filter(Boolean);
-      return `<article class="trade-row trade-row--compact" aria-label="${esc([item.date,name,money(item.amount),scope].join(' · '))}">
+      const openable=canOpenParcel(item,view);
+      const openAttributes=openable?` data-open-parcel-index="${index}" role="button" tabindex="0" aria-label="${esc([item.date,name,money(item.amount),scope,'해당 필지 보기'].join(' · '))}"`:` aria-label="${esc([item.date,name,money(item.amount),scope].join(' · '))}"`;
+      return `<article class="trade-row trade-row--compact${openable?' trade-row--openable':''}"${openAttributes}>
         <div class="trade-row-top"><time datetime="${esc(item.date)}">${esc(text(item.date).replaceAll('-','.'))}</time><strong>${esc(pricing.formatPrice(pricing.valueOf(item,priceMode),priceMode))}</strong></div>
         <div class="trade-row-inline">
           <strong class="trade-row-name" title="${esc(name)}">${esc(name)}</strong>
@@ -195,9 +201,18 @@
           ${priceMode!=='total' ? `<span class="trade-row-fact">매매총액 ${esc(money(item.amount))}</span>` : ''}
           ${extras.map(value=>`<span class="trade-row-fact">${esc(value)}</span>`).join('')}
           <span class="trade-row-scope-chip${item.exact||item.sameComplex?'':' neutral'}" title="${esc(scope)}">${item.exact?'지번 일치':item.sameComplex?'동일 단지':item.jibun?'같은 동 비교':'지번 미확정'}</span>
+          ${openable?'<span class="trade-row-open-hint" aria-hidden="true">필지 보기 ›</span>':''}
         </div>
       </article>`;
     }).join('');
+    host.querySelectorAll('[data-open-parcel-index]').forEach(row=>{
+      const open=()=>current?.onSelectParcel?.(visibleItems[Number(row.dataset.openParcelIndex)]);
+      row.addEventListener('click',open);
+      row.addEventListener('keydown',event=>{
+        if(event.key!=='Enter'&&event.key!==' ')return;
+        event.preventDefault();open();
+      });
+    });
     $('transactionListCount').textContent=items.length
       ? `총 ${number(items.length)}건 · ${number(paging.firstIndex+1)}–${number(paging.lastIndex)}건 표시`
       : '확인된 거래 0건';
@@ -289,5 +304,5 @@
     drawList();
     $('transactionChartToggle').hidden=priceModel.count<=1;
   }
-  window.TojiTransactionUI=Object.freeze({render,reset,coverage,sorted,money,areaOptions,filteredItems,medianAmount,paginationWindow,PAGE_SIZE,VISIBLE_PAGE_BUTTONS});
+  window.TojiTransactionUI=Object.freeze({render,reset,coverage,sorted,money,areaOptions,filteredItems,medianAmount,paginationWindow,canOpenParcel,PAGE_SIZE,VISIBLE_PAGE_BUTTONS});
 })();

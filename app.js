@@ -654,6 +654,40 @@ async function selectSearchResult(result) {
   await inspectParcel([result.lon, result.lat], result);
 }
 
+async function selectParcelAddressFromTransaction(detail) {
+  const address = cleanText(detail?.address || "");
+  const expectedKey = parcelAddressKey(address);
+  const expectedRegion = parcelRegionKey(address);
+  if (!expectedKey) {
+    showToast("이 거래의 필지 주소를 확인할 수 없어요.");
+    return;
+  }
+  setSearchLoading(true);
+  try {
+    const results = await searchVWorld(address, "lot");
+    const result = results.find((item) => {
+      const candidateAddress = item.parcel || item.address || "";
+      return parcelAddressKey(candidateAddress) === expectedKey
+        && parcelRegionKey(candidateAddress) === expectedRegion;
+    });
+    if (!result) {
+      showToast("해당 지번의 지도 위치를 찾지 못했어요.");
+      return;
+    }
+    state.searchResults = results;
+    await selectSearchResult(result);
+  } catch (error) {
+    console.error("Transaction parcel search failed", error);
+    showToast("해당 필지로 이동하지 못했어요. 잠시 후 다시 시도해 주세요.");
+  } finally {
+    setSearchLoading(false);
+  }
+}
+
+window.addEventListener("tojihannun:select-parcel-address", (event) => {
+  void selectParcelAddressFromTransaction(event.detail);
+});
+
 function sharedParcelResultFromUrl() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("share") !== "parcel") return null;
@@ -972,6 +1006,10 @@ function parcelAddressKey(value) {
 
 function parcelCityKey(value) {
   return cleanText(value).match(/(?:^|\s)([가-힣]+(?:시|군))(?=\s|$)/)?.[1] || "";
+}
+
+function parcelRegionKey(value) {
+  return cleanText(value).split(/\s+/).filter((part) => /(?:시|군|구)$/.test(part)).slice(-2).join(" ");
 }
 
 function isSameParcelAddress(record, candidate) {

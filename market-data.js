@@ -772,6 +772,15 @@
     window.TojiTransactionUI?.render({group, type:state.transactionType, definition:TRANSACTION_TYPES[state.transactionType],
       view:state.transactionView, period:state.transactionSession?.period || DEFAULT_TRANSACTION_RANGE,
       onView:selectTransactionView,
+      onSelectParcel:(item) => {
+        const area=state.transactionSession?.area;
+        const lot=String(item?.jibun || "").trim();
+        if(!area?.emd || !/^(?:산\s*)?\d+(?:-\d+)?$/.test(lot)) return;
+        window.dispatchEvent(new CustomEvent("tojihannun:select-parcel-address", {detail:{
+          address:[area.sido,area.sgg,area.emd,lot].filter(Boolean).join(" "),
+          emd:area.emd,lot
+        }}));
+      },
       onReload:() => void loadTransactions(true), onStop:() => {state.transactionController?.abort();
         if(state.transactionSession){state.transactionSession.loading=false;state.transactionSession.error="조회 중단. 다시 불러오기로 재시도할 수 있습니다.";renderTransactionSession(state.transactionSession);}}});
   }

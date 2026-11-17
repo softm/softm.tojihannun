@@ -135,12 +135,17 @@
   white-space:nowrap;
 }
 .trade-row--compact .trade-row-scope-chip.neutral {background:#eef1ef;color:#596a61;}
+.trade-row--compact.trade-row--openable {cursor:pointer;transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease;}
+.trade-row--compact.trade-row--openable:hover {border-color:#75ad98;background:#f7fcf9;box-shadow:0 3px 10px rgba(18,96,73,.08);}
+.trade-row--compact.trade-row--openable:focus-visible {outline:3px solid #3a9476;outline-offset:2px;}
+.trade-row--compact .trade-row-open-hint {margin-left:auto;color:#176b54;font-size:10px;font-weight:800;white-space:nowrap;}
 @media(max-width:420px){
   #detailPanelTransactions.collection-trades .trade-row.trade-row--compact {padding:7px 9px;}
   .trade-row--compact .trade-row-top > strong {font-size:15px;}
   .trade-row--compact .trade-row-inline {gap:2px 7px;font-size:10px;}
   .trade-row--compact .trade-row-name {font-size:11px;max-width:62%;}
   .trade-row--compact .trade-row-scope-chip {font-size:9px;}
+  .trade-row--compact .trade-row-open-hint {font-size:9px;}
 }
 
 /* Transaction insight layout, 2026-11-17: chart first, visible on entry. */
