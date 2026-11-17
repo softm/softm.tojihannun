@@ -52,12 +52,21 @@ try{
   window.TojihannunMarketData.setParcel({id:'full-history-fixture',pnu:'4121010100100010001',address:'경기도 광명시 광명동 1-1',number:'1-1',buildings:[{use:'아파트'}]});
   window.TojihannunMarketData.activate('transactions');
  });
+ // DEFAULT_36_MONTHS_BROWSER_V1: fixture ends last month, so 35 populated months are inside this 36-month window.
+ await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false'&&document.getElementById('transactionStats').dataset.cohortCount==='70');
+ assert.equal(await page.locator('#transactionRange').inputValue(),'36');
+ assert.equal(await page.locator('#transactionRange option:checked').textContent(),'최근 36개월');
+ assert.equal(await page.evaluate(()=>window.historyTestLookups[0].length),36);
+ assert.equal(await page.locator('.trade-row').count(),10);
+ await page.locator('#detailPanelTransactions').screenshot({path:'test-results/full-history/default-36-months-390.png'});
+ proof.checks.push('default 36 months: 70 synthetic records, same summary/chart cohort, no live API requests');
+ await page.locator('#transactionRange').selectOption('saved');
  await page.waitForFunction(()=>document.getElementById('detailPanelTransactions').getAttribute('aria-busy')==='false'&&document.getElementById('transactionStats').dataset.cohortCount==='72');
  assert.equal(await page.locator('#transactionRange').inputValue(),'saved');
  assert.equal(await page.locator('#transactionRange option:checked').textContent(),'전체 기간');
  assert.equal(await page.locator('.trade-row').count(),10);
  assert.equal(await page.locator('#transactionChart').getAttribute('data-history-scroll'),'true');
- assert.equal(await page.evaluate(()=>window.historyTestLookups[0]),'all');
+ assert.equal(await page.evaluate(()=>window.historyTestLookups.at(-1)),'all');
  for(const width of [320,390,1280]){
   await page.setViewportSize({width,height:900});
   await page.waitForTimeout(80);
