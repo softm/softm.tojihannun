@@ -1,0 +1,26 @@
+name: Verify real published Bucheon apartment trades
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/verify-bucheon-apartment.yml
+      - scripts/verify-bucheon-apartment.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify real distributed JSON for 41194 옥길동 742-1 without public API calls
+        run: |
+          node scripts/verify-bucheon-apartment.mjs | tee /tmp/bucheon-transaction-proof.json
+          printf '### 옥길동 742-1 실제 수집 거래 검증\n\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '```json\n' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/bucheon-transaction-proof.json >> "$GITHUB_STEP_SUMMARY"
+          printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
