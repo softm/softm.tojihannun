@@ -190,7 +190,7 @@
     host.innerHTML=visibleItems.map((item,index) => {
       const name=item.buildingName || [item.umdNm,item.jibun || '지번 미공개'].filter(Boolean).join(' ');
       const address=[item.umdNm,item.jibun].filter(Boolean).join(' ');
-      const scope=item.exact?'공개 지번 일치':item.sameComplex?'동일 단지 거래':item.jibun?'같은 법정동 비교':'지번 미공개 · 필지 미확정';
+      const scope=item.exact?'공개 지번 일치':item.inferred?`조건 일치 추정 · ${(item.inferredEvidence||[]).join(' · ')}`:item.sameComplex?'동일 단지 거래':item.jibun?'같은 법정동 비교':'지번 미공개 · 필지 미확정';
       const extras=[item.dealType,item.jimok,item.landUse,item.buildingUse].filter(Boolean);
       const openable=canOpenParcel(item,view);
       const openAttributes=openable?` data-open-parcel-index="${index}" role="button" tabindex="0" aria-label="${esc([item.date,name,money(item.amount),scope,'해당 필지 보기'].join(' · '))}"`:` aria-label="${esc([item.date,name,money(item.amount),scope].join(' · '))}"`;
@@ -203,7 +203,7 @@
           ${item.floor ? `<span class="trade-row-fact">${esc(item.floor)}층</span>` : ''}
           ${priceMode!=='total' ? `<span class="trade-row-fact">매매총액 ${esc(money(item.amount))}</span>` : ''}
           ${extras.map(value=>`<span class="trade-row-fact">${esc(value)}</span>`).join('')}
-          <span class="trade-row-scope-chip${item.exact||item.sameComplex?'':' neutral'}" title="${esc(scope)}">${item.exact?'지번 일치':item.sameComplex?'동일 단지':item.jibun?'같은 동 비교':'지번 미확정'}</span>
+          <span class="trade-row-scope-chip${item.exact||item.inferred||item.sameComplex?'':' neutral'}" title="${esc(scope)}">${item.exact?'지번 일치':item.inferred?'추정 일치':item.sameComplex?'동일 단지':item.jibun?'같은 동 비교':'지번 미확정'}</span>
           ${openable?'<span class="trade-row-open-hint" aria-hidden="true">필지 보기 ›</span>':''}
         </div>
       </article>`;
@@ -262,11 +262,11 @@
     $('refreshTransactions').disabled=Boolean(group.loading);
     $('transactionHeading').textContent=`${definition.label} 매매 실거래`;
     const displayScope=nearby?group.regionScope||group.scope:group.scope;
-    $('transactionAreaLabel').textContent=`${displayScope} · ${nearby?'같은 법정동 비교':group.complexCount?'선택 지번·동일 단지 기준':'선택 지번 기준'}`;
+    $('transactionAreaLabel').textContent=`${displayScope} · ${nearby?'같은 법정동 비교':group.inferredCount?'선택 지번·조건 일치 추정 기준':group.complexCount?'선택 지번·동일 단지 기준':'선택 지번 기준'}`;
     const scope=$('transactionScopeSwitch');
     if(scope){
       scope.className='transaction-scope-switch';scope.replaceChildren();
-      for(const [mode,label,list]of[['parcel',group.complexCount?'해당 지번·동일 단지':'해당 지번',group.items],['nearby','같은 법정동 비교',group.comparable]]){
+      for(const [mode,label,list]of[['parcel',group.inferredCount?'해당 지번·추정 포함':group.complexCount?'해당 지번·동일 단지':'해당 지번',group.items],['nearby','같은 법정동 비교',group.comparable]]){
         const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',String(view===mode));
         b.disabled=group.regionIdentified===false || (mode==='parcel' && group.parcelIdentified===false);
         const unavailable=group.regionIdentified===false?' · 지역 미확인':mode==='parcel'&&group.parcelIdentified===false?' · 지번 미확인':'';
@@ -276,9 +276,10 @@
     }
     const disclosure=$('transactionDisclosure');
     if(disclosure){
+      const inferredNotice=group.inferredCount?`면적·지목·용도지역·마스킹 지번이 모두 일치한 ${number(group.inferredCount)}건을 추정 거래로 표시합니다. 공개 지번이 가려져 있어 해당 필지 거래로 확정할 수 없습니다.`:'';
       const complexNotice=group.complexCount?`${group.complexName||'같은 건물명'}의 동일 단지 거래 ${number(group.complexCount)}건을 함께 표시합니다. 공개 지번 ${group.complexLots?.join(', ')||'미확인'}이며 선택 필지 직접 거래와 구분됩니다.`:'';
-      disclosure.hidden=!nearby&&!group.undisclosedCount&&!complexNotice;
-      disclosure.textContent=nearby?(group.autoNearby?'해당 지번·동일 단지 거래를 확인하지 못해 같은 법정동 비교를 표시합니다. 선택 필지의 거래나 거리순 주변 거래가 아닙니다.':'같은 법정동의 비교 자료입니다. 선택 필지의 거래나 거리순 주변 거래가 아닙니다.'):(complexNotice||`같은 법정동 ${number(group.undisclosedCount)}건은 지번 식별이 불가능해 해당 필지 거래에 포함하지 않았습니다.`);
+      disclosure.hidden=!nearby&&!group.undisclosedCount&&!complexNotice&&!inferredNotice;
+      disclosure.textContent=nearby?(group.autoNearby?'해당 지번·동일 단지 거래를 확인하지 못해 같은 법정동 비교를 표시합니다. 선택 필지의 거래나 거리순 주변 거래가 아닙니다.':'같은 법정동의 비교 자료입니다. 선택 필지의 거래나 거리순 주변 거래가 아닙니다.'):(inferredNotice||complexNotice||`같은 법정동 ${number(group.undisclosedCount)}건은 지번 식별이 불가능해 해당 필지 거래에 포함하지 않았습니다.`);
     }
     // Keep actionable loading/error controls only, with no collection-progress prose.
     const paging=$('transactionPaging');

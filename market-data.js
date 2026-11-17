@@ -222,6 +222,44 @@
     return numberValue(register.base?.lndpclAr || register.ownership?.lndpclAr || register.characteristic?.lndpclAr || 0);
   }
 
+  function normalizedFact(value) {
+    return String(value || "").replace(/[\s·._-]+/g, "").trim();
+  }
+
+  function maskedLotMatches(maskedLot, selectedLot) {
+    const raw = String(maskedLot || "").trim().replace(/번지$/, "").replace(/\s+/g, "");
+    const selected = String(selectedLot || "").replace(/\s+/g, "");
+    const match = raw.match(/^(산)?0*(\d+)(?:-0*(\d*))?\*+$/);
+    if (!match || !selected) return false;
+    const selectedMountain = selected.startsWith("산");
+    if (Boolean(match[1]) !== selectedMountain) return false;
+    const selectedNumber = selected.replace(/^산/, "");
+    const main = String(Number(match[2]));
+    const prefix = match[3] === undefined ? main : `${main}-${match[3]}`;
+    return selectedNumber.startsWith(prefix);
+  }
+
+  function inferLandTransactionMatch(item, area, parcel = state.parcel) {
+    if (!area?.lot || !maskedLotMatches(item?.jibun, area.lot)) return null;
+    const register = parcel?.landRegister || {};
+    const base = register.base || {};
+    const ownership = register.ownership || {};
+    const characteristic = register.characteristic || {};
+    const parcelArea = selectedParcelArea(parcel);
+    const category = base.lndcgrCodeNm || ownership.lndcgrCodeNm || characteristic.lndcgrCodeNm || "";
+    const landUse = characteristic.prposArea1Nm || "";
+    const tolerance = Math.max(.5, parcelArea * .0005);
+    if (!(parcelArea > 0) || !(Number(item?.area) > 0) || Math.abs(Number(item.area) - parcelArea) > tolerance) return null;
+    if (!normalizedFact(category) || normalizedFact(category) !== normalizedFact(item?.jimok)) return null;
+    if (!normalizedFact(landUse) || normalizedFact(landUse) !== normalizedFact(item?.landUse)) return null;
+    return [
+      `마스킹 지번 ${String(item.jibun).trim()} ↔ ${area.lot}`,
+      `면적 ${formatNumber(parcelArea, 2)}㎡ 일치`,
+      `지목 ${category} 일치`,
+      `용도지역 ${landUse} 일치`
+    ];
+  }
+
   function classifyBuildingTransactionType(parcel) {
     const hasBuildingData = Array.isArray(parcel?.buildings);
     const buildings = hasBuildingData ? parcel.buildings : [];
@@ -577,13 +615,17 @@
     const complexNames = ["apartment", "officetel", "rowHouse"].includes(type) ? parcelComplexNames() : new Set();
     const unique = regional.map((item) => {
       const exact = Boolean(area.emd && area.lot && normalizeLot(item.jibun) && normalizeLot(item.jibun) === area.lot);
+      const inferredEvidence = type === "land" && !exact ? inferLandTransactionMatch(item, area) : null;
+      const inferred = Boolean(inferredEvidence);
       const complexName = normalizeComplexName(item.buildingName);
       const sameComplex = !exact && Boolean(complexName && complexNames.has(complexName));
-      return {...item, exact, sameComplex, matchKind: exact ? "parcel" : sameComplex ? "complex" : "comparison"};
+      return {...item, exact, inferred, inferredEvidence: inferredEvidence || [], sameComplex,
+        matchKind: exact ? "parcel" : inferred ? "inferred" : sameComplex ? "complex" : "comparison"};
     });
     const exact = unique.filter((item) => item.exact);
+    const inferred = unique.filter((item) => item.inferred);
     const complex = unique.filter((item) => item.sameComplex);
-    const selected = unique.filter((item) => item.exact || item.sameComplex);
+    const selected = unique.filter((item) => item.exact || item.inferred || item.sameComplex);
     const parcelArea = selectedParcelArea();
     const comparable = type === "land" && parcelArea > 0
       ? unique.filter((item) => item.area >= parcelArea * .5 && item.area <= parcelArea * 2)
@@ -591,12 +633,13 @@
     return {
       scope: `${area.emd || `${area.sido} ${area.sgg}`.trim()} ${area.lot}`,
       exact: exact.length > 0,
+      inferredCount: inferred.length,
       complexCount: complex.length,
       complexName: complex[0]?.buildingName || "",
       complexLots: [...new Set(complex.map(item => normalizeLot(item.jibun)).filter(Boolean))],
       undisclosedCount: unique.filter(item => !normalizeLot(item.jibun)).length,
       items: selected.sort((a,b) => b.date.localeCompare(a.date)),
-      comparable: comparable.filter(item => !item.exact && !item.sameComplex).sort((a,b) => b.date.localeCompare(a.date))
+      comparable: comparable.filter(item => !item.exact && !item.inferred && !item.sameComplex).sort((a,b) => b.date.localeCompare(a.date))
     };
   }
 
@@ -746,7 +789,7 @@
       const title = item.buildingName || [item.umdNm, item.jibun || "지번 비공개"].filter(Boolean).join(" ");
       const address = item.buildingName ? [item.umdNm, item.jibun || "지번 비공개"].filter(Boolean).join(" ") : "";
       const extra = [item.jimok, item.landUse, item.buildingType, item.buildingUse, item.dealType].filter(Boolean);
-      const disclosure = item.exact ? "공개 지번 일치" : !normalizeLot(item.jibun) ? "지번 일부공개 · 필지 미확정" : "같은 법정동 비교";
+      const disclosure = item.exact ? "공개 지번 일치" : item.inferred ? "조건 일치 추정 · 필지 미확정" : !normalizeLot(item.jibun) ? "지번 일부공개 · 필지 미확정" : "같은 법정동 비교";
       return `
       <article class="transaction-item transaction-item--compact${item.exact ? " exact" : ""}" aria-label="${escapeHtml([item.date, title, formatDealAmount(item.amount), disclosure].join(" · "))}">
         <div class="transaction-compact-top">
@@ -760,7 +803,7 @@
           ${item.floor ? `<span class="transaction-compact-fact">${escapeHtml(item.floor)}층</span>` : ""}
           <span class="transaction-compact-fact">${escapeHtml(formatNumber(item.unitPrice, 1))}만원/㎡</span>
           ${extra.map((text) => `<span class="transaction-compact-fact">${escapeHtml(text)}</span>`).join("")}
-          <span class="transaction-compact-disclosure${item.exact ? "" : " neutral"}" title="${escapeHtml(disclosure)}">${escapeHtml(item.exact ? "지번 일치" : !normalizeLot(item.jibun) ? "지번 미확정" : "같은 동 비교")}</span>
+          <span class="transaction-compact-disclosure${item.exact || item.inferred ? "" : " neutral"}" title="${escapeHtml(disclosure)}">${escapeHtml(item.exact ? "지번 일치" : item.inferred ? "추정 일치" : !normalizeLot(item.jibun) ? "지번 미확정" : "같은 동 비교")}</span>
         </div>
       </article>`;
     }).join("") + (items.length > 30 ? `<button class="auction-item-action" type="button" data-toggle-transaction-list>${state.transactionShowAll ? "목록 접기" : `전체 ${formatNumber(Math.min(items.length, 200))}건 보기`}<span aria-hidden="true">${state.transactionShowAll ? "↑" : "↓"}</span></button>` : "");
@@ -805,8 +848,10 @@
     let disclosure = $("#transactionDisclosure");
     if (!disclosure) { disclosure = document.createElement("div"); disclosure.id = "transactionDisclosure"; status.before(disclosure); }
     disclosure.className = "transaction-disclosure";
-    disclosure.hidden = !group.undisclosedCount && state.transactionType !== "commercial";
-    disclosure.textContent = group.undisclosedCount
+    disclosure.hidden = !group.inferredCount && !group.undisclosedCount && state.transactionType !== "commercial";
+    disclosure.textContent = group.inferredCount
+      ? `면적·지목·용도지역·마스킹 지번이 모두 일치한 ${group.inferredCount}건을 추정 거래로 표시합니다. 공개 지번이 가려져 있어 해당 필지 거래로 확정할 수 없습니다.`
+      : group.undisclosedCount
       ? `조회된 같은 법정동 거래 중 ${group.undisclosedCount}건은 지번이 일부 공개되거나 누락돼 있습니다. 해당 필지 여부를 확정할 수 없으며 비교 자료로만 표시합니다.`
       : "상업·업무용 일반건축물은 지번이 일부만 공개됩니다. 집합건축물 등 공개 지번이 완전한 거래만 필지 일치를 확인할 수 있습니다.";
     let paging = $("#transactionPaging");
@@ -954,8 +999,9 @@
       allItems.push(...session.directItems);
     }
     const scoped = scopeTransactionItems(allItems, session.area, session.type);
-    if (!session.loading && !session.error && !session.viewManuallySelected && !scoped.items.length && scoped.comparable.length) {
-      state.transactionView = "nearby";
+    if (!session.loading && !session.error && !session.viewManuallySelected) {
+      if (scoped.items.length) state.transactionView = "parcel";
+      else if (scoped.comparable.length) state.transactionView = "nearby";
     }
     const expected = sessionMonths(session);
     const covered = coveredSessionMonths(session);
@@ -1310,7 +1356,7 @@
         rows: transactionItems.map((item) => [
           item.date || "-",
           item.buildingName || [item.umdNm, item.jibun].filter(Boolean).join(" ") || "-",
-          item.exact ? "선택 필지·단지" : "비교 거래",
+          item.exact ? "선택 필지" : item.inferred ? "조건 일치 추정" : item.sameComplex ? "동일 단지" : "비교 거래",
           [item.jimok, item.landUse, item.floor ? `${item.floor}층` : ""].filter(Boolean).join(" · ") || "-",
           item.area ? `${formatNumber(item.area, 2)}㎡` : "-",
           formatDealAmount(item.amount),
@@ -1367,7 +1413,6 @@
 
   function setParcel(parcel) {
     state.parcel = parcel || null;
-    if ($("#transactionRange")) $("#transactionRange").value = DEFAULT_TRANSACTION_RANGE;
     state.transactionController?.abort();
     state.auctionController?.abort();
     state.transactionRequest += 1;
@@ -1404,7 +1449,10 @@
     const areaChanged = previousArea.lawdCode !== area.lawdCode || previousArea.emd !== area.emd || previousArea.lot !== area.lot;
     if (areaChanged) state.transactionApartmentLookup = null;
     if (!state.transactionTypeManuallySelected) applyTransactionType(recommendTransactionType(parcel));
-    if (!areaChanged && previousType === state.transactionType) return;
+    if (!areaChanged && previousType === state.transactionType) {
+      if (state.transactionSession) renderTransactionSession(state.transactionSession);
+      return;
+    }
     state.transactionController?.abort();
     state.transactionSession = null;
     state.transactionCacheKey = "";
