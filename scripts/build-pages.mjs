@@ -5,6 +5,7 @@ import {fileURLToPath} from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "dist");
 const publicFiles = [
+  "vendor/echarts-toji.min.js",
   "transaction-price-context.js",
   "collection-status.js",
   "distributed-status.js",
@@ -46,7 +47,11 @@ fs.mkdirSync(output, {recursive: true});
 
 for (const relativePath of publicFiles) {
   const source = path.join(root, relativePath);
-  if (fs.existsSync(source)) fs.copyFileSync(source, path.join(output, relativePath));
+  if (fs.existsSync(source)) {
+    const target = path.join(output, relativePath);
+    fs.mkdirSync(path.dirname(target), {recursive: true});
+    fs.copyFileSync(source, target);
+  }
 }
 
 const manifestSource = path.join(root, "data/transactions/status-manifest.json");

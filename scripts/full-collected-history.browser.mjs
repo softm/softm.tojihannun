@@ -65,19 +65,18 @@ try{
  assert.equal(await page.locator('#transactionRange').inputValue(),'saved');
  assert.equal(await page.locator('#transactionRange option:checked').textContent(),'전체 기간');
  assert.equal(await page.locator('.trade-row').count(),10);
- assert.equal(await page.locator('#transactionChart').getAttribute('data-history-scroll'),'true');
+ assert.equal(await page.locator('#transactionChart').getAttribute('data-history-zoom'),'true');
  assert.equal(await page.evaluate(()=>window.historyTestLookups.at(-1)),'all');
  for(const width of [320,390,1280]){
   await page.setViewportSize({width,height:900});
   await page.waitForTimeout(80);
   const m=await page.locator('#detailPanelTransactions').evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));
   assert.ok(m.scroll<=m.width+1,`page must not overflow at ${width}: ${JSON.stringify(m)}`);
-  const scroll=await page.locator('#transactionChart').evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));
-  assert.ok(scroll.scroll>scroll.width,'long history scroll must be local to chart');
+  const chart=await page.locator('#transactionChart').evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));
+  assert.ok(chart.scroll<=chart.width+1,'ECharts zoom must not create horizontal page overflow');
  }
  await page.setViewportSize({width:390,height:900});
- await page.locator('#transactionChart').evaluate(el=>{el.scrollLeft=0;});
- await page.locator('#transactionChart [data-month-index]').first().click();
+ await page.locator('#transactionChart [data-month-index]').first().focus();
  assert.match(await page.locator('#transactionMonthReadout').textContent(),/2건/);
  proof.checks.push('all 72 contracts across 36 months loaded; 10 visible rows; historical chart month selectable');
  await page.locator('#transactionRange').selectOption('6');

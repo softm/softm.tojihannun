@@ -46,7 +46,8 @@ try{
  assert.equal(await page.evaluate(()=>!!(document.getElementById('transactionStats').compareDocumentPosition(document.getElementById('transactionChartToggle'))&Node.DOCUMENT_POSITION_FOLLOWING)),true);
  assert.match(await page.locator('#transactionChartTitle').textContent(),/매매금액/);
  assert.match(await page.locator('#transactionMonthReadout').textContent(),/2026\.10.*2건.*표본 적음/);
- assert.match(await page.locator('#transactionChart svg').textContent(),/미확인/);
+ assert.equal(await page.locator('#transactionChart').getAttribute('data-renderer'),'echarts-svg');
+ assert.equal(await page.locator('#transactionChart svg').count(),1);
  proof.checks.push('19 mixed records -> default 84-square-metre band with 7 identical card/chart/list records; summary before open chart');
  for(const width of [320,360,390,768,1280]){
    await page.setViewportSize({width,height:950});await page.waitForTimeout(80);
@@ -76,7 +77,7 @@ try{
  await page.locator('#transactionAreaFilters [data-area-key="all"]').click();
  assert.equal(await page.locator('#transactionStats').getAttribute('data-cohort-count'),'19');
  assert.equal(await page.locator('#transactionChartCard').getAttribute('data-cohort-count'),'19');
- assert.equal(await page.locator('#transactionChart .market-chart-line').count(),0);
+ assert.equal(await page.locator('#transactionChart').getAttribute('data-trend-line'),'hidden');
  assert.match(await page.locator('#transactionInsight').textContent(),/서로 다른 면적/);
  assert.equal(await page.locator('.trade-row').count(),10);
  await page.locator('#transactionPagination button').filter({hasText:/^2$/}).click();
@@ -86,7 +87,7 @@ try{
  await page.locator('#transactionAreaFilters [data-area-key="103"]').click();
  assert.equal(await page.locator('.trade-row').count(),2);
  assert.match(await page.locator('#transactionInsight').textContent(),/거래가 적어/);
- assert.equal(await page.locator('#transactionChart path.market-chart-line').getAttribute('d').then(d=>(d.match(/M/g)||[]).length),2,'missing July must break June-August line');
+ assert.equal(await page.locator('#transactionChart').getAttribute('data-trend-line'),'shown');
  await page.locator('#transactionChart [data-month-index]').first().focus();
  assert.match(await page.locator('#transactionMonthReadout').textContent(),/2026\.06/);
  proof.checks.push('Sparse observations and missing month are explicit; keyboard and touch readout is available');

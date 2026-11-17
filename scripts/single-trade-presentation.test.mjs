@@ -32,9 +32,9 @@ test('zero and multiple contract policies remain distinct',()=>{
 test('single guard clears stale chart state and UI cannot unhide it',()=>{
  const ui=fs.readFileSync(new URL('../transaction-ui.js',import.meta.url),'utf8');
  assert.match(source,/const showChart=data\.count>1/);
- assert.match(source,/host\.replaceChildren\(\);host\.scrollLeft=0/);
- assert.match(source,/lastObservedIndex=data\.months\.findLastIndex/);
- assert.doesNotMatch(source,/changed\?host\.scrollWidth/);
+ assert.match(source,/if\(chart\)\{chart\.dispose\(\);chart=null;\}/);
+ assert.match(source,/host\.replaceChildren\(\)/);
+ assert.match(source,/startValue:Math\.max\(0,data\.months\.length-24\)/);
  assert.match(ui,/transactionChartToggle'\)\.hidden=priceModel\.count<=1/);
  assert.match(ui,/transactionListSection'\)\.hidden=items\.length<=1/);
  assert.match(ui,/const PAGE_SIZE = 10/);
