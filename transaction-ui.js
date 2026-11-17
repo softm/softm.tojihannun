@@ -24,6 +24,9 @@
     const range = count ? `${monthLabel(keys[0])}${count > 1 ? ` ~ ${monthLabel(keys.at(-1))}` : ''}` : '확보 월 미확인';
     return {keys, count, expected, partial, label, range};
   }
+  function hasBlockingFailure(group) {
+    return Boolean(group.error || (group.staticError && !group.regionalCovered));
+  }
   function sorted(items, order = 'date-desc') {
     const copy = [...items];
     const latest = (a,b) => text(b.date).localeCompare(text(a.date));
@@ -254,7 +257,7 @@
     if(!areaSelectionManual)selectedArea=pricing.defaultArea(allItems,type);
     if(selectedArea!=='all'&&!options.some(option=>option.key===selectedArea)&&!areaSelectionManual)selectedArea='all';
     const items=filteredItems(allItems,options).filter(item=>pricing.valueOf(item,priceMode)!==null);
-    const failed=Boolean(group.error || group.staticError);
+    const failed=hasBlockingFailure(group);
     panel.setAttribute('aria-busy',String(Boolean(group.loading)));
     $('refreshTransactions').disabled=Boolean(group.loading);
     $('transactionHeading').textContent=`${definition.label} 매매 실거래`;
@@ -311,5 +314,5 @@
     drawList();
     $('transactionChartToggle').hidden=priceModel.count<=1;
   }
-  window.TojiTransactionUI=Object.freeze({render,reset,coverage,sorted,money,areaOptions,filteredItems,medianAmount,paginationWindow,canOpenParcel,PAGE_SIZE,VISIBLE_PAGE_BUTTONS});
+  window.TojiTransactionUI=Object.freeze({render,reset,coverage,hasBlockingFailure,sorted,money,areaOptions,filteredItems,medianAmount,paginationWindow,canOpenParcel,PAGE_SIZE,VISIBLE_PAGE_BUTTONS});
 })();
