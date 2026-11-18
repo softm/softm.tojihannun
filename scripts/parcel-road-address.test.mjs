@@ -16,15 +16,13 @@ function setup({searchResults = [], searchItems = [], reverse = []} = {}) {
     favorites: new Set()
   };
   const detailRoad = {textContent: ""};
+  const copyRoadAddress = {disabled: true};
   let queries = 0;
   let persists = 0;
   const context = {
     cleanText: (v) => String(v || "").trim(),
     state,
-    $: (selector) => {
-      assert.equal(selector, "#detailRoad");
-      return detailRoad;
-    },
+    $: (selector) => selector === "#detailRoad" ? detailRoad : selector === "#copyRoadAddress" ? copyRoadAddress : assert.fail(`unexpected selector: ${selector}`),
     searchVWorld: async (query, mode) => {
       queries++;
       assert.equal(mode, "lot");
@@ -40,7 +38,7 @@ function setup({searchResults = [], searchItems = [], reverse = []} = {}) {
     `${source.slice(start, end)}\n({parcelAddressKey, isSameParcelAddress, applyVerifiedRoadAddress, resolveParcelRoadAddress, addOrUpdateRecord})`,
     context
   );
-  return {state, detailRoad, handlers, getQueries: () => queries, getPersists: () => persists};
+  return {state, detailRoad, copyRoadAddress, handlers, getQueries: () => queries, getPersists: () => persists};
 }
 
 function parcel() {
@@ -79,6 +77,7 @@ test("uses a verified existing search result before issuing any additional reque
   await h.handlers.resolveParcelRoadAddress(p);
   assert.equal(p.road, matching.road);
   assert.equal(h.detailRoad.textContent, matching.road);
+  assert.equal(h.copyRoadAddress.disabled, false);
   assert.equal(h.getQueries(), 0);
 });
 
@@ -102,6 +101,7 @@ test("missing lookup results are not misrepresented as a parcel without a road a
   await h.handlers.resolveParcelRoadAddress(p);
   assert.equal(p.road, "");
   assert.equal(h.detailRoad.textContent, "도로명주소를 조회하지 못했습니다.");
+  assert.equal(h.copyRoadAddress.disabled, true);
 });
 
 test("reselecting a parcel does not erase a previously verified road address", () => {
