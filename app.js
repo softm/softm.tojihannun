@@ -2351,10 +2351,36 @@ const sheetDragHandle = $("#sheetDragHandle");
 const detailSheetElement = $("#detailSheet");
 const detailDragHandle = $("#detailDragHandle");
 const mobileDetailMedia = window.matchMedia("(max-width: 720px)");
+const searchInputElement = $("#searchInput");
 let sheetDragState = null;
 let suppressSheetHandleClick = false;
 let detailDragState = null;
 let suppressDetailHandleClick = false;
+let searchFocusViewportHeight = 0;
+let searchKeyboardSeen = false;
+
+function visibleViewportHeight() {
+  return window.visualViewport?.height || window.innerHeight;
+}
+
+function setSearchKeyboardSheetHidden(hidden) {
+  const shouldHide = Boolean(hidden && mobileDetailMedia.matches);
+  mainSheetElement.classList.toggle("keyboard-hidden", shouldHide);
+  mainSheetElement.inert = shouldHide;
+  if (shouldHide) mainSheetElement.setAttribute("aria-hidden", "true");
+  else mainSheetElement.removeAttribute("aria-hidden");
+}
+
+function syncSearchKeyboardSheet() {
+  if (document.activeElement !== searchInputElement || !mobileDetailMedia.matches) {
+    setSearchKeyboardSheetHidden(false);
+    return;
+  }
+  const keyboardGap = searchFocusViewportHeight - visibleViewportHeight();
+  const keyboardOpen = keyboardGap > Math.max(120, searchFocusViewportHeight * 0.18);
+  if (keyboardOpen) searchKeyboardSeen = true;
+  setSearchKeyboardSheetHidden(keyboardOpen || !searchKeyboardSeen);
+}
 
 function mainSheetCollapse(collapsed) {
   mainSheetElement.classList.toggle("collapsed", collapsed);
@@ -2467,13 +2493,23 @@ $("#searchForm").addEventListener("submit", async (event) => {
   if (hasResults && window.matchMedia("(max-width: 720px)").matches) mainSheetCollapse(true);
 });
 
-// Keep the map visible when the mobile keyboard opens for parcel search.
-$("#searchInput").addEventListener("focus", () => {
-  if (mobileDetailMedia.matches) mainSheetCollapse(true);
+// Move the discovery panel fully below the viewport while the mobile search keyboard is open.
+searchInputElement.addEventListener("focus", () => {
+  if (!mobileDetailMedia.matches) return;
+  searchFocusViewportHeight = Math.max(window.innerHeight, visibleViewportHeight());
+  searchKeyboardSeen = false;
+  setSearchKeyboardSheetHidden(true);
 });
 
-$("#searchInput").addEventListener("input", () => {
-  if (!$("#searchInput").value.trim()) $("#searchSuggestions").classList.remove("show");
+searchInputElement.addEventListener("blur", () => requestAnimationFrame(() => {
+  if (document.activeElement !== searchInputElement) setSearchKeyboardSheetHidden(false);
+}));
+
+window.visualViewport?.addEventListener("resize", syncSearchKeyboardSheet);
+window.addEventListener("resize", syncSearchKeyboardSheet);
+
+searchInputElement.addEventListener("input", () => {
+  if (!searchInputElement.value.trim()) $("#searchSuggestions").classList.remove("show");
 });
 
 document.addEventListener("click", (event) => {

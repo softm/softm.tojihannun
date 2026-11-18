@@ -519,6 +519,7 @@ button { color: inherit; }
   .map-status { top: 280px; left: 13px; max-width: calc(100% - 90px); }
   .map-attribution { display: none; }
   .sheet { width: calc(100% - 16px); max-height: 62dvh; }
+  .sheet.keyboard-hidden { --sheet-drag-offset: calc(100% + env(safe-area-inset-bottom) + 12px); overflow: hidden; pointer-events: none; }
   .adfit-zone { width: calc(100% + 16px); }
   .detail-sheet { width: 100%; border-radius: 26px 26px 0 0; }
   .detail-sheet.open { transform: translate(-50%, var(--detail-drag-offset)); }
