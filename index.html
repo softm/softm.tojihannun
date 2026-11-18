@@ -57,7 +57,7 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
     <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" /><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" /></noscript>
-    <link rel="stylesheet" href="./styles.css?v=20261118.2" />
+    <link rel="stylesheet" href="./styles.css?v=20261119.2" />
     <link rel="stylesheet" href="./market-data.css?v=20261110.5" />
     <link rel="stylesheet" href="./districts.css?v=20261118.1" />
       <link rel="stylesheet" href="./transaction-ui.css?v=20261118.3" />
@@ -232,11 +232,16 @@
           </div>
         </div>
         <div class="detail-title-row">
-          <h2 id="detailTitle">선택한 토지</h2>
+          <div class="detail-address-block">
+            <span class="detail-address-label">지번주소</span>
+            <div class="detail-address-copy-row">
+              <h2 id="detailTitle">선택한 토지</h2>
+              <button class="copy-address-link detail-copy-address" type="button" id="copyParcelAddress" aria-label="지번주소 복사" title="지번주소 복사">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+              </button>
+            </div>
+          </div>
           <div class="detail-title-actions">
-            <button class="copy-address-link detail-copy-address" type="button" id="copyParcelAddress" aria-label="선택한 지번 주소 복사" title="주소 복사">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
-            </button>
             <div class="directions-menu" id="directionsMenu">
               <button class="directions-toggle" type="button" id="toggleDirections" aria-expanded="false" aria-controls="directionsProviders">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.4 7-12a7 7 0 1 0-14 0c0 6.6 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
@@ -256,7 +261,15 @@
             </div>
           </div>
         </div>
-        <p class="detail-road" id="detailRoad">VWorld 검색 결과</p>
+        <div class="detail-road-address">
+          <span class="detail-address-label">도로명주소</span>
+          <div class="detail-address-copy-row">
+            <p class="detail-road" id="detailRoad" aria-live="polite">VWorld 검색 결과</p>
+            <button class="copy-address-link detail-copy-address" type="button" id="copyRoadAddress" aria-label="도로명주소 복사" title="도로명주소 복사" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            </button>
+          </div>
+        </div>
         <div class="detail-ledger-actions" aria-label="대장 바로가기">
           <button class="detail-ledger-action primary" id="openBasicIntegratedLedger" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.5h10l4 4V20.5H5Z"/><path d="M15 3.5v4h4M8.5 11h7M8.5 14.5h7M8.5 18h4.5"/></svg>
@@ -633,7 +646,7 @@
     <script defer src="./transaction-price-context.js?v=20261117.13"></script>
     <script defer src="./transaction-ui.js?v=20261118.3"></script>
     <script defer src="./market-data.js?v=20261118.2"></script>
-    <script defer src="./app.js?v=20261118.2"></script>
+    <script defer src="./app.js?v=20261119.2"></script>
     <script defer src="./districts-core.js?v=20261108.1"></script>
     <script defer src="./districts.js?v=20261113.1"></script>
     <script type="module" src="./account.js?v=20261119.1"></script>

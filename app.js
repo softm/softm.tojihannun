@@ -1035,7 +1035,10 @@ function applyVerifiedRoadAddress(record, value) {
   record.road = road;
   const current = state.records.find((item) => item.id === record.id);
   if (current) current.road = road;
-  if (state.selectedId === record.id) $("#detailRoad").textContent = road;
+  if (state.selectedId === record.id) {
+    $("#detailRoad").textContent = road;
+    $("#copyRoadAddress").disabled = false;
+  }
   persistRecentParcels();
   if (state.favorites.has(record.id)) persistFavorites();
 }
@@ -1049,7 +1052,10 @@ async function resolveParcelRoadAddress(record) {
     return;
   }
   record.roadLookupAttempted = true;
-  if (state.selectedId === record.id) $("#detailRoad").textContent = "도로명주소 확인 중...";
+  if (state.selectedId === record.id) {
+    $("#detailRoad").textContent = "도로명주소 확인 중...";
+    $("#copyRoadAddress").disabled = true;
+  }
   try {
     const candidates = (await searchVWorld(record.address, "lot"))
       .filter((item) => isSameParcelAddress(record, item));
@@ -1071,6 +1077,7 @@ async function resolveParcelRoadAddress(record) {
   } finally {
     if (state.selectedId === record.id) {
       $("#detailRoad").textContent = record.road || "도로명주소를 조회하지 못했습니다.";
+      $("#copyRoadAddress").disabled = !record.road;
     }
   }
 }
@@ -2075,6 +2082,8 @@ function openDetail(record) {
   $("#detailType").classList.toggle("forest", record.type === "forest");
   $("#detailTitle").textContent = record.address || "선택한 토지";
   $("#detailRoad").textContent = record.road || "도로명주소 확인 중...";
+  $("#copyParcelAddress").disabled = !record.address;
+  $("#copyRoadAddress").disabled = !record.road;
   void resolveParcelRoadAddress(record);
   $("#relatedParcelAddress").textContent = record.address || record.road || "선택한 지번";
   const facts = [
@@ -2647,10 +2656,16 @@ $$('[data-detail-tab]').forEach((button) => {
 
 $("#copyParcelAddress").addEventListener("click", async () => {
   const record = state.records.find((item) => item.id === state.selectedId);
-  const address = record?.address || record?.road;
-  if (!address) return showToast("복사할 주소가 없습니다.");
-  const copied = await copyToClipboard(address);
-  showToast(copied ? "선택한 지번 주소를 복사했어요." : "주소를 복사하지 못했어요.");
+  if (!record?.address) return showToast("복사할 지번주소가 없습니다.");
+  const copied = await copyToClipboard(record.address);
+  showToast(copied ? "지번주소를 복사했어요." : "지번주소를 복사하지 못했어요.");
+});
+
+$("#copyRoadAddress").addEventListener("click", async () => {
+  const record = state.records.find((item) => item.id === state.selectedId);
+  if (!record?.road) return showToast("복사할 도로명주소가 없습니다.");
+  const copied = await copyToClipboard(record.road);
+  showToast(copied ? "도로명주소를 복사했어요." : "도로명주소를 복사하지 못했어요.");
 });
 
 $("#landRegisterContent").addEventListener("click", async (event) => {
