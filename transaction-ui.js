@@ -261,9 +261,8 @@
     const partialStored=Boolean(group.degraded && !group.officialCovered);
     panel.setAttribute('aria-busy',String(Boolean(group.loading)));
     $('refreshTransactions').disabled=Boolean(group.loading);
-    $('transactionHeading').textContent=`${definition.label} 매매 실거래`;
     const displayScope=nearby?group.regionScope||group.scope:group.scope;
-    $('transactionAreaLabel').textContent=`${displayScope} · ${nearby?'같은 법정동 비교':group.inferredCount?'선택 지번·조건 일치 추정 기준':group.complexCount?'선택 지번·동일 단지 기준':'선택 지번 기준'}`;
+    $('transactionAreaLabel').textContent=`${definition.label} · ${displayScope}${nearby?' · 같은 법정동 비교':''}`;
     const scope=$('transactionScopeSwitch');
     if(scope){
       scope.className='transaction-scope-switch';scope.replaceChildren();
