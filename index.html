@@ -21,6 +21,19 @@
     <meta name="twitter:title" content="토지한눈 | 토지대장·지적도·공시지가 조회" />
     <meta name="twitter:description" content="주소·지번 검색 한 번으로 토지 정보를 한눈에 확인하세요." />
     <title>토지한눈 | 토지대장·지적도·공시지가 조회</title>
+    <style id="startupCriticalStyle">
+      html,body{margin:0;min-height:100%;background:#eef5f1}
+      .startup-screen{position:fixed;z-index:10000;inset:0;display:grid;place-items:center;padding:24px;background:linear-gradient(145deg,#f5faf7 0%,#e5f1eb 52%,#d9eae2 100%);font-family:"Noto Sans KR",system-ui,sans-serif;color:#123c31;opacity:1;visibility:visible;transition:opacity .3s ease,visibility .3s ease}
+      .startup-screen.is-ready{opacity:0;visibility:hidden;pointer-events:none}
+      .startup-card{width:min(330px,calc(100vw - 48px));text-align:center}
+      .startup-logo{display:grid;place-items:center;width:76px;height:76px;margin:0 auto 18px;border-radius:23px;background:#14765d;box-shadow:0 14px 34px rgba(20,93,73,.22)}
+      .startup-logo svg{width:48px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+      .startup-title{margin:0;font-size:29px;line-height:1.2;letter-spacing:-.05em}.startup-title b{color:#148264}
+      .startup-status{min-height:24px;margin:13px 0 16px;color:#5b736b;font-size:14px;font-weight:600}
+      .startup-progress{height:7px;overflow:hidden;border-radius:999px;background:rgba(20,118,93,.13)}
+      .startup-progress span{display:block;width:18%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#14765d,#35a987);box-shadow:0 0 12px rgba(20,118,93,.25);transition:width .35s ease}
+      @media(prefers-reduced-motion:reduce){.startup-screen,.startup-progress span{transition:none}}
+    </style>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -41,14 +54,56 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" /><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" /></noscript>
     <link rel="stylesheet" href="./styles.css?v=20261118.2" />
     <link rel="stylesheet" href="./market-data.css?v=20261110.5" />
     <link rel="stylesheet" href="./districts.css?v=20261118.1" />
-      <link rel="stylesheet" href="./transaction-ui.css?v=20261118.2" />
+      <link rel="stylesheet" href="./transaction-ui.css?v=20261118.3" />
   </head>
   <body>
+    <div class="startup-screen" id="startupScreen" role="status" aria-live="polite" aria-label="토지한눈 시작 화면">
+      <div class="startup-card">
+        <span class="startup-logo" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M7 9.5 20 4l13 5.5v20L20 36 7 29.5Z"/><path d="m7 9.5 13 6 13-6M20 15.5V36"/></svg></span>
+        <p class="startup-title">토지<b>한눈</b></p>
+        <p class="startup-status" id="startupStatus">화면을 준비하고 있어요</p>
+        <div class="startup-progress" aria-hidden="true"><span id="startupProgress"></span></div>
+      </div>
+    </div>
+    <script>
+      (() => {
+        const screen = document.getElementById("startupScreen");
+        const status = document.getElementById("startupStatus");
+        const bar = document.getElementById("startupProgress");
+        let progress = 18;
+        let completed = false;
+        const timer = window.setInterval(() => {
+          if (completed) return;
+          progress = Math.min(72, progress + (progress < 45 ? 7 : 3));
+          bar.style.width = `${progress}%`;
+        }, 420);
+        const finish = () => {
+          if (completed) return;
+          completed = true;
+          window.clearInterval(timer);
+          status.textContent = "준비됐어요";
+          bar.style.width = "100%";
+          window.setTimeout(() => screen.classList.add("is-ready"), 140);
+          window.setTimeout(() => { screen.hidden = true; }, 520);
+        };
+        window.TojihannunStartup = {
+          update(message, nextProgress = progress) {
+            if (completed) return;
+            status.textContent = message;
+            progress = Math.max(progress, Math.min(96, nextProgress));
+            bar.style.width = `${progress}%`;
+          },
+          finish
+        };
+        window.setTimeout(finish, 12000);
+      })();
+    </script>
     <a class="skip-link" href="#main">본문으로 바로가기</a>
     <main id="main" class="app-shell">
       <section class="map-stage" aria-label="토지 위치 지도">
@@ -565,22 +620,22 @@
         </div>
       </dialog>
     </main>
-    <script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/docx@9.10.0/dist/index.iife.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.0/dist/pptxgen.bundle.js"></script>
-    <script src="./adfit-config.js?v=20261012.1"></script>
-    <script src="./adfit.js?v=20261012.1"></script>
-    <script src="./report-export.js?v=20261013.5"></script>
-    <script src="./runtime-config.js"></script>
-    <script src="./distributed-transactions.js?v=20261117.7"></script>
-    <script src="./static-transactions.js?v=20261117.7"></script>
-    <script src="./vendor/echarts-toji.min.js?v=20261117.2"></script>
-    <script src="./transaction-price-context.js?v=20261117.13"></script>
-    <script src="./transaction-ui.js?v=20261118.2"></script>
-    <script src="./market-data.js?v=20261118.2"></script>
-    <script src="./app.js?v=20261118.1"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/docx@9.10.0/dist/index.iife.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.0/dist/pptxgen.bundle.js"></script>
+    <script defer src="./adfit-config.js?v=20261012.1"></script>
+    <script defer src="./adfit.js?v=20261012.1"></script>
+    <script defer src="./report-export.js?v=20261013.5"></script>
+    <script defer src="./runtime-config.js"></script>
+    <script defer src="./distributed-transactions.js?v=20261117.7"></script>
+    <script defer src="./static-transactions.js?v=20261117.7"></script>
+    <script defer src="./vendor/echarts-toji.min.js?v=20261117.2"></script>
+    <script defer src="./transaction-price-context.js?v=20261117.13"></script>
+    <script defer src="./transaction-ui.js?v=20261118.3"></script>
+    <script defer src="./market-data.js?v=20261118.2"></script>
+    <script defer src="./app.js?v=20261118.2"></script>
     <script defer src="./districts-core.js?v=20261108.1"></script>
     <script defer src="./districts.js?v=20261113.1"></script>
     <script type="module" src="./account.js?v=20261113.1"></script>

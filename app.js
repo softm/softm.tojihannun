@@ -112,6 +112,7 @@ function selectionStyleForMode() {
 }
 
 function initMap() {
+  window.TojihannunStartup?.update?.("지도를 연결하고 있어요", 76);
   if (map) map.setTarget(undefined);
   $("#mapLoading").hidden = false;
   $("#mapError").hidden = true;
@@ -187,9 +188,13 @@ function initMap() {
 
   map.once("rendercomplete", () => {
     $("#mapLoading").hidden = true;
+    window.TojihannunStartup?.finish?.();
   });
   [baseSource, satelliteSource].forEach((source) => {
-    source.on("tileloadend", () => { $("#mapLoading").hidden = true; });
+    source.on("tileloadend", () => {
+      $("#mapLoading").hidden = true;
+      window.TojihannunStartup?.finish?.();
+    });
     source.on("tileloaderror", () => {
       mapErrorCount += 1;
       if (mapErrorCount >= 6) showMapError("VWorld 배경지도 연결을 확인해 주세요.");
@@ -203,7 +208,10 @@ function initMap() {
   map.on("singleclick", handleMapClick);
   window.TojiDistricts?.attach(map, {key: VWORLD_BROWSER_KEY, useJsonp: USE_VWORLD_JSONP, getParcel: () => state.records.find(item => item.id === state.selectedId)});
 
-  window.setTimeout(() => { $("#mapLoading").hidden = true; }, 7000);
+  window.setTimeout(() => {
+    $("#mapLoading").hidden = true;
+    window.TojihannunStartup?.finish?.();
+  }, 7000);
   setMapMode(state.mapMode, false);
   restoreRecentParcels();
   restoreFavorites();
@@ -213,6 +221,7 @@ function initMap() {
 }
 
 function showMapError(message) {
+  window.TojihannunStartup?.finish?.();
   $("#mapLoading").hidden = true;
   $("#mapErrorMessage").textContent = message;
   $("#mapError").hidden = false;
@@ -2836,5 +2845,5 @@ document.addEventListener("keydown", (event) => {
 });
 
 window.TojihannunAds?.init(); // SOFTM-ADFIT-INIT 날짜:20261012 : 광고 설정 검증 후 화면 진입 지면만 지연 요청
-if (document.readyState === "complete") initMap();
-else window.addEventListener("load", initMap, {once: true});
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initMap, {once: true});
+else initMap();
