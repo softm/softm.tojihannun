@@ -52,3 +52,12 @@ test('UI integration preserves the current transaction asset cache version',()=>
   assert.ok(layout.includes('transaction-ui.$1?v='+version));
   assert.ok(html.includes('transaction-ui.css?v='+version));
 });
+test('mobile transaction filters share one row and retain a full touch refresh target',()=>{
+  const css=fs.readFileSync(new URL('../transaction-ui.css',import.meta.url),'utf8');
+  assert.match(css,/@media\(max-width:420px\)\{[\s\S]*?transaction-market-controls \{ grid-template-columns:minmax\(0,1fr\) minmax\(0,1\.08fr\) 44px/);
+  assert.match(css,/trade-filter:first-child \{ grid-column:1;grid-row:1/);
+  assert.match(css,/trade-filter:nth-child\(2\) \{ grid-column:2;grid-row:1/);
+  assert.match(css,/#refreshTransactions \{ padding:0;grid-row:1;grid-column:3/);
+  assert.match(css,/transaction-scope-switch \{[^}]*padding:4px[^}]*background:#eff5f2/);
+  assert.match(css,/transaction-disclosure::before \{[^}]*content:"i"/);
+});
