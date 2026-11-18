@@ -8,6 +8,8 @@ test('transaction presentation has no collection card, operational link or progr
   assert.doesNotMatch(presentation,/data-status\.html|trade-collection-head|trade-month-details|자료 갱신|전체 이력 아님|수집 현황|수집 자료|계약월 확보|미수집/);
   assert.doesNotMatch(presentation,/section\.id\s*=\s*['"]transactionCollection/);
   assert.match(presentation,/전체 기간/);
+  assert.doesNotMatch(presentation,/분산 수집본|분산 저장소|중앙 일부/);
+  assert.match(presentation,/저장된 일부 기간의 자료만 확인했습니다/);
 });
 test('removing diagnostics preserves retry, transaction scope and local pagination',()=>{
   for(const value of ['다시 불러오기','조회 중단','같은 법정동 비교','공개 지번 일치','trade-pagination'])assert.ok(presentation.includes(value));
@@ -32,13 +34,15 @@ test('successful transaction lookup has no redundant status summary or empty car
 });
 test('status transitions preserve loading, failure and empty-result guidance',()=>{
   const assignment=source.match(/status\.textContent=[^\n]+/)[0];
-  const context={status:{},failed:false,group:{loading:false},items:Array(36).fill({})};
+  const context={status:{},failed:false,partialStored:false,group:{loading:false},items:Array(36).fill({})};
   const render=()=>{vm.runInNewContext(assignment,context);return context.status.textContent;};
   assert.equal(render(),'');
   context.group.loading=true;assert.match(render(),/불러오는 중/);
   context.group.loading=false;context.failed=true;assert.match(render(),/불러오지 못/);
   context.failed=false;assert.equal(render(),'');
   context.items=[];assert.match(render(),/확보한 수집 범위에서 해당 거래를 확인하지 못/);
+  context.partialStored=true;assert.match(render(),/저장된 일부 기간/);
+  context.partialStored=false;
   context.items=[{}];assert.equal(render(),'');
 });
 test('UI integration preserves the current transaction asset cache version',()=>{

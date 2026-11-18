@@ -16,6 +16,22 @@ test("모바일 상세 팝업 핸들이 드래그·키보드 축소 확장에 �
   assert.match(app, /detailDragHandle\.addEventListener\("keydown"/);
 });
 
+test("모바일 상세 제목은 전체 폭을 확보하고 외부 액션은 다음 줄에 배치된다", () => {
+  const html = read("index.html");
+  const css = read("styles.css");
+  const districts = read("districts.css");
+
+  assert.match(html, /styles\.css\?v=20261118\.1/);
+  assert.match(html, /districts\.css\?v=20261118\.1/);
+  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.detail-title-row \{ display: grid; grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(css, /\.detail-title-row h2 \{ width: 100%;[\s\S]*?word-break: keep-all/);
+  assert.match(css, /\.detail-title-actions \{ width: 100%;[\s\S]*?flex-wrap: nowrap/);
+  assert.match(css, /\.detail-title-actions \.district-parcel-link \{[^}]*min-height: 44px/);
+  assert.match(css, /\.directions-toggle \{ min-height: 44px/);
+  assert.match(css, /\.copy-address-link\.detail-copy-address \{ width: 44px; min-height: 44px/);
+  assert.match(districts, /\.detail-title-actions\{flex-wrap:nowrap\}/);
+});
+
 test("상세 탭은 직접 닫을 때만 기본 탭으로 초기화된다", () => {
   const app = read("app.js");
 
@@ -45,10 +61,10 @@ test("실거래는 용도별 API와 필지 우선·유사면적 비교 기준을
   assert.match(html, /id="transactionType"[\s\S]*?value="land"[\s\S]*?value="apartment"[\s\S]*?value="factory"/);
   assert.match(html, /<option value="48">최근 4년<\/option>/);
   assert.match(html, /<option value="60" selected>최근 5년<\/option>/);
-  assert.match(html, /transaction-ui\.css\?v=20261118\.1/);
+  assert.match(html, /transaction-ui\.css\?v=20261118\.2/);
   assert.match(html, /vendor\/echarts-toji\.min\.js\?v=20261117\.2/);
   assert.match(html, /transaction-price-context\.js\?v=20261117\.13/);
-  assert.match(html, /market-data\.js\?v=20261118\.1/);
+  assert.match(html, /market-data\.js\?v=20261118\.2/);
   assert.match(read("transaction-ui.js"), /saved\.textContent = '전체 기간'/);
   assert.match(market, /RTMSDataSvcLandTrade[\s\S]*?RTMSDataSvcAptTrade[\s\S]*?RTMSDataSvcInduTrade/);
   assert.match(market, /const exact = unique\.filter\(\(item\) => item\.exact\)/);

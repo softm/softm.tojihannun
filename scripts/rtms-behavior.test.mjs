@@ -93,7 +93,7 @@ test('selecting 2019 infers the masked Ungdo-ri trade only after parcel facts ma
   let releaseApartmentLookup;
   context.window.TojiStaticTrades={lookup:async(_area,type)=>type==='apartment'
     ? new Promise(resolve=>{releaseApartmentLookup=resolve;})
-    : null};
+    : {rows:[],completeMonths:[],verifiedAt:'2026-11-01T00:00:00Z',degraded:true,distributedError:'synthetic shard failure'}};
   const ungdo={id:'ungdo-63-1',pnu:'4421010100100630001',address:'충청남도 서산시 대산읍 웅도리 63-1',number:'63-1'};
   api.setParcel(ungdo);
   api.state.activeTab='transactions';
@@ -104,6 +104,7 @@ test('selecting 2019 infers the masked Ungdo-ri trade only after parcel facts ma
   releaseApartmentLookup({rows:[],completeMonths:[]});
   await Promise.all([staleDefaultLookup,selectedYearLookup]);
   assert.deepEqual(calls.map(url=>new URL(url).searchParams.get('DEAL_YMD')),['201912','201911','201910']);
+  assert.equal(api.state.transactionGroups.degraded,true);assert.equal(api.state.transactionGroups.officialCovered,true);
   assert.equal(api.state.transactionView,'nearby');assert.equal(api.state.transactionGroups.items.length,0);assert.equal(api.state.transactionGroups.comparable.length,1);
   assert.equal(api.state.transactionGroups.comparable[0].amount,10500);assert.equal(api.state.transactionGroups.comparable[0].area,1269);assert.equal(api.state.transactionGroups.undisclosedCount,1);
   api.refreshParcel({...ungdo,landRegister:{base:{lndpclAr:1269,lndcgrCodeNm:'임야'},characteristic:{prposArea1Nm:'자연녹지지역'}}});

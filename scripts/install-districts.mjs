@@ -9,7 +9,8 @@ export function patchFile(name, original) {
     text = text.replace(anchor, replacement);
   };
   if (name === "index.html") {
-    if (!text.includes('href="./districts.css')) insert("</head>", '  <link rel="stylesheet" href="./districts.css?v=20261108.1" />\n  </head>');
+    if (!text.includes('href="./districts.css')) insert("</head>", '  <link rel="stylesheet" href="./districts.css?v=20261118.1" />\n  </head>');
+    text = text.replace(/districts\.css\?v=[^"']+/g, "districts.css?v=20261118.1");
     if (!text.includes('src="./districts-core.js')) insert("</body>", '  <script defer src="./districts-core.js?v=20261108.1"></script>\n    <script defer src="./districts.js?v=20261108.1"></script>\n  </body>');
   } else if (name === "app.js") {
     if (!text.includes("TojiDistricts?.handleMapClick")) insert('async function handleMapClick(event) {', 'async function handleMapClick(event) {\n  if (window.TojiDistricts?.handleMapClick(event)) return;');
