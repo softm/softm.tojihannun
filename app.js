@@ -2467,6 +2467,11 @@ $("#searchForm").addEventListener("submit", async (event) => {
   if (hasResults && window.matchMedia("(max-width: 720px)").matches) mainSheetCollapse(true);
 });
 
+// Keep the map visible when the mobile keyboard opens for parcel search.
+$("#searchInput").addEventListener("focus", () => {
+  if (mobileDetailMedia.matches) mainSheetCollapse(true);
+});
+
 $("#searchInput").addEventListener("input", () => {
   if (!$("#searchInput").value.trim()) $("#searchSuggestions").classList.remove("show");
 });
