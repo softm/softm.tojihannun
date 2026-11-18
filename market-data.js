@@ -62,6 +62,7 @@
       for (const [key, entry] of entries.slice(-36)) {
         if (typeof key !== "string" || !/^[A-Za-z]+:\d{5}:\d{6}$/.test(key) || !entry || entry.expiresAt <= Date.now() || !Array.isArray(entry.value?.items)) continue;
         if (entry.value.items.length > 5000 || entry.value.items.some(item => !item || !Number.isFinite(item.amount) || !Number.isFinite(item.area) || typeof item.date !== "string")) continue;
+        entry.value.source = "official";
         state.rtmsCache.set(key, entry);
       }
     } catch { /* Private mode, old cache and quota failures must not block the screen. */ }
@@ -601,7 +602,7 @@
       if (!page.rawCount) break;
       pages.push(page);
     }
-    const result = {items: pages.flatMap(page => page.items), truncated: pages.reduce((n, page) => n + page.rawCount, 0) < first.totalCount};
+    const result = {items: pages.flatMap(page => page.items), truncated: pages.reduce((n, page) => n + page.rawCount, 0) < first.totalCount, source:"official"};
     state.rtmsCache.set(cacheKey, {value: result, expiresAt: Date.now() + 3600000});
     while (state.rtmsCache.size > 36) state.rtmsCache.delete(state.rtmsCache.keys().next().value);
     saveMonthCache();
@@ -885,7 +886,7 @@
     if (!message && nearby) message = group.regionalCovered ? "같은 법정동 비교 거래입니다. 선택 필지의 거래가 아니며 반경·거리 기준 자료가 아닙니다." : "같은 법정동 거래는 아직 조회하지 않았습니다.";
     if (!message && items.length) message = "공개 지번이 일치하는 확인된 거래입니다. 미조회 기간이 있으며, 같은 지번의 다른 호실 거래가 포함될 수 있습니다.";
     if (!message && group.undisclosedCount) message = "해당 필지 여부 미확인 · 지번 비공개 거래가 있어 거래 없음으로 판단할 수 없습니다.";
-    if (!message) message = group.degraded ? "분산 수집 자료를 읽지 못해 중앙 일부 자료만 표시합니다. 거래 없음이 아닙니다." : group.savedOnly ? "확보된 전체 기간에서 해당 필지 거래를 확인하지 못했습니다. 실제 거래가 없다는 뜻은 아닙니다." : "확인한 기간에서 공개 지번 일치 거래를 찾지 못했습니다. 과거 거래 없음으로 판단하지 않습니다.";
+    if (!message) message = group.degraded && !group.officialCovered ? "저장된 일부 기간의 자료만 확인했습니다. 실제 거래가 없다는 뜻은 아닙니다." : group.savedOnly ? "확보된 전체 기간에서 해당 필지 거래를 확인하지 못했습니다. 실제 거래가 없다는 뜻은 아닙니다." : "확인한 기간에서 공개 지번 일치 거래를 찾지 못했습니다. 과거 거래 없음으로 판단하지 않습니다.";
     setStatus("#transactionStatus", message, group.error ? "error" : group.loading ? "loading" : "");
     state.transactionMeta = {...state.transactionMeta,
       status: group.loading ? "loading" : group.error ? (items.length ? "partial" : "error") : group.savedOnly || group.remainingMonths || group.failedMonths || group.truncated || group.undisclosedCount ? "partial" : "success",
@@ -1020,6 +1021,7 @@
       coveredMonths: expected.filter(month => covered.has(month)).length,
       remainingMonths: remaining.length, failedMonths: relevantFailures.length,
       regionalCovered: [...session.results.keys()].some(month => expected.includes(month)),
+      officialCovered: [...session.results].some(([month, result]) => expected.includes(month) && result?.source === "official"),
       periodLabel: savedOnly ? "확보된 전체 기간 (전체 이력 아님)" : session.period.startsWith("year-") ? session.period.slice(5) + "년" : "최근 " + session.months.length + "개월",
       coveredMonthKeys: expected.filter(month => covered.has(month)),
       staticLoaded: Boolean(session.staticLoaded), staticError: Boolean(session.staticError),

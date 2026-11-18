@@ -32,7 +32,7 @@
   .district-toolbar .district-icon-button{width:40px;height:40px;padding:0}
   .district-panel{top:max(251px,calc(env(safe-area-inset-top) + 239px));right:65px;width:290px;max-width:calc(100vw - 77px);max-height:min(45dvh,calc(100dvh - 272px - env(safe-area-inset-bottom)));padding:12px}
   .district-parcel-link{font-size:10px!important;padding:4px 6px}
-  .detail-title-actions{flex-wrap:wrap}
+  .detail-title-actions{flex-wrap:nowrap}
 }
 @media(max-width:370px){.district-toolbar .district-icon-button{width:38px;height:38px}}
 @media(prefers-reduced-motion:reduce){.district-controls *{scroll-behavior:auto}}
