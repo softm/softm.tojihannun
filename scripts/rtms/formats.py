@@ -85,20 +85,18 @@ def normalize(row, district, stream, expected_month=None):
         prefix=district['name']
         if not addr.startswith(prefix+' '):raise SourceError('ADDRESS_SCOPE_MISMATCH')
         emd=addr[len(prefix):].strip()
-    # A small number of historical detached-house rent rows are returned by the
-    # official API without umdNm even though the field is documented as required.
+    # A small number of historical rows are returned by the official APIs
+    # without umdNm even though the field is documented as required.
     # The LAWD_CD request still proves the five-digit district, but it does not
     # prove a legal dong or parcel. Preserve those rows at district scope instead
-    # of inventing a location or failing the entire month. Other streams remain
-    # strict so an unexpected schema regression is not silently accepted.
-    district_only = not emd and stream.get('id') == 'detached-rent'
-    if not emd and not district_only:raise SourceError('MISSING_LEGAL_DONG')
+    # of inventing a location or failing the entire month.
+    district_only = not emd
     jibun=field(row,'jibun','지번','번지')
     amount=number(field(row,'dealAmount','거래금액(만원)'))
     deposit=number(field(row,'deposit','depositMoney','보증금(만원)'))
     rent=number(field(row,'monthlyRent','monthlyRentMoney','월세금(만원)','월세(만원)'))
     if stream['deal']=='sale' and (amount is None or amount<=0):raise SourceError('INVALID_PRICE')
-    if stream['deal']=='rent' and not ((deposit or 0)>0 or (rent or 0)>0):raise SourceError('INVALID_RENT')
+    value_undisclosed = stream['deal']=='rent' and not ((deposit or 0)>0 or (rent or 0)>0)
     exclusive=number(field(row,'excluUseAr','excluUseArea','전용면적(㎡)','전용면적'))
     building=number(field(row,'buildingAr','buildAr','totalFloorAr','연면적(㎡)','건물면적(㎡)','건물면적'))
     land=number(field(row,'dealArea','landAr','plottageAr','대지면적(㎡)','거래면적(㎡)','토지면적(㎡)','대지권면적(㎡)'))
@@ -119,6 +117,7 @@ def normalize(row, district, stream, expected_month=None):
             'dealType':field(row,'dealingGbn','거래유형'),'houseType':field(row,'houseType','주택유형'),
             'road':field(row,'roadNm','도로명'),'sourceId':field(row,'dealNo','거래일련번호')}
     if district_only:record['locationScope']='district'
+    if value_undisclosed:record['valueScope']='undisclosed'
     return record
 
 

@@ -72,7 +72,8 @@ def source_summary(rows):
             'cancelled':sum(r['cancelled'] for r in rows),
             'identifiable':sum(not r['cancelled'] and r['exactLotPublic'] for r in rows),
             'unidentifiable':sum(not r['cancelled'] and not r['exactLotPublic'] for r in rows),
-            'districtOnly':sum(not r['cancelled'] and r.get('locationScope')=='district' for r in rows)}
+            'districtOnly':sum(not r['cancelled'] and r.get('locationScope')=='district' for r in rows),
+            'valueUndisclosed':sum(not r['cancelled'] and r.get('valueScope')=='undisclosed' for r in rows)}
 
 class Pipeline:
     def __init__(self,root,registry,asof=None):
@@ -94,6 +95,9 @@ class Pipeline:
                (r.get('umdNm') and r.get('locationScope')=='district') or
                (r.get('locationScope')=='district' and r.get('exactLotPublic')) for r in rows):
             raise SourceError('INVALID_LOCATION_SCOPE')
+        if any(r.get('valueScope')=='undisclosed' and
+               ((r.get('deposit') or 0)>0 or (r.get('monthlyRent') or 0)>0)
+               for r in rows):raise SourceError('INVALID_VALUE_SCOPE')
         # Multisets preserve legitimate same-day/price/area/floor records. No arbitrary deduplication.
         old=collections.Counter(dump(r) for r in self.old_rows(key));new=collections.Counter(dump(r) for r in rows)
         counts=source_summary(rows);at=fetched_at or utc()
@@ -238,15 +242,18 @@ class Pipeline:
                 for r in json.loads(gzip.decompress(raw))['rows']:
                     # District-only source rows are retained in the verified
                     # segment but can never participate in dong/parcel lookup.
-                    if not r['cancelled'] and r.get('umdNm'):groups[(stream,r['umdNm'])].append(r)
+                    if not r['cancelled'] and r.get('umdNm') and r.get('valueScope')!='undisclosed':groups[(stream,r['umdNm'])].append(r)
             target=self.public/code;target.mkdir(parents=True,exist_ok=True)
             district_only={}
+            value_undisclosed={}
             for key,meta in self.state['segments'].items():
                 c,stream,month=key.split('/')
                 if c==code and meta.get('districtOnly'):
                     district_only.setdefault(stream,{})[month]=meta['districtOnly']
+                if c==code and meta.get('valueUndisclosed'):
+                    value_undisclosed.setdefault(stream,{})[month]=meta['valueUndisclosed']
             index={'schemaVersion':2,'district':code,'updatedAt':at,'coverage':dict(coverage),'groups':{},
-                   'districtOnly':district_only}
+                   'districtOnly':district_only,'valueUndisclosed':value_undisclosed}
             used={'index.json'}
             for (stream,emd),rows in groups.items():
                 rows.sort(key=lambda r:(r['date'],r['lot'],str(r.get('floor',''))),reverse=True)
@@ -287,6 +294,7 @@ class Pipeline:
                    'years':annual,'records':sum(v['records'] for v in done.values()) if done else None,'sourceRows':sum(v['sourceRows'] for v in done.values()),
                    'cancelled':sum(v['cancelled'] for v in done.values()),'identifiable':sum(v['identifiable'] for v in done.values()),
                    'districtOnly':sum(v.get('districtOnly',0) for v in done.values()),
+                   'valueUndisclosed':sum(v.get('valueUndisclosed',0) for v in done.values()),
                    'completed':known,'expected':len(expected),'failures':len(errs),'status':'complete' if known==len(expected) else 'partial' if known else 'error' if errs else 'not_collected',
                    'lastSuccessAt':max((v['fetchedAt'] for v in done.values()),default=None)})
             dt=district['types'];known=[t for t in dt if t['records'] is not None]
