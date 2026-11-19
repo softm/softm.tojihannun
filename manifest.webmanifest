@@ -1,0 +1,15 @@
+{
+  "id": "./",
+  "name": "토지한눈",
+  "short_name": "토지한눈",
+  "description": "토지대장·지적도·공시지가를 한눈에 확인하는 서비스",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#163d32",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
