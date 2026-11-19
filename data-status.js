@@ -64,7 +64,16 @@
   function selectedRun(body, repo) {
     return (body?.workflow_runs||[]).filter(r=>r.head_branch==='main' && r.path?.split('@')[0]==='.github/workflows/collect.yml' && r.repository?.full_name===repo && /^\d+$/.test(String(r.id)) && r.html_url==='https://github.com/'+repo+'/actions/runs/'+r.id).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at))[0]||null;
   }
-  window.TojiStatusDashboard={derive,verified,formatPercent,observation,selectedRun};
+  function collectionSchedule(registry, latest=null) {
+    const p=registry?.refreshPolicy||{}, active=registry?.mode==='collecting'&&p.enabled===true;
+    return {active,latest,items:[
+      {label:'자동 실행',schedule:p.hourlyScheduleKst||'매시 1분 KST',detail:'미완료·재시도 구간을 먼저 처리하고 최신화 작업을 이어갑니다.'},
+      {label:'증분·정정 최신화',schedule:`최근 ${p.recentRefreshMonths||3}개월 · ${p.segmentMinAgeHours||20}시간 간격`,detail:'신규 신고, 지연 신고, 금액·면적 정정과 계약 취소를 다시 반영합니다.'},
+      {label:'주간 재검증',schedule:p.weeklyScheduleKst||'매주 월요일 12:31 KST',detail:`최근 ${p.weeklyRecentMonths||12}개월을 다시 확인합니다.`},
+      {label:'월간 이력 검증',schedule:p.monthlyScheduleKst||'매월 1일 13:31 KST',detail:'같은 달의 과거 연도를 순환 검증해 12개월 동안 전체 월을 점검합니다.'}
+    ]};
+  }
+  window.TojiStatusDashboard={derive,verified,formatPercent,observation,selectedRun,collectionSchedule};
   if(typeof document==='undefined'||!document.getElementById?.('shards'))return;
   const $=id=>document.getElementById(id);
   const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;};
@@ -178,6 +187,13 @@
     $('poolSummary').textContent=`총 ${s.rows.length}개 · 수집 예약 ${s.enabled}개 · 예비 ${s.reserved}개 · 확인 ${s.good.length}/${s.owned.length}개 · 레포당 게시 상한 1GB`;
     renderLive();
   }
+  function renderRefreshPolicy(){
+    const policy=collectionSchedule(registry,snapshot?.latest),host=$('refreshPolicy'),state=$('refreshPolicyState');
+    host.replaceChildren();
+    for(const item of policy.items){const article=el('article',null,'refresh-policy-item');article.append(el('span',item.label),el('strong',item.schedule),el('p',item.detail));host.append(article);}
+    state.textContent=policy.active?'운영 중':'비활성';state.className='badge '+(policy.active?'success':'stopped');
+    $('refreshPolicyNote').textContent=(policy.latest?'최근 정상 수집 '+stamp(policy.latest)+' · ':'최근 정상 수집 시각 미확인 · ')+(policy.active?'전체 수집이 끝나도 자동 최신화는 계속됩니다. GitHub 예약 실행은 혼잡도에 따라 다소 지연될 수 있습니다.':'자동 최신화가 비활성 상태입니다.');
+  }
   function renderApiUsage(){
     const host=$('apiUsage'), summary=$('apiUsageSummary');
     if(!host||!summary||!snapshot||!registry)return;
@@ -274,7 +290,7 @@
     const ops=$('operations');ops.replaceChildren();for(const [k,v]of [['현황 조회',stamp(checked)],['수집 결과 확인',snapshot.good.length+' / '+snapshot.owned.length+'개 담당 레포'],['수집 기준','시군구 × 거래유형 × 계약월 · 페이지 검증 완료 후 반영'],['자동 실행 설정',registry?.mode==='collecting'?'지역별 매시간 예약 (실제 실행은 GitHub 기록으로 확인)':'분산 담당 이관 전'],['API 요청 한도',`실행당 최대 ${fmt(registry?.requestBudget?.perRun)}회 · OpenAPI 서비스별 rolling 24시간 quota 적용 · 기본 합계 ${fmt(registry?.requestBudget?.totalDefaultDaily)}회`],['원본 gzip 합계',bytes(snapshot.sourceBytes)],['재개 대기 구간',fmt(snapshot.pending)],['미수집·실패 처리','정상 0건 응답과 구분 · 기존 정상 데이터 보존'],['배포·조회','Pages 공개와 사용자 실거래 화면 연결은 수집과 별도']])kv(ops,k,v);
     $('sources').replaceChildren();for(const source of model?.source||[]){try{const u=new URL(source.url);if(u.protocol==='https:'){const p=el('p');p.append(link(source.name+' ↗',u.href));$('sources').append(p);}}catch{}}
   }
-  function render(){if(!model||!registry)return;snapshot=derive(registry,reports,model);renderOverview();renderApiUsage();renderShards();renderRegions();renderHistory();}
+  function render(){if(!model||!registry)return;snapshot=derive(registry,reports,model);renderOverview();renderRefreshPolicy();renderApiUsage();renderShards();renderRegions();renderHistory();}
   async function load(){
     if(loading)return;loading=true;$('refresh').disabled=true;$('refreshNote').textContent='현황 조회 중 · 원본 API 호출 없음';
     try{const [base,config]=await Promise.all([get('./data/transactions/status-manifest.json'),get('./data/transactions/storage-registry.json')]);if(config.schemaVersion!==3||!Array.isArray(config.shards))throw Error('지원하지 않는 저장소 구성');
