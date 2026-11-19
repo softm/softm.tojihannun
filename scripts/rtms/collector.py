@@ -276,7 +276,10 @@ class Pipeline:
         self.status()
     def status(self):
         """Counts reflect validated persisted records. Missing scopes remain unknown."""
-        provinces={};details={};segments=self.state['segments'];all_codes=[d for d in self.registry['districts'] if d['active'] or any(k.startswith(d['code']+'/') for k in segments)]
+        provinces={};details={};segments=self.state['segments'];failures=self.state['failures']
+        missing_failures={k:v for k,v in failures.items() if k not in segments}
+        refresh_failures={k:v for k,v in failures.items() if k in segments}
+        all_codes=[d for d in self.registry['districts'] if d['active'] or any(k.startswith(d['code']+'/') for k in segments)]
         for d in all_codes:
             # Current and retired geographic code namespaces remain explicit, never merged heuristically.
             code=d['code'];ps=provinces.setdefault(d['sido'],{'code':d['sido'],'name':d['sidoName'],'status':'not_collected','records':None,'districts':[], 'active':False})
@@ -284,7 +287,8 @@ class Pipeline:
             district={'code':code,'name':d['name'],'active':d['active'],'status':'not_collected','records':None,'types':[]}
             for sid,s in STREAMS.items():
                 done={k.split('/')[-1]:v for k,v in segments.items() if k.startswith(code+'/'+sid+'/')}
-                errs={k.split('/')[-1]:v for k,v in self.state['failures'].items() if k.startswith(code+'/'+sid+'/')}
+                errs={k.split('/')[-1]:v for k,v in missing_failures.items() if k.startswith(code+'/'+sid+'/')}
+                refresh_errs={k.split('/')[-1]:v for k,v in refresh_failures.items() if k.startswith(code+'/'+sid+'/')}
                 expected=month_range(s['start'],self.asof);known=len(done);annual=[]
                 for year in sorted({m[:4] for m in expected},reverse=True):
                     ym=[m for m in expected if m.startswith(year)];found=[done[m] for m in ym if m in done]
@@ -295,7 +299,8 @@ class Pipeline:
                    'cancelled':sum(v['cancelled'] for v in done.values()),'identifiable':sum(v['identifiable'] for v in done.values()),
                    'districtOnly':sum(v.get('districtOnly',0) for v in done.values()),
                    'valueUndisclosed':sum(v.get('valueUndisclosed',0) for v in done.values()),
-                   'completed':known,'expected':len(expected),'failures':len(errs),'status':'complete' if known==len(expected) else 'partial' if known else 'error' if errs else 'not_collected',
+                   'completed':known,'expected':len(expected),'failures':len(errs),'refreshFailures':len(refresh_errs),
+                   'status':'complete' if known==len(expected) else 'partial' if known else 'error' if errs else 'not_collected',
                    'lastSuccessAt':max((v['fetchedAt'] for v in done.values()),default=None)})
             dt=district['types'];known=[t for t in dt if t['records'] is not None]
             district['records']=sum(t['records'] for t in known) if known else None
@@ -332,13 +337,17 @@ class Pipeline:
                 'reason':'API 활용승인/접근권한 확인 필요' if v.get('code') in ACCESS_ERRORS else '재시도 대기'}
                 for sid,v in self.state.get('streamCooldowns',{}).items() if sid in STREAMS and cooldown_active(v)],
             'recentErrors':[{'code':code,'count':count} for code,count in
-                collections.Counter(v.get('code','UNKNOWN') for v in self.state.get('failures',{}).values()).most_common()],
+                collections.Counter(v.get('code','UNKNOWN') for v in missing_failures.values()).most_common()],
+            'refreshErrors':[{'code':code,'count':count} for code,count in
+                collections.Counter(v.get('code','UNKNOWN') for v in refresh_failures.values()).most_common()],
             'executionSource':'https://api.github.com/repos/softm/softm.tojihannun/actions/runs?per_page=10'},
           'summary':{'records':total if segments else None,'sourceRows':sum(v['sourceRows'] for v in segments.values()),
               'cancelled':sum(v['cancelled'] for v in segments.values()),'identifiable':sum(v['identifiable'] for v in segments.values()),
-              'completedTasks':len(segments),'failedTasks':len(self.state['failures']),
+              'completedTasks':len(segments),'failedTasks':len(missing_failures),
+              'refreshFailedTasks':len(refresh_failures),
               'cooldownStreams':sum(cooldown_active(v) for v in self.state.get('streamCooldowns',{}).values()),
-              'cooldownTasks':sum(cooldown_active(v) for v in self.state.get('failures',{}).values()),
+              'cooldownTasks':sum(cooldown_active(v) for v in missing_failures.values()),
+              'refreshCooldownTasks':sum(cooldown_active(v) for v in refresh_failures.values()),
               'apiCooldownUntil':self.state.get('apiCooldown',{}).get('nextRetryAt') if cooldown_active(self.state.get('apiCooldown')) else None,
               'expectedTasks':sum(d['expected'] for d in details.values()),
               'sourceBytes':sum(v['bytes'] for v in segments.values()),'fileImports':len(self.state['imports'])},

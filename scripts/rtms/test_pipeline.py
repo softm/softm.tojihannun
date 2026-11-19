@@ -64,6 +64,13 @@ class Persistence(unittest.TestCase):
  def test_preserve_previous_on_failure(self):
   key='41210/rowHouse-sale/202008';self.p.put(key,[self.row],'test');self.p.fail(key,SourceError('429'))
   self.assertEqual(self.p.old_rows(key),[self.row]);self.assertTrue(self.p.state['failures'][key]['preserved'])
+  manifest=self.p.status()
+  self.assertEqual(manifest['summary']['failedTasks'],0)
+  self.assertEqual(manifest['summary']['refreshFailedTasks'],1)
+  self.assertEqual(manifest['summary']['cooldownTasks'],0)
+  self.assertEqual(manifest['summary']['refreshCooldownTasks'],1)
+  self.assertEqual(manifest['collection']['recentErrors'],[])
+  self.assertEqual(manifest['collection']['refreshErrors'],[{'code':'429','count':1}])
  def test_same_looking_transactions_not_lost(self):
   r=self.p.put('41210/rowHouse-sale/202008',[self.row,self.row],'test');self.assertEqual(r['records'],2)
  def test_revalidation_replaces_and_counts_removal(self):
