@@ -14,6 +14,21 @@ from pathlib import Path
 import shards as s
 from resumable import ResumableMonths, pending_tasks
 
+RESOLVED_SOURCE_ANOMALIES = {'MISSING_LEGAL_DONG', 'INVALID_RENT'}
+
+
+def reopen_resolved_source_anomalies(pipe):
+    """Remove only stale cooldowns for source anomalies handled by this engine."""
+    reopened = []
+    failures = pipe.state.setdefault('failures', {})
+    for task, failure in list(failures.items()):
+        if task not in pipe.state.get('segments', {}) and failure.get('code') in RESOLVED_SOURCE_ANOMALIES:
+            failures.pop(task)
+            reopened.append(task)
+    if reopened:
+        pipe.save()
+    return sorted(reopened)
+
 
 def finish(pipe, run):
     run['pendingSegments'] = len(pipe.state.get('pendingSegments', {}))
@@ -168,6 +183,10 @@ def collect(pipe, config, mode, client_factory=BudgetedClient):
     if s.cooldown_active(pipe.state.get('apiCooldown')):
         run.update(status='deferred', stopReason='API_COOLDOWN')
         return finish(pipe, run)
+
+    reopened = reopen_resolved_source_anomalies(pipe)
+    if reopened:
+        run['reopenedResolvedFailures'] = len(reopened)
 
     available = [sid for sid in s.STREAMS
                  if s.request_budget(pipe.state, config, sid) > 0

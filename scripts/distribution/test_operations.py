@@ -50,6 +50,13 @@ class OperationTests(unittest.TestCase):
             r=o.collect(self.pipe,self.config,'backfill',Client)
         self.assertEqual(r['success'],8);self.assertEqual(len(self.pipe.state['segments']),8)
         self.assertEqual(r['status'],'success')
+    def test_resolved_source_anomaly_cooldowns_are_reopened(self):
+        tasks=['41210/detached-rent/202008','41210/land-sale/202008']
+        self.pipe.fail(tasks[0],s.SourceError('INVALID_RENT'))
+        self.pipe.fail(tasks[1],s.SourceError('MISSING_LEGAL_DONG'))
+        reopened=o.reopen_resolved_source_anomalies(self.pipe)
+        self.assertEqual(reopened,sorted(tasks))
+        self.assertTrue(all(task not in self.pipe.state['failures'] for task in tasks))
     def test_local_batch_boundary_is_not_a_failed_month(self):
         class Client:
             def __init__(self,*a):self.calls=1
