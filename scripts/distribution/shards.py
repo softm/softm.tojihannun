@@ -281,12 +281,17 @@ def publish(pipe, root, config, shard, run):
         if digest(raw) != meta['sha256']: raise ValueError('Source hash mismatch before publishing')
         payload = json.loads(gzip.decompress(raw))
         if payload['scope'] != key or len(payload['rows']) != meta['sourceRows']: raise ValueError('Source scope/count mismatch')
-        index = district_index.setdefault(code, {'schemaVersion':2,'district':code,'coverage':{},'groups':{},'updatedAt':''})
+        index = district_index.setdefault(code, {'schemaVersion':2,'district':code,'coverage':{},'groups':{},'districtOnly':{},'updatedAt':''})
         index['coverage'].setdefault(sid, []).append(month); index['updatedAt'] = max(index['updatedAt'], meta['fetchedAt'])
+        if meta.get('districtOnly'):
+            index['districtOnly'].setdefault(sid,{})[month] = meta['districtOnly']
         groups = collections.defaultdict(list)
         for r in payload['rows']:
             if r['district'] != code or r['month'] != month or r['type'] != STREAMS[sid]['category'] or r['deal'] != STREAMS[sid]['deal']: raise ValueError('Cross-scope source record')
-            if not r['cancelled']: groups[r['umdNm']].append(r)
+            # Rows for which the source disclosed only the requested district
+            # remain auditable in the segment and must not leak into a legal-dong
+            # or parcel comparison group.
+            if not r['cancelled'] and r.get('umdNm'): groups[r['umdNm']].append(r)
         for dong, rows in sorted(groups.items()):
             parts = index['groups'].setdefault(sid, {}).setdefault(dong, [])
             for offset in range(0,len(rows),1500):
@@ -306,6 +311,7 @@ def publish(pipe, root, config, shard, run):
             write_json(stage/'published'/code/sid/'index.json', {
                 'schemaVersion':2, 'district':code, 'stream':sid,
                 'coverage':months, 'groups':index['groups'].get(sid, {}),
+                'districtOnly':index['districtOnly'].get(sid, {}),
                 'updatedAt':index['updatedAt']})
         catalog[code] = {'index':code+'/index.json','name':pipe.districts[code]['name'],'updatedAt':index['updatedAt']}
     write_json(stage/'published/index.json', {'schemaVersion':2,'generatedAt':utc(),'districts':catalog,'fullCountryComplete':False})

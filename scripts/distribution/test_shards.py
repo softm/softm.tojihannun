@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import shards as s
+from formats import normalize
 
 class DistributionTests(unittest.TestCase):
     def setUp(self):
@@ -123,6 +124,19 @@ class DistributionTests(unittest.TestCase):
         self.assertFalse((self.root/'site/collection-state.json').exists())
         self.assertFalse((self.root/'site/segments').exists())
         self.assertFalse(result['deployment']['verified'])
+    def test_district_only_source_row_is_audited_but_not_published_as_a_dong(self):
+        shard,registry=s.owned(self.config,'realestate-data-003',self.official)
+        district=next(d for d in registry['districts'] if d['code']==shard['districtCodes'][0])
+        row=normalize({'dealYear':'2020','dealMonth':'8','dealDay':'15','deposit':'1000',
+                       'monthlyRent':'50','totalFloorAr':'42.5','sggCd':district['code'],'jibun':'1-2'},
+                      district,s.STREAMS['detached-rent'],'202008')
+        pipe=s.Pipeline(self.root,registry,asof='2026-11-10')
+        pipe.put(f"{district['code']}/detached-rent/202008",[row],'public_api')
+        s.publish(pipe,self.root,self.config,shard,{'status':'success','requests':1,'success':1,'failed':0})
+        index=s.load(self.root/'site/published'/district['code']/'detached-rent/index.json')
+        self.assertEqual(index['districtOnly'],{'202008':1})
+        self.assertEqual(index['groups'],{})
+        self.assertEqual(list((self.root/'site/published'/district['code']/'detached-rent'/'202008').glob('*.gz')),[])
     def test_no_key_is_blocked_not_fabricated_success(self):
         import os
         before=os.environ.pop('MOLIT_API_KEY',None)
