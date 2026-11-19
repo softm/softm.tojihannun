@@ -31,6 +31,13 @@ class Formats(unittest.TestCase):
  def test_rent_zero_deposit_allowed(self):
   r=normalize({**ROW,'deposit':'0','monthlyRent':'50'},D,STREAMS['rowHouse-rent'])
   self.assertEqual(r['monthlyRent'],50)
+ def test_detached_rent_without_legal_dong_is_preserved_at_district_scope(self):
+  row={k:v for k,v in ROW.items() if k!='umdNm'}
+  row.update({'deposit':'1000','monthlyRent':'50','totalFloorAr':'42.5','sggCd':'41210','jibun':'1-2'})
+  r=normalize(row,D,STREAMS['detached-rent'],'202008')
+  self.assertEqual(r['umdNm'],'');self.assertEqual(r['locationScope'],'district')
+  self.assertFalse(r['exactLotPublic']);self.assertEqual(r['district'],'41210')
+  with self.assertRaises(SourceError):normalize(row,D,STREAMS['rowHouse-rent'],'202008')
  def test_month_plan(self):self.assertEqual(month_range('2026-09-01','2026-11-09'),['202609','202610','202611'])
  def test_csv_export_with_intro(self):
   with tempfile.TemporaryDirectory() as t:
@@ -66,6 +73,15 @@ class Persistence(unittest.TestCase):
   self.p.put('41210/rowHouse-sale/202008',[self.row],'test');self.p.publish();m=self.p.status()
   seoul=next(r for r in m['regions'] if r['code']=='11');self.assertIsNone(seoul['records'])
   idx=json.loads((self.p.public/'41210/index.json').read_text());self.assertEqual(idx['coverage']['rowHouse-sale'],['202008'])
+ def test_district_only_rows_complete_segment_without_parcel_group(self):
+  raw={k:v for k,v in ROW.items() if k!='umdNm'}
+  raw.update({'deposit':'1000','monthlyRent':'50','totalFloorAr':'42.5','sggCd':'41210'})
+  row=normalize(raw,D,STREAMS['detached-rent'],'202008')
+  meta=self.p.put('41210/detached-rent/202008',[row],'test')
+  self.assertEqual(meta['districtOnly'],1);self.assertEqual(meta['identifiable'],0)
+  self.p.publish();idx=json.loads((self.p.public/'41210/index.json').read_text())
+  self.assertEqual(idx['districtOnly']['detached-rent']['202008'],1)
+  self.assertNotIn('',idx['groups'].get('detached-rent',{}))
  def test_scope_hash_integrity(self):
   key='41210/rowHouse-sale/202008';self.p.put(key,[self.row],'test');self.p.segment_path(key).write_bytes(b'wrong')
   with self.assertRaises(SourceError):self.p.publish()

@@ -71,7 +71,8 @@ def source_summary(rows):
     return {'sourceRows':len(rows),'records':sum(not r['cancelled'] for r in rows),
             'cancelled':sum(r['cancelled'] for r in rows),
             'identifiable':sum(not r['cancelled'] and r['exactLotPublic'] for r in rows),
-            'unidentifiable':sum(not r['cancelled'] and not r['exactLotPublic'] for r in rows)}
+            'unidentifiable':sum(not r['cancelled'] and not r['exactLotPublic'] for r in rows),
+            'districtOnly':sum(not r['cancelled'] and r.get('locationScope')=='district' for r in rows)}
 
 class Pipeline:
     def __init__(self,root,registry,asof=None):
@@ -89,6 +90,10 @@ class Pipeline:
         code,stream_id,month=key.split('/');stream=STREAMS[stream_id]
         if code not in self.districts or not re.fullmatch(r'20\d{4}',month):raise SourceError('INVALID_SEGMENT_KEY')
         if any(r['month']!=month or r['district']!=code or r['type']!=stream['category'] or r['deal']!=stream['deal'] for r in rows):raise SourceError('SEGMENT_SCOPE_MISMATCH')
+        if any((not r.get('umdNm') and r.get('locationScope')!='district') or
+               (r.get('umdNm') and r.get('locationScope')=='district') or
+               (r.get('locationScope')=='district' and r.get('exactLotPublic')) for r in rows):
+            raise SourceError('INVALID_LOCATION_SCOPE')
         # Multisets preserve legitimate same-day/price/area/floor records. No arbitrary deduplication.
         old=collections.Counter(dump(r) for r in self.old_rows(key));new=collections.Counter(dump(r) for r in rows)
         counts=source_summary(rows);at=fetched_at or utc()
@@ -231,9 +236,17 @@ class Pipeline:
                 raw=self.segment_path(key).read_bytes()
                 if hashlib.sha256(raw).hexdigest()!=meta['sha256']:raise SourceError('SEGMENT_HASH_MISMATCH')
                 for r in json.loads(gzip.decompress(raw))['rows']:
-                    if not r['cancelled']:groups[(stream,r['umdNm'])].append(r)
+                    # District-only source rows are retained in the verified
+                    # segment but can never participate in dong/parcel lookup.
+                    if not r['cancelled'] and r.get('umdNm'):groups[(stream,r['umdNm'])].append(r)
             target=self.public/code;target.mkdir(parents=True,exist_ok=True)
-            index={'schemaVersion':2,'district':code,'updatedAt':at,'coverage':dict(coverage),'groups':{}}
+            district_only={}
+            for key,meta in self.state['segments'].items():
+                c,stream,month=key.split('/')
+                if c==code and meta.get('districtOnly'):
+                    district_only.setdefault(stream,{})[month]=meta['districtOnly']
+            index={'schemaVersion':2,'district':code,'updatedAt':at,'coverage':dict(coverage),'groups':{},
+                   'districtOnly':district_only}
             used={'index.json'}
             for (stream,emd),rows in groups.items():
                 rows.sort(key=lambda r:(r['date'],r['lot'],str(r.get('floor',''))),reverse=True)
@@ -273,6 +286,7 @@ class Pipeline:
                 district['types'].append({'type':sid,'label':s['label']+' '+('매매' if s['deal']=='sale' else '전월세'),
                    'years':annual,'records':sum(v['records'] for v in done.values()) if done else None,'sourceRows':sum(v['sourceRows'] for v in done.values()),
                    'cancelled':sum(v['cancelled'] for v in done.values()),'identifiable':sum(v['identifiable'] for v in done.values()),
+                   'districtOnly':sum(v.get('districtOnly',0) for v in done.values()),
                    'completed':known,'expected':len(expected),'failures':len(errs),'status':'complete' if known==len(expected) else 'partial' if known else 'error' if errs else 'not_collected',
                    'lastSuccessAt':max((v['fetchedAt'] for v in done.values()),default=None)})
             dt=district['types'];known=[t for t in dt if t['records'] is not None]

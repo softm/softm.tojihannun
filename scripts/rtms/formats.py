@@ -85,7 +85,14 @@ def normalize(row, district, stream, expected_month=None):
         prefix=district['name']
         if not addr.startswith(prefix+' '):raise SourceError('ADDRESS_SCOPE_MISMATCH')
         emd=addr[len(prefix):].strip()
-    if not emd:raise SourceError('MISSING_LEGAL_DONG')
+    # A small number of historical detached-house rent rows are returned by the
+    # official API without umdNm even though the field is documented as required.
+    # The LAWD_CD request still proves the five-digit district, but it does not
+    # prove a legal dong or parcel. Preserve those rows at district scope instead
+    # of inventing a location or failing the entire month. Other streams remain
+    # strict so an unexpected schema regression is not silently accepted.
+    district_only = not emd and stream.get('id') == 'detached-rent'
+    if not emd and not district_only:raise SourceError('MISSING_LEGAL_DONG')
     jibun=field(row,'jibun','지번','번지')
     amount=number(field(row,'dealAmount','거래금액(만원)'))
     deposit=number(field(row,'deposit','depositMoney','보증금(만원)'))
@@ -100,8 +107,8 @@ def normalize(row, district, stream, expected_month=None):
     cancel_date=field(row,'cdealDay','해제사유발생일')
     cancelled=bool(cancel_date) or cancellation.upper() in ('O','Y','1','해제')
     lot=exact_lot(jibun)
-    return {'type':stream['category'],'deal':stream['deal'],'district':district['code'],
-            'umdNm':emd,'jibun':jibun,'lot':lot,'exactLotPublic':bool(lot),
+    record={'type':stream['category'],'deal':stream['deal'],'district':district['code'],
+            'umdNm':emd,'jibun':jibun,'lot':lot,'exactLotPublic':bool(lot and emd),
             'date':day,'month':month,'amount':amount,'deposit':deposit,'monthlyRent':rent,
             'area':area,'exclusiveArea':exclusive,'buildingArea':building,'landArea':land,
             'unitPrice':amount/area if amount and area and area>0 else None,
@@ -111,6 +118,8 @@ def normalize(row, district, stream, expected_month=None):
             'jimok':field(row,'jimok','지목'),'landUse':field(row,'landUse','useArea','용도지역'),
             'dealType':field(row,'dealingGbn','거래유형'),'houseType':field(row,'houseType','주택유형'),
             'road':field(row,'roadNm','도로명'),'sourceId':field(row,'dealNo','거래일련번호')}
+    if district_only:record['locationScope']='district'
+    return record
 
 
 def xlsx_rows(file):
