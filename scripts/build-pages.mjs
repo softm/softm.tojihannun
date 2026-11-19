@@ -5,6 +5,14 @@ import {fileURLToPath} from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "dist");
 const publicFiles = [
+  "manifest.webmanifest",
+  "app-icon.svg",
+  "icon-192.png",
+  "icon-512.png",
+  "apple-touch-icon.png",
+  "hannun-pwa.js",
+  "hannun-pwa.css",
+  "sw.js",
   "vendor/echarts-toji.min.js",
   "transaction-price-context.js",
   "collection-status.js",
