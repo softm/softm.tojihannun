@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: softm/softm.tojihannun
-          ref: 061fd8f6e6f91107d722def7bc9658e9744bce06
+          ref: b6061348984f0e4a9326d49d99a993c12145b9c1
           path: _engine
           persist-credentials: false
           sparse-checkout: scripts/distribution
@@ -50,9 +50,9 @@ jobs:
           fi
   regional:
     needs: readiness
-    uses: softm/softm.tojihannun/.github/workflows/realestate-shard.yml@061fd8f6e6f91107d722def7bc9658e9744bce06
+    uses: softm/softm.tojihannun/.github/workflows/realestate-shard.yml@b6061348984f0e4a9326d49d99a993c12145b9c1
     with:
-      engine_ref: 061fd8f6e6f91107d722def7bc9658e9744bce06
+      engine_ref: b6061348984f0e4a9326d49d99a993c12145b9c1
       mode: ${{ inputs.mode }}
     secrets:
       MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
