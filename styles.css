@@ -62,7 +62,7 @@ button { color: inherit; }
 .badge { position: absolute; top: -3px; right: -3px; display: none; min-width: 18px; height: 18px; padding: 0 4px; border: 2px solid white; border-radius: 9px; background: #f2644b; color: #fff; font-size: 10px; font-weight: 800; line-height: 14px; }
 .badge.show { display: block; }
 
-.search-wrap { position: fixed; z-index: 13; top: max(82px, calc(env(safe-area-inset-top) + 70px)); left: 50%; width: min(660px, calc(100% - 32px)); transform: translateX(-50%); }
+.search-wrap { position: fixed; z-index: 13; top: max(136px, calc(env(safe-area-inset-top) + 124px)); left: 50%; width: min(660px, calc(100% - 32px)); transform: translateX(-50%); }
 .search-box { display: flex; align-items: center; height: 58px; padding: 6px 7px 6px 18px; border: 1px solid rgba(255,255,255,.95); border-radius: 19px; background: rgba(255,255,255,.97); box-shadow: 0 12px 36px rgba(19,53,43,.18); }
 .search-box > svg { width: 22px; flex: 0 0 auto; fill: none; stroke: var(--green); stroke-width: 2; }
 .search-box input { min-width: 0; flex: 1; height: 100%; padding: 0 12px; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 16px; font-weight: 500; }
@@ -87,7 +87,7 @@ button { color: inherit; }
 .map-controls button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #dbe4df; background: #fff; font-size: 22px; cursor: pointer; }
 .map-controls svg { width: 22px; fill: none; stroke: var(--green); stroke-width: 1.8; }
 #locateButton:focus-visible, #onSiteInfoButton:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
-.on-site-action-row { position: fixed; z-index: 14; top: max(30px, calc(env(safe-area-inset-top) + 18px)); left: 50%; width: min(660px, calc(100% - 32px)); transform: translateX(-50%); display: flex; justify-content: flex-end; pointer-events: none; }
+.on-site-action-row { position: fixed; z-index: 14; top: max(82px, calc(env(safe-area-inset-top) + 70px)); left: 50%; width: min(660px, calc(100% - 32px)); transform: translateX(-50%); display: flex; justify-content: flex-end; pointer-events: none; }
 #onSiteInfoButton { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 14px; border: 1px solid #dbe4df; border-radius: 15px; background: #fff; color: var(--green); box-shadow: 0 7px 22px rgba(25,60,49,.14); font-size: 13px; font-weight: 750; white-space: nowrap; cursor: pointer; pointer-events: auto; }
 #onSiteInfoButton svg { width: 20px; height: 20px; flex: 0 0 20px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 #onSiteInfoButton:disabled { cursor: progress; opacity: .75; }
@@ -540,9 +540,9 @@ button { color: inherit; }
 
 @media (max-width: 720px) {
   .topbar { padding-left: 14px; padding-right: 14px; }
-  .search-wrap { top: max(126px, calc(env(safe-area-inset-top) + 114px)); width: calc(100% - 24px); }
+  .search-wrap { top: max(180px, calc(env(safe-area-inset-top) + 168px)); width: calc(100% - 24px); }
   .search-suggestions { max-height: max(96px, calc(100dvh - max(126px, calc(env(safe-area-inset-top) + 114px)) - 78px - env(safe-area-inset-bottom))); overflow-y: scroll; scrollbar-width: thin; }
-  .map-controls { top: 280px; right: 13px; }\n  .on-site-action-row { top: max(76px, calc(env(safe-area-inset-top) + 64px)); width: calc(100% - 24px); }
+  .map-controls { top: 334px; right: 13px; }\n  .on-site-action-row { top: max(126px, calc(env(safe-area-inset-top) + 114px)); width: calc(100% - 24px); }
   .map-controls .zoom-controls { margin-top: 49px; }
   .map-status { top: 280px; left: 13px; max-width: calc(100% - 90px); }
   .map-attribution { display: none; }
