@@ -540,9 +540,9 @@ button { color: inherit; }
 
 @media (max-width: 720px) {
   .topbar { padding-left: 14px; padding-right: 14px; }
-  .search-wrap { top: max(254px, calc(env(safe-area-inset-top) + 242px)); width: calc(100% - 24px); }
-  .search-suggestions { max-height: max(96px, calc(100dvh - max(254px, calc(env(safe-area-inset-top) + 242px)) - 78px - env(safe-area-inset-bottom))); overflow-y: scroll; scrollbar-width: thin; }
-  .map-controls { top: auto; bottom: calc(20px + env(safe-area-inset-bottom)); right: 13px; }
+  .search-wrap { top: max(258px, calc(env(safe-area-inset-top) + 246px)); width: calc(100% - 24px); }
+  .search-suggestions { max-height: max(96px, calc(100dvh - max(258px, calc(env(safe-area-inset-top) + 246px)) - 78px - env(safe-area-inset-bottom))); overflow-y: scroll; scrollbar-width: thin; }
+  .map-controls { top: clamp(480px, 48dvh, 740px); bottom: auto; right: 13px; }
   .on-site-action-row { top: max(196px, calc(env(safe-area-inset-top) + 184px)); width: calc(100% - 24px); }
   .map-mode-control { top: max(126px, calc(env(safe-area-inset-top) + 114px)); }
 
