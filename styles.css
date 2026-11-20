@@ -540,11 +540,14 @@ button { color: inherit; }
 
 @media (max-width: 720px) {
   .topbar { padding-left: 14px; padding-right: 14px; }
-  .search-wrap { top: max(244px, calc(env(safe-area-inset-top) + 232px)); width: calc(100% - 24px); }
-  .search-suggestions { max-height: max(96px, calc(100dvh - max(244px, calc(env(safe-area-inset-top) + 232px)) - 78px - env(safe-area-inset-bottom))); overflow-y: scroll; scrollbar-width: thin; }
-  .map-controls { top: auto; bottom: calc(20px + env(safe-area-inset-bottom)); right: 13px; }\n  .on-site-action-row { top: max(188px, calc(env(safe-area-inset-top) + 176px)); width: calc(100% - 24px); }
+  .search-wrap { top: max(254px, calc(env(safe-area-inset-top) + 242px)); width: calc(100% - 24px); }
+  .search-suggestions { max-height: max(96px, calc(100dvh - max(254px, calc(env(safe-area-inset-top) + 242px)) - 78px - env(safe-area-inset-bottom))); overflow-y: scroll; scrollbar-width: thin; }
+  .map-controls { top: auto; bottom: calc(20px + env(safe-area-inset-bottom)); right: 13px; }
+  .on-site-action-row { top: max(196px, calc(env(safe-area-inset-top) + 184px)); width: calc(100% - 24px); }
+  .map-mode-control { top: max(126px, calc(env(safe-area-inset-top) + 114px)); }
+
   .map-controls .zoom-controls { margin-top: 0; }
-  .map-status { top: 398px; left: 13px; max-width: calc(100% - 90px); }
+  .map-status { top: 408px; left: 13px; max-width: calc(100% - 90px); }
   .map-attribution { display: none; }
   .sheet { width: calc(100% - 16px); max-height: 62dvh; }
   .sheet.keyboard-hidden { --sheet-drag-offset: calc(100% + env(safe-area-inset-bottom) + 12px); overflow: hidden; pointer-events: none; }
