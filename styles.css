@@ -68,7 +68,7 @@ button { color: inherit; }
 .search-box input { min-width: 0; flex: 1; height: 100%; padding: 0 12px; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 16px; font-weight: 500; }
 .search-box input::placeholder { color: #81918b; }
 .search-submit { height: 44px; padding: 0 19px; border: 0; border-radius: 14px; background: var(--green); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; }
-.search-suggestions { display: none; margin-top: 8px; padding: 8px; max-height: min(420px, calc(100dvh - 165px - env(safe-area-inset-bottom))); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; border: 1px solid rgba(220,230,224,.9); border-radius: 16px; background: rgba(255,255,255,.98); box-shadow: var(--shadow); }
+.search-suggestions { display: none; margin-top: 8px; padding: 8px; max-height: min(420px, calc(100dvh - 219px - env(safe-area-inset-bottom))); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; border: 1px solid rgba(220,230,224,.9); border-radius: 16px; background: rgba(255,255,255,.98); box-shadow: var(--shadow); }
 .search-suggestions.show { display: block; }
 /* Search results must stay above the bottom sheet while remaining independently scrollable. */
 .search-wrap:has(.search-suggestions.show) { z-index: 30; }
@@ -83,7 +83,7 @@ button { color: inherit; }
 .map-mode-control { position: fixed; z-index: 14; top: max(76px, calc(env(safe-area-inset-top) + 64px)); left: 50%; display: flex; gap: 4px; padding: 4px; border: 1px solid rgba(255,255,255,.9); border-radius: 13px; background: rgba(255,255,255,.94); box-shadow: 0 7px 22px rgba(25,60,49,.14); transform: translateX(-50%); backdrop-filter: blur(12px); }
 .map-mode-control button { min-height: 34px; padding: 0 12px; border: 0; border-radius: 9px; background: transparent; color: #60736d; font-size: 11px; font-weight: 800; cursor: pointer; }
 .map-mode-control button.active { background: var(--green); color: #fff; box-shadow: 0 3px 10px rgba(23,107,84,.2); }
-.map-controls { position: fixed; z-index: 8; top: 155px; right: 20px; display: grid; gap: 9px; }
+.map-controls { position: fixed; z-index: 8; top: 209px; right: 20px; display: grid; gap: 9px; }
 .map-controls button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #dbe4df; background: #fff; font-size: 22px; cursor: pointer; }
 .map-controls svg { width: 22px; fill: none; stroke: var(--green); stroke-width: 1.8; }
 #locateButton:focus-visible, #onSiteInfoButton:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
@@ -101,7 +101,7 @@ button { color: inherit; }
 .zoom-controls button { border: 0; border-bottom: 1px solid #e3e9e5; }
 .zoom-controls button:last-child { border-bottom: 0; }
 
-.map-status { position: fixed; z-index: 6; left: 18px; top: 204px; padding: 7px 11px; border-radius: 10px; background: rgba(255,255,255,.82); color: #526861; font-size: 11px; font-weight: 600; backdrop-filter: blur(8px); }
+.map-status { position: fixed; z-index: 6; left: 18px; top: 258px; padding: 7px 11px; border-radius: 10px; background: rgba(255,255,255,.82); color: #526861; font-size: 11px; font-weight: 600; backdrop-filter: blur(8px); }
 .map-attribution { position: fixed; z-index: 6; right: 13px; bottom: 9px; padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.82); color: #61716c; font-size: 9px; font-weight: 600; backdrop-filter: blur(8px); }
 
 .sheet, .detail-sheet { position: fixed; z-index: 20; bottom: 0; left: 50%; width: min(740px, calc(100% - 24px)); max-height: min(64dvh, 650px); padding: 7px 16px calc(18px + env(safe-area-inset-bottom)); border: 1px solid rgba(255,255,255,.9); border-bottom: 0; border-radius: 26px 26px 0 0; background: rgba(255,255,255,.97); box-shadow: 0 -12px 45px rgba(17,52,42,.18); transform: translateX(-50%); backdrop-filter: blur(18px); transition: transform .32s cubic-bezier(.2,.8,.2,1); overflow-y: auto; overscroll-behavior: contain; }
@@ -541,10 +541,10 @@ button { color: inherit; }
 @media (max-width: 720px) {
   .topbar { padding-left: 14px; padding-right: 14px; }
   .search-wrap { top: max(180px, calc(env(safe-area-inset-top) + 168px)); width: calc(100% - 24px); }
-  .search-suggestions { max-height: max(96px, calc(100dvh - max(126px, calc(env(safe-area-inset-top) + 114px)) - 78px - env(safe-area-inset-bottom))); overflow-y: scroll; scrollbar-width: thin; }
+  .search-suggestions { max-height: max(96px, calc(100dvh - max(180px, calc(env(safe-area-inset-top) + 168px)) - 78px - env(safe-area-inset-bottom))); overflow-y: scroll; scrollbar-width: thin; }
   .map-controls { top: 334px; right: 13px; }\n  .on-site-action-row { top: max(126px, calc(env(safe-area-inset-top) + 114px)); width: calc(100% - 24px); }
   .map-controls .zoom-controls { margin-top: 49px; }
-  .map-status { top: 280px; left: 13px; max-width: calc(100% - 90px); }
+  .map-status { top: 334px; left: 13px; max-width: calc(100% - 90px); }
   .map-attribution { display: none; }
   .sheet { width: calc(100% - 16px); max-height: 62dvh; }
   .sheet.keyboard-hidden { --sheet-drag-offset: calc(100% + env(safe-area-inset-bottom) + 12px); overflow: hidden; pointer-events: none; }
