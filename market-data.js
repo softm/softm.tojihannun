@@ -673,6 +673,29 @@
     }).sort((a, b) => b.count - a.count || b.latestDate.localeCompare(a.latestDate) || a.area - b.area);
   }
 
+  function updateRepresentativePriceGap(summary, unitOfficial) {
+    const wrap = $("#detailPriceGap");
+    const value = $("#detailPriceGapValue");
+    const meta = $("#detailPriceGapMeta");
+    if (!wrap || !value || !meta) return;
+    const officialAmount = Number(unitOfficial || 0) * Number(summary?.area || 0);
+    const tradeAmount = Number(summary?.averageAmount || 0) * 10000;
+    if (!(officialAmount > 0) || !(tradeAmount > 0)) {
+      wrap.hidden = true;
+      wrap.dataset.direction = "";
+      return;
+    }
+    const gap = tradeAmount - officialAmount;
+    const ratio = gap / officialAmount * 100;
+    const direction = Math.abs(ratio) < 0.05 ? "same" : gap > 0 ? "up" : "down";
+    const sign = gap > 0 ? "+" : gap < 0 ? "-" : "±";
+    const arrow = gap > 0 ? "▲" : gap < 0 ? "▼" : "•";
+    value.textContent = `${arrow} ${sign}${formatWon(Math.abs(gap))} · ${sign}${formatNumber(Math.abs(ratio), 1)}%`;
+    meta.textContent = `${summary.areaLabel} 동일 면적 기준 · 최근 5년 ${formatNumber(summary.count)}건`;
+    wrap.dataset.direction = direction;
+    wrap.hidden = false;
+  }
+
   function updateRepresentativePriceCards(summary) {
     const official = $("#detailOfficialPriceAmount");
     const officialMeta = $("#detailOfficialPriceAmountMeta");
@@ -684,6 +707,7 @@
       officialMeta.textContent = "비교 면적을 확인할 수 없음";
       average.textContent = "거래 표본 없음";
       averageMeta.textContent = "최근 5년";
+      updateRepresentativePriceGap(null, 0);
       return;
     }
     const unitOfficial = Number(state.parcel?.landRegister?.price?.pblntfPclnd || 0);
@@ -693,6 +717,7 @@
       : `${summary.areaLabel} 기준`;
     average.textContent = summary.averageLabel;
     averageMeta.textContent = `${summary.areaLabel} · ${formatNumber(summary.count)}건 · 최근 5년`;
+    updateRepresentativePriceGap(summary, unitOfficial);
   }
 
   function publishRepresentativeTradeSummary(group) {
@@ -1519,6 +1544,8 @@
     window.TojihannunRepresentativeTrade = {parcelId:state.parcel?.id || "", status:"loading"};
     const representativeSelector = $("#detailAreaSelector");
     if (representativeSelector) representativeSelector.hidden = true;
+    const representativeGap = $("#detailPriceGap");
+    if (representativeGap) representativeGap.hidden = true;
     state.transactionController?.abort();
     state.auctionController?.abort();
     state.transactionRequest += 1;
