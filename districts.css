@@ -39,3 +39,9 @@
 
 /* Keep district tools on the map, not over the parcel detail sheet. */
 body:has(#detailSheet.open) .district-controls { display: none; }
+
+/* Keep district tools above the separate locate/zoom rail. */
+@media (max-width: 720px) {
+  .district-controls { top: 452px; right: 13px; }
+  .district-panel { top: 500px; }
+}
