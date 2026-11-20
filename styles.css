@@ -230,6 +230,10 @@ button { color: inherit; }
 .detail-ledger-action:focus-visible { position: relative; z-index: 1; outline: 3px solid rgb(31 111 83 / 24%); outline-offset: 2px; }
 .detail-ledger-action svg { flex: 0 0 16px; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .detail-ledger-action span { min-width: 0; }
+.detail-area-selector { display: flex; align-items: center; gap: 8px; margin: 0 0 7px; padding: 6px 8px; border: 1px solid #d8e5df; border-radius: 10px; background: #fff; }
+.detail-area-selector[hidden] { display: none; }
+.detail-area-selector label { flex: 0 0 auto; color: #49645b; font-size: 10px; font-weight: 850; }
+.detail-area-selector select { min-width: 0; flex: 1; height: 32px; padding: 0 30px 0 10px; border: 1px solid #c6d9d1; border-radius: 8px; background: #f7fbf9; color: #173f34; font: inherit; font-size: 11px; font-weight: 800; }
 .detail-highlight dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin: 0; }
 .detail-highlight dl > div { min-width: 0; min-height: 62px; padding: 7px 9px; border-radius: 9px; }
 .detail-highlight dt { font-size: 10px; font-weight: 800; opacity: .72; }
@@ -575,6 +579,8 @@ button { color: inherit; }
   .detail-section-heading span { font-size: 12px; }
   .detail-section-heading strong { font-size: 18px; }
   .detail-ledger-action { min-height: 36px; font-size: 12px; }
+  .detail-area-selector label { font-size: 11px; }
+  .detail-area-selector select { height: 34px; font-size: 12px; }
   .detail-highlight dt { font-size: 12px; }
   .detail-highlight dd { font-size: 17px; }
   .detail-highlight small { font-size: 10px; }
