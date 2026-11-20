@@ -65,9 +65,9 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
     <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" /><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css" /></noscript>
-    <link rel="stylesheet" href="./styles.css?v=20261120.7" />
+    <link rel="stylesheet" href="./styles.css?v=20261120.8" />
     <link rel="stylesheet" href="./market-data.css?v=20261110.5" />
-    <link rel="stylesheet" href="./districts.css?v=20261120.2" />
+    <link rel="stylesheet" href="./districts.css?v=20261120.3" />
       <link rel="stylesheet" href="./transaction-ui.css?v=20261118.3" />
   </head>
   <body>
@@ -150,6 +150,12 @@
         </header>
 
         <div class="search-wrap">
+        <div class="on-site-action-row">
+          <button type="button" id="onSiteInfoButton" aria-label="내가 서 있는 위치의 토지 정보 보기" aria-busy="false" title="GPS 위치의 필지를 찾아 상세정보를 표시합니다">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+            <span class="on-site-action-label">내 위치 정보 보기</span>
+          </button>
+        </div>
           <form class="search-box" id="searchForm" role="search">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
             <label class="sr-only" for="searchInput">도로명, 지번 또는 건물명 검색</label>
@@ -159,26 +165,20 @@
           <div class="search-suggestions" id="searchSuggestions" role="listbox" aria-label="검색 결과"></div>
         </div>
 
-        <div class="map-top-actions">
         <div class="map-mode-control" role="group" aria-label="지도 유형">
           <button class="active" type="button" data-map-mode="normal">일반</button>
           <button type="button" data-map-mode="satellite">위성</button>
           <button type="button" data-map-mode="cadastral">위성+지적</button>
         </div>
 
-        <div class="on-site-action-row">
-          <button type="button" id="onSiteInfoButton" aria-label="내가 서 있는 위치의 토지 정보 보기" aria-busy="false" title="GPS 위치의 필지를 찾아 상세정보를 표시합니다">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-            <span class="on-site-action-label">내 위치 정보 보기</span>
-          </button>
-        </div>
         </div>
 
         <div class="map-controls" aria-label="지도 조작">
+          <div class="zoom-controls">
           <button type="button" id="locateButton" aria-label="현재 위치로 지도 이동" aria-busy="false" title="현재 위치로 지도 이동">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
           </button>
-          <div class="zoom-controls">
+
             <button type="button" id="zoomIn" aria-label="지도 확대">＋</button>
             <button type="button" id="zoomOut" aria-label="지도 축소">−</button>
           </div>
