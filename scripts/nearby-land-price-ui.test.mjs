@@ -17,5 +17,5 @@ test('nearby reference uses five years, similar area and no interactive governme
   assert.match(js,/lookup\(area, "land", \{includeNearby: true, months: recentMonths\(60\)\}\)/);
   assert.match(js,/nearbyLandPriceSummary\(scoped\.comparable\)/);
   assert.match(js,/중앙 50% 범위/);
-  assert.match(html,/market-data\.js\?v=20261120\.3/);
+  assert.match(html,/market-data\.js\?v=20261120\.4/);
 });
