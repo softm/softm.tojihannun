@@ -1554,7 +1554,7 @@
   }
 
   function bindEvents() {
-    window.addEventListener("tojihannun:representative-price-request", (event) => {
+    window.addEventListener?.("tojihannun:representative-price-request", (event) => {
       const parcelId = String(event.detail?.parcelId || "");
       if (!state.parcel || (parcelId && parcelId !== state.parcel.id)) return;
       void loadRepresentativeTradeSummary(state.parcel);
