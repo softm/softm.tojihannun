@@ -28,4 +28,8 @@ test('representative area selector drives official and recent trade amounts on t
   assert.match(js,/representativeAreaSelect[\s\S]*?selectRepresentativeTradeArea/);
   assert.match(js,/unitOfficial \* summary\.area/);
   assert.match(js,/averageLabel/);
+  assert.match(html,/id="detailPriceGap"[\s\S]*?id="detailPriceGapValue"[\s\S]*?id="detailPriceGapMeta"/);
+  assert.match(js,/tradeAmount = Number\(summary\?\.averageAmount \|\| 0\) \* 10000/);
+  assert.match(js,/gap \/ officialAmount \* 100/);
+  assert.match(js,/selectRepresentativeTradeArea[\s\S]*?updateRepresentativePriceCards/);
 });
