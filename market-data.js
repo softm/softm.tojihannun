@@ -1520,7 +1520,6 @@
     resetTransactionView();
     resetAuctionView();
     void loadNearbyLandPrice(state.parcel);
-    void loadRepresentativeTradeSummary(state.parcel);
   }
 
   function refreshParcel(parcel) {
@@ -1544,7 +1543,6 @@
     state.transactionSession = null;
     state.transactionCacheKey = "";
     resetTransactionView();
-    void loadRepresentativeTradeSummary(parcel);
     if (state.activeTab === "transactions") void loadTransactions();
   }
 
@@ -1556,6 +1554,11 @@
   }
 
   function bindEvents() {
+    window.addEventListener("tojihannun:representative-price-request", (event) => {
+      const parcelId = String(event.detail?.parcelId || "");
+      if (!state.parcel || (parcelId && parcelId !== state.parcel.id)) return;
+      void loadRepresentativeTradeSummary(state.parcel);
+    });
     $("#transactionType")?.addEventListener("change", (event) => {
       state.transactionSelectionVersion += 1;
       applyTransactionType(event.target.value, {manual: true});
