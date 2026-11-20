@@ -2614,34 +2614,59 @@ syncDetailHandleMode();
 $("#zoomIn").addEventListener("click", () => map?.getView().animate({zoom: Math.min(19, map.getView().getZoom() + 1), duration: 220}));
 $("#zoomOut").addEventListener("click", () => map?.getView().animate({zoom: Math.max(6, map.getView().getZoom() - 1), duration: 220}));
 
+// Map-only current position: keep the original compact control independent of parcel lookup.
 $("#locateButton").addEventListener("click", () => {
   if (!navigator.geolocation) return showToast("현재 위치를 사용할 수 없는 환경입니다.");
-  if (locatingUser) return;
   const button = $("#locateButton");
+  if (button.disabled) return;
+  button.disabled = true;
+  button.classList.add("locating");
+  button.setAttribute("aria-busy", "true");
+  navigator.geolocation.getCurrentPosition(({coords}) => {
+    button.disabled = false;
+    button.classList.remove("locating");
+    button.setAttribute("aria-busy", "false");
+    const position = [Number(coords.longitude), Number(coords.latitude)];
+    if (!position.every(Number.isFinite)) return showToast("현재 위치 좌표를 확인하지 못했어요.");
+    map.getView().animate({center: fromLonLat(position), zoom: 17, duration: 500});
+    $("#mapStatus").textContent = "현재 위치 주변 · 필지 미선택";
+    showToast("현재 위치로 지도를 이동했어요.");
+  }, (error) => {
+    button.disabled = false;
+    button.classList.remove("locating");
+    button.setAttribute("aria-busy", "false");
+    showToast(error?.code === 1 ? "위치 권한을 허용해 주세요." : "현재 위치를 확인하지 못했어요.");
+  }, {enableHighAccuracy: true, maximumAge: 30000, timeout: 15000});
+});
+
+// Dedicated on-site action: locate the parcel beneath the user and open its details.
+$("#onSiteInfoButton").addEventListener("click", () => {
+  if (!navigator.geolocation) return showToast("현재 위치를 사용할 수 없는 환경입니다.");
+  if (locatingUser) return;
+  const button = $("#onSiteInfoButton");
+  const label = button.querySelector(".on-site-action-label");
   const finish = () => {
     locatingUser = false;
     button.disabled = false;
     button.classList.remove("locating");
     button.setAttribute("aria-busy", "false");
     button.setAttribute("aria-label", "내가 서 있는 위치의 토지 정보 보기");
-    button.querySelector(".locate-button-label").textContent = "내 위치 정보 보기";
+    label.textContent = "내 위치 정보 보기";
   };
   locatingUser = true;
   button.disabled = true;
   button.classList.add("locating");
   button.setAttribute("aria-busy", "true");
-  button.setAttribute("aria-label", "현재 위치의 필지 정보를 확인하는 중");
-  button.querySelector(".locate-button-label").textContent = "위치 확인 중…";
+  label.textContent = "위치 확인 중…";
   showToast("현재 위치를 확인하고 있어요.");
   navigator.geolocation.getCurrentPosition(async ({coords}) => {
-    const lonLat = [coords.longitude, coords.latitude];
+    const lonLat = [Number(coords.longitude), Number(coords.latitude)];
     const accuracy = Math.round(Number(coords.accuracy) || 0);
-    if (!Number.isFinite(lonLat[0]) || !Number.isFinite(lonLat[1]) || lonLat[0] < 124 || lonLat[0] > 132 || lonLat[1] < 33 || lonLat[1] > 39) {
-      showToast("현재 위치가 국내 필지 조회 범위 밖입니다.");
-      finish();
-      return;
-    }
     try {
+      if (!lonLat.every(Number.isFinite) || lonLat[0] < 124 || lonLat[0] > 132 || lonLat[1] < 33 || lonLat[1] > 39) {
+        showToast("현재 위치가 국내 필지 조회 범위 밖입니다.");
+        return;
+      }
       setMapMode("cadastral", false);
       mainSheetCollapse(true);
       map.getView().animate({center: fromLonLat(lonLat), zoom: 18, duration: 500});
