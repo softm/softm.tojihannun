@@ -245,6 +245,14 @@ button { color: inherit; }
 .detail-highlight .orange { background: #fff0de; color: #a45112; }
 .detail-highlight .gold { background: #fff7d8; color: #80650b; }
 .detail-highlight .teal { background: #e4f5f2; color: #176b62; }
+.detail-price-gap { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 2px 8px; margin-top: 6px; padding: 8px 10px; border: 1px solid #d8e5df; border-radius: 10px; background: #f7faf9; color: #4c635b; }
+.detail-price-gap[hidden] { display: none; }
+.detail-price-gap > span { font-size: 9px; font-weight: 850; }
+.detail-price-gap > strong { justify-self: end; font-size: 12px; font-weight: 900; letter-spacing: -.02em; }
+.detail-price-gap > small { grid-column: 1 / -1; overflow: hidden; font-size: 8px; font-weight: 700; opacity: .72; text-overflow: ellipsis; white-space: nowrap; }
+.detail-price-gap[data-direction="up"] > strong { color: #a45112; }
+.detail-price-gap[data-direction="down"] > strong { color: #176b62; }
+.detail-price-gap[data-direction="same"] > strong { color: #5d6c67; }
 .nearby-land-price { margin-top: 7px; overflow: hidden; border: 1px solid #dce7e2; border-radius: 11px; background: #fff; }
 .nearby-land-price-main { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 11px 8px; }
 .nearby-land-price-main span { flex: 0 0 auto; color: #365a4e; font-size: 12px; font-weight: 800; }
@@ -581,6 +589,9 @@ button { color: inherit; }
   .detail-ledger-action { min-height: 36px; font-size: 12px; }
   .detail-area-selector label { font-size: 11px; }
   .detail-area-selector select { height: 34px; font-size: 12px; }
+  .detail-price-gap > span { font-size: 11px; }
+  .detail-price-gap > strong { font-size: 14px; }
+  .detail-price-gap > small { font-size: 10px; }
   .detail-highlight dt { font-size: 12px; }
   .detail-highlight dd { font-size: 17px; }
   .detail-highlight small { font-size: 10px; }
