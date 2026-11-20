@@ -21,8 +21,8 @@ test("모바일 검색 키보드가 열리면 메인 패널을 화면 아래로 
   const css = read("styles.css");
   const app = read("app.js");
 
-  assert.match(html, /styles\.css\?v=20261120\.1/);
-  assert.match(html, /app\.js\?v=20261120\.2/);
+  assert.match(html, /styles\.css\?v=20261120\.2/);
+  assert.match(html, /app\.js\?v=20261120\.3/);
   assert.match(css, /\.sheet\.keyboard-hidden \{ --sheet-drag-offset: calc\(100% \+ env\(safe-area-inset-bottom\) \+ 12px\);[^}]*pointer-events: none/);
   assert.match(app, /function setSearchKeyboardSheetHidden\(hidden\)/);
   assert.match(app, /mainSheetElement\.classList\.toggle\("keyboard-hidden", shouldHide\)/);
@@ -37,7 +37,7 @@ test("모바일 상세 제목은 전체 폭을 확보하고 외부 액션은 다
   const app = read("app.js");
   const districts = read("districts.css");
 
-  assert.match(html, /styles\.css\?v=20261120\.1/);
+  assert.match(html, /styles\.css\?v=20261120\.2/);
   assert.match(html, /districts\.css\?v=20261118\.1/);
   assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.detail-title-row \{ display: grid; grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(css, /\.detail-title-row h2 \{ width: 100%;[\s\S]*?word-break: keep-all/);
@@ -84,7 +84,7 @@ test("실거래는 용도별 API와 필지 우선·유사면적 비교 기준을
   assert.match(html, /transaction-ui\.css\?v=20261118\.3/);
   assert.match(html, /vendor\/echarts-toji\.min\.js\?v=20261117\.2/);
   assert.match(html, /transaction-price-context\.js\?v=20261117\.13/);
-  assert.match(html, /market-data\.js\?v=20261120\.4/);
+  assert.match(html, /market-data\.js\?v=20261120\.5/);
   assert.match(read("transaction-ui.js"), /saved\.textContent = '전체 기간'/);
   assert.match(market, /RTMSDataSvcLandTrade[\s\S]*?RTMSDataSvcAptTrade[\s\S]*?RTMSDataSvcInduTrade/);
   assert.match(market, /const exact = unique\.filter\(\(item\) => item\.exact\)/);
@@ -102,7 +102,7 @@ test("같은 법정동 비교 거래는 공개 지번만 정확한 필지 검색
   const market = read("market-data.js");
   const app = read("app.js");
 
-  assert.match(html, /app\.js\?v=20261120\.2/);
+  assert.match(html, /app\.js\?v=20261120\.3/);
   assert.match(ui, /data-open-parcel-index/);
   assert.match(ui, /role="button" tabindex="0"/);
   assert.match(market, /tojihannun:select-parcel-address/);
