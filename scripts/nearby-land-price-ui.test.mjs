@@ -19,3 +19,13 @@ test('nearby reference uses five years, similar area and no interactive governme
   assert.match(js,/중앙 50% 범위/);
   assert.match(html,/market-data\.js\?v=20261120\.5/);
 });
+
+
+test('representative area selector drives official and recent trade amounts on the same area',()=>{
+  assert.match(html,/id="detailAreaSelector"[\s\S]*?id="representativeAreaSelect"/);
+  assert.match(js,/function representativeTradeOptions\(items\)/);
+  assert.match(js,/최다 거래/);
+  assert.match(js,/representativeAreaSelect[\s\S]*?selectRepresentativeTradeArea/);
+  assert.match(js,/unitOfficial \* summary\.area/);
+  assert.match(js,/averageLabel/);
+});
