@@ -37,6 +37,7 @@
     transactionGroups: null,
     transactionSession: null,
     nearbyPriceRequest: 0,
+    representativePriceRequest: 0,
     transactionView: "parcel",
     transactionShowAll: false,
     auctionItems: [],
@@ -755,6 +756,24 @@
     value.textContent = status === "error" ? "자료 확인 필요" : "확인 가능한 주변 거래 없음";
     meta.textContent = `${areaName || "선택 지역"} · 최근 5년`;
     note.textContent = status === "error" ? `거래 자료 연결 상태를 확인하지 못했습니다. ${baseNote}` : `현재 확보한 자료 범위에서는 조건에 맞는 거래를 찾지 못했습니다. ${baseNote}`;
+  }
+
+  async function loadRepresentativeTradeSummary(parcel) {
+    const request = ++state.representativePriceRequest;
+    const area = parseParcelArea(parcel);
+    if (!parcel || !area.lawdCode || !area.emd || !window.TojiStaticTrades || !$("#detailOfficialPriceAmount")) return;
+    const type = recommendTransactionType(parcel);
+    try {
+      const entry = await window.TojiStaticTrades.lookup(area, type, {includeNearby:true, months:recentMonths(60)});
+      if (request !== state.representativePriceRequest || parcel !== state.parcel) return;
+      const normalized = normalizeRtmsNodes(entry?.rows || [], type);
+      const scoped = scopeTransactionItems(normalized, area, type);
+      publishRepresentativeTradeSummary(scoped);
+    } catch {
+      if (request !== state.representativePriceRequest || parcel !== state.parcel) return;
+      window.TojihannunRepresentativeTrade = {parcelId:parcel.id, status:"empty"};
+      publishRepresentativeTradeSummary(null);
+    }
   }
 
   async function loadNearbyLandPrice(parcel) {
@@ -1481,6 +1500,7 @@
     state.transactionRequest += 1;
     state.transactionSelectionVersion += 1;
     state.nearbyPriceRequest += 1;
+    state.representativePriceRequest += 1;
     state.auctionRequest += 1;
     state.transactionCacheKey = "";
     state.transactionTypeManuallySelected = false;
@@ -1500,9 +1520,7 @@
     resetTransactionView();
     resetAuctionView();
     void loadNearbyLandPrice(state.parcel);
-    // The basic summary needs the representative transaction area even before
-    // the user opens the transaction tab. This reads only already-collected files.
-    void loadTransactions(false, true);
+    void loadRepresentativeTradeSummary(state.parcel);
   }
 
   function refreshParcel(parcel) {
@@ -1526,7 +1544,8 @@
     state.transactionSession = null;
     state.transactionCacheKey = "";
     resetTransactionView();
-    void loadTransactions(false, true);
+    void loadRepresentativeTradeSummary(parcel);
+    if (state.activeTab === "transactions") void loadTransactions();
   }
 
   function activate(tab) {
