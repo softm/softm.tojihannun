@@ -19,9 +19,9 @@ test('district controls are icon-only, accessible and separated from map zoom/lo
   assert.match(js,/aria-label", label/);
   assert.match(js,/aria-controls", "districtPanel"/);
   assert.match(js,/setAttribute\("aria-expanded"/);
-  assert.match(css,/\.district-controls\{position:fixed;right:74px;top:155px/);
-  assert.match(css,/\.district-panel\{position:fixed;top:155px;right:130px/);
-  assert.match(css,/\.district-controls\{top:max\(200px/);
+  assert.match(css,/\.district-controls\{position:fixed;right:20px;top:208px/);
+  assert.match(css,/\.district-panel\{position:fixed;top:208px;right:74px/);
+  assert.match(css,/\.district-controls\{top:max\(333px/);
   assert.match(css,/\.district-toolbar\{flex-direction:row/);
   assert.doesNotMatch(js,/toggle\.textContent\s*=/);
 });
