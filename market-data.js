@@ -645,54 +645,45 @@
     };
   }
 
-  function representativeTradeSummary(items) {
+  function representativeTradeOptions(items) {
     const recent = new Set(recentMonths(60));
     const valid = (items || []).filter((item) => {
       const month = String(item.date || "").slice(0, 7).replace("-", "");
       return recent.has(month) && !item.cancellationDate && Number(item.amount) > 0 && Number(item.area) > 0;
     });
-    if (!valid.length) return null;
+    if (!valid.length) return [];
     const groups = new Map();
     for (const item of valid) {
       const bucket = Math.round(Number(item.area));
       if (!groups.has(bucket)) groups.set(bucket, []);
       groups.get(bucket).push(item);
     }
-    const ranked = [...groups.values()].sort((a, b) =>
-      b.length - a.length ||
-      String(b[0]?.date || "").localeCompare(String(a[0]?.date || "")) ||
-      Number(a[0]?.area || 0) - Number(b[0]?.area || 0));
-    const selected = ranked[0];
-    const area = median(selected.map((item) => Number(item.area)));
-    const averageAmount = selected.reduce((sum, item) => sum + Number(item.amount), 0) / selected.length;
-    return {
-      area,
-      areaLabel: `${formatNumber(area, 1)}㎡ (${formatNumber(area / 3.305785, 1)}평)`,
-      count: selected.length,
-      averageAmount,
-      averageLabel: formatDealAmount(averageAmount)
-    };
+    return [...groups.entries()].map(([bucket, rows]) => {
+      const area = median(rows.map((item) => Number(item.area)));
+      const averageAmount = rows.reduce((sum, item) => sum + Number(item.amount), 0) / rows.length;
+      return {
+        key:String(bucket),
+        area,
+        areaLabel:`${formatNumber(area, 1)}㎡ (${formatNumber(area / 3.305785, 1)}평)`,
+        count:rows.length,
+        averageAmount,
+        averageLabel:formatDealAmount(averageAmount),
+        latestDate:rows.reduce((latest, item) => String(item.date || "") > latest ? String(item.date || "") : latest, "")
+      };
+    }).sort((a, b) => b.count - a.count || b.latestDate.localeCompare(a.latestDate) || a.area - b.area);
   }
 
-  function publishRepresentativeTradeSummary(group) {
-    const parcelId = state.parcel?.id || "";
-    const summary = representativeTradeSummary(group?.items || []);
-    const payload = summary
-      ? {parcelId, status:"ready", ...summary}
-      : {parcelId, status:"empty"};
-    window.TojihannunRepresentativeTrade = payload;
-
+  function updateRepresentativePriceCards(summary) {
     const official = $("#detailOfficialPriceAmount");
     const officialMeta = $("#detailOfficialPriceAmountMeta");
     const average = $("#detailRecentTradeAverage");
     const averageMeta = $("#detailRecentTradeAverageMeta");
     if (!official || !officialMeta || !average || !averageMeta) return;
-
     if (!summary) {
       official.textContent = "거래 표본 없음";
-      officialMeta.textContent = "대표 평형을 확인할 수 없음";
+      officialMeta.textContent = "비교 면적을 확인할 수 없음";
       average.textContent = "거래 표본 없음";
-      averageMeta.textContent = "가장 거래 많은 평형 · 최근 5년";
+      averageMeta.textContent = "최근 5년";
       return;
     }
     const unitOfficial = Number(state.parcel?.landRegister?.price?.pblntfPclnd || 0);
@@ -702,6 +693,37 @@
       : `${summary.areaLabel} 기준`;
     average.textContent = summary.averageLabel;
     averageMeta.textContent = `${summary.areaLabel} · ${formatNumber(summary.count)}건 · 최근 5년`;
+  }
+
+  function publishRepresentativeTradeSummary(group) {
+    const parcelId = state.parcel?.id || "";
+    const options = representativeTradeOptions(group?.items || []);
+    const previous = window.TojihannunRepresentativeTrade;
+    const previousKey = previous?.parcelId === parcelId ? String(previous.selectedKey || "") : "";
+    const selected = options.find((option) => option.key === previousKey) || options[0] || null;
+    const payload = selected
+      ? {parcelId, status:"ready", options, selectedKey:selected.key, ...selected}
+      : {parcelId, status:"empty", options:[]};
+    window.TojihannunRepresentativeTrade = payload;
+
+    const selectorWrap = $("#detailAreaSelector");
+    const selector = $("#representativeAreaSelect");
+    if (selectorWrap && selector) {
+      selectorWrap.hidden = !options.length;
+      selector.innerHTML = options.map((option, index) =>
+        `<option value="${option.key}"${option.key === selected?.key ? " selected" : ""}>${option.areaLabel} · ${formatNumber(option.count)}건${index === 0 ? " · 최다 거래" : ""}</option>`
+      ).join("");
+    }
+    updateRepresentativePriceCards(selected);
+  }
+
+  function selectRepresentativeTradeArea(key) {
+    const current = window.TojihannunRepresentativeTrade;
+    if (!current || current.parcelId !== state.parcel?.id || !Array.isArray(current.options)) return;
+    const selected = current.options.find((option) => option.key === String(key));
+    if (!selected) return;
+    window.TojihannunRepresentativeTrade = {...current, selectedKey:selected.key, ...selected};
+    updateRepresentativePriceCards(selected);
   }
 
   function nearbyPriceQuantile(values, ratio) {
@@ -1554,6 +1576,9 @@
   }
 
   function bindEvents() {
+    $("#representativeAreaSelect")?.addEventListener("change", (event) => {
+      selectRepresentativeTradeArea(event.target.value);
+    });
     window.addEventListener?.("tojihannun:representative-price-request", (event) => {
       const parcelId = String(event.detail?.parcelId || "");
       if (!state.parcel || (parcelId && parcelId !== state.parcel.id)) return;
