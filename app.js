@@ -2623,23 +2623,30 @@ $("#locateButton").addEventListener("click", () => {
     button.disabled = false;
     button.classList.remove("locating");
     button.setAttribute("aria-busy", "false");
-    button.setAttribute("aria-label", "현재 위치의 필지 조회");
+    button.setAttribute("aria-label", "내가 서 있는 위치의 토지 정보 보기");
+    button.querySelector(".locate-button-label").textContent = "내 위치 정보 보기";
   };
   locatingUser = true;
   button.disabled = true;
   button.classList.add("locating");
   button.setAttribute("aria-busy", "true");
-  button.setAttribute("aria-label", "현재 위치 확인 중");
+  button.setAttribute("aria-label", "현재 위치의 필지 정보를 확인하는 중");
+  button.querySelector(".locate-button-label").textContent = "위치 확인 중…";
   showToast("현재 위치를 확인하고 있어요.");
   navigator.geolocation.getCurrentPosition(async ({coords}) => {
     const lonLat = [coords.longitude, coords.latitude];
     const accuracy = Math.round(Number(coords.accuracy) || 0);
+    if (!Number.isFinite(lonLat[0]) || !Number.isFinite(lonLat[1]) || lonLat[0] < 124 || lonLat[0] > 132 || lonLat[1] < 33 || lonLat[1] > 39) {
+      showToast("현재 위치가 국내 필지 조회 범위 밖입니다.");
+      finish();
+      return;
+    }
     try {
       setMapMode("cadastral", false);
       mainSheetCollapse(true);
       map.getView().animate({center: fromLonLat(lonLat), zoom: 18, duration: 500});
       $("#mapStatus").textContent = accuracy ? `현재 위치 ±${accuracy}m · 필지 조회 중` : "현재 위치의 필지 조회 중";
-      showToast("현재 위치의 필지 정보를 확인하고 있어요.");
+      showToast("서 있는 위치의 필지를 찾고 토지 정보를 불러옵니다.");
       await inspectParcel(lonLat, null);
     } catch (error) {
       console.error("Current location parcel lookup failed", error);
