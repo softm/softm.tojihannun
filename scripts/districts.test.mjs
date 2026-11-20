@@ -49,6 +49,12 @@ test("integration patches are idempotent and preserve existing code", () => {
 test("integration fails safely when its expected source anchor changes", () => {
   assert.throws(()=>patchFile("app.js","different application"),/anchor not found/);
 });
+test("district boundaries are hidden by default and use the v2 preference key", () => {
+  const text=fs.readFileSync(new URL("../districts.js",import.meta.url),"utf8");
+  assert.match(text,/tojihannun-district-layers-v2/);
+  assert.match(text,/let enabled = false/);
+});
+
 test("UI isolates district picking and guards stale responses", () => {
   const text=fs.readFileSync(new URL("../districts.js",import.meta.url),"utf8");
   assert.match(text,/if \(!enabled \|\| !pick/);
