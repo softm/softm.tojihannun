@@ -1517,6 +1517,8 @@
   function setParcel(parcel) {
     state.parcel = parcel || null;
     window.TojihannunRepresentativeTrade = {parcelId:state.parcel?.id || "", status:"loading"};
+    const representativeSelector = $("#detailAreaSelector");
+    if (representativeSelector) representativeSelector.hidden = true;
     state.transactionController?.abort();
     state.auctionController?.abort();
     state.transactionRequest += 1;
