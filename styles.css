@@ -668,3 +668,17 @@ button { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* Map action stack: share one layout flow instead of competing fixed coordinates. */
+.map-top-actions { position: fixed; z-index: 19; top: max(82px, calc(env(safe-area-inset-top) + 70px)); left: 50%; width: min(660px, calc(100% - 32px)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
+.map-top-actions .map-mode-control { position: static; transform: none; align-self: center; pointer-events: auto; }
+.map-top-actions .on-site-action-row { position: static; transform: none; width: 100%; justify-content: flex-end; }
+@media (max-width: 720px) {
+  .map-top-actions { top: max(126px, calc(env(safe-area-inset-top) + 114px)); width: calc(100% - 24px); gap: 10px; }
+  .map-top-actions .map-mode-control { position: static; top: auto; max-width: 100%; }
+  .map-top-actions .on-site-action-row { position: static; top: auto; width: 100%; }
+  .search-wrap { top: max(270px, calc(env(safe-area-inset-top) + 258px)); }
+  .map-controls { position: fixed; top: 505px; bottom: auto; right: 13px; z-index: 16; }
+  .map-controls #locateButton { display: grid; width: 44px; height: 44px; visibility: visible; }
+  .map-controls .zoom-controls { margin-top: 0; }
+}
