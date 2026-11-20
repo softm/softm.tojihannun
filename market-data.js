@@ -704,10 +704,12 @@
     const averageMeta = $("#detailRecentTradeAverageMeta");
     if (!official || !officialMeta || !average || !averageMeta) return;
     if (!summary) {
-      official.textContent = "거래 표본 없음";
-      officialMeta.textContent = "비교 면적을 확인할 수 없음";
-      average.textContent = "거래 표본 없음";
-      averageMeta.textContent = "최근 5년";
+      const status = window.TojihannunRepresentativeTrade?.status;
+      const message = status === "error" ? "거래 자료 조회 실패" : status === "unavailable" ? "수집 자료 미확인" : "확인된 거래 표본 없음";
+      official.textContent = "비교 금액 산정 불가";
+      officialMeta.textContent = "대표 거래면적 미확인";
+      average.textContent = message;
+      averageMeta.textContent = "최근 5년 · 수집 자료 기준";
       updateRepresentativePriceGap(null, 0);
       return;
     }
@@ -729,7 +731,7 @@
     const selected = options.find((option) => option.key === previousKey) || options[0] || null;
     const payload = selected
       ? {parcelId, status:"ready", options, selectedKey:selected.key, ...selected}
-      : {parcelId, status:"empty", options:[]};
+      : {parcelId, status:group?.lookupStatus === "error" ? "error" : group?.lookupStatus === "unavailable" ? "unavailable" : "empty", options:[]};
     window.TojihannunRepresentativeTrade = payload;
 
     const selectorWrap = $("#detailAreaSelector");
@@ -814,13 +816,17 @@
     try {
       const entry = await window.TojiStaticTrades.lookup(area, type, {includeNearby:true, months:recentMonths(60)});
       if (request !== state.representativePriceRequest || parcel !== state.parcel) return;
-      const normalized = normalizeRtmsNodes(entry?.rows || [], type);
+      if (!entry) {
+        publishRepresentativeTradeSummary({items:[], lookupStatus:"unavailable"});
+        return;
+      }
+      const normalized = normalizeRtmsNodes(entry.rows || [], type);
       const scoped = scopeTransactionItems(normalized, area, type);
       publishRepresentativeTradeSummary(scoped);
-    } catch {
+    } catch (error) {
       if (request !== state.representativePriceRequest || parcel !== state.parcel) return;
-      window.TojihannunRepresentativeTrade = {parcelId:parcel.id, status:"empty"};
-      publishRepresentativeTradeSummary(null);
+      console.warn("Representative trade data lookup failed", error);
+      publishRepresentativeTradeSummary({items:[], lookupStatus:"error"});
     }
   }
 
