@@ -84,7 +84,7 @@ test("실거래는 용도별 API와 필지 우선·유사면적 비교 기준을
   assert.match(html, /transaction-ui\.css\?v=20261118\.3/);
   assert.match(html, /vendor\/echarts-toji\.min\.js\?v=20261117\.2/);
   assert.match(html, /transaction-price-context\.js\?v=20261117\.13/);
-  assert.match(html, /market-data\.js\?v=20261118\.2/);
+  assert.match(html, /market-data\.js\?v=20261120\.2/);
   assert.match(read("transaction-ui.js"), /saved\.textContent = '전체 기간'/);
   assert.match(market, /RTMSDataSvcLandTrade[\s\S]*?RTMSDataSvcAptTrade[\s\S]*?RTMSDataSvcInduTrade/);
   assert.match(market, /const exact = unique\.filter\(\(item\) => item\.exact\)/);
