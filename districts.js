@@ -4,10 +4,10 @@
   const C = window.TojiDistrictCore;
   if (!C || !window.ol) return;
   const PAGE_SIZE = 100, MAX_PAGES = 5, MIN_ZOOM = 13;
-  const keyName = "tojihannun-district-layers-v1";
+  const keyName = "tojihannun-district-layers-v2";
   let activeMap, layer, source, hooks, panel, toggle, timer, currentController;
   let revision = 0, features = [], selected = null, pick = false;
-  let enabled = true, selectedIds = new Set(C.sources.map(s => s.id));
+  let enabled = false, selectedIds = new Set(C.sources.map(s => s.id));
   const statusById = new Map();
   try {
     const saved = JSON.parse(localStorage.getItem(keyName) || "null");
