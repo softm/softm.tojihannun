@@ -1325,15 +1325,25 @@ function renderDetailHighlight(record) {
   const yearFailed = landFailed || ["prices", "characteristics"].every((source) => sourceStatus[source] === "error");
   const zoneFailed = Boolean((landFailed || sourceStatus.characteristics === "error") && record.eumLandUseError && !snapshot.zone);
   const priceValue = formatLandPrice(snapshot.price);
+  const priceTotal = formatEstimatedValueCompact(snapshot.price, snapshot.area);
+  const nearby = window.TojihannunNearbyLandPrice;
+  const nearbyReady = nearby?.parcelId === record.id && nearby.status === "ready" && nearby.summary;
+  const nearbyValue = nearbyReady ? `평당 평균 ${new Intl.NumberFormat("ko-KR").format(nearby.summary.average)}만원`
+    : nearby?.parcelId === record.id && nearby.status === "empty" ? "주변 거래 없음"
+    : nearby?.parcelId === record.id && nearby.status === "error" ? "확인 필요" : "확인 중";
+  const nearbyNote = nearbyReady
+    ? `${nearby.comparisonLabel || "유사 면적"} ${new Intl.NumberFormat("ko-KR").format(nearby.summary.count)}건 · 최근 5년`
+    : "유사 면적 · 최근 5년";
   const items = [
-    ["지목", displayDataValue(snapshot.category, {loading: landLoading, failed: categoryFailed}), "green"],
-    ["대장 면적", displayDataValue(snapshot.area ? `${formatMetric(snapshot.area, "㎡")} / ${formatPyeong(snapshot.area)}` : "", {loading: landLoading, failed: categoryFailed}), "blue"],
-    ["개별공시지가", displayDataValue(priceValue, {loading: landLoading, failed: priceFailed}), "orange"],
-    ["공시지가 기준연도", displayDataValue(snapshot.priceYear ? `${snapshot.priceYear}년` : "", {loading: landLoading, failed: yearFailed}), "gold"],
-    ["주요 용도지역", displayDataValue(snapshot.zone, {loading: zoneLoading, failed: zoneFailed}), "purple"]
+    ["지목", displayDataValue(snapshot.category, {loading: landLoading, failed: categoryFailed}), "green", "", ""],
+    ["대장 면적", displayDataValue(snapshot.area ? `${formatMetric(snapshot.area, "㎡")} / ${formatPyeong(snapshot.area)}` : "", {loading: landLoading, failed: categoryFailed}), "blue", "", ""],
+    ["개별공시지가", displayDataValue(priceValue, {loading: landLoading, failed: priceFailed}), "orange", "", snapshot.priceYear ? `${snapshot.priceYear}년 기준` : yearFailed ? "기준연도 조회 실패" : ""],
+    ["공시지가 총액", displayDataValue(priceTotal, {loading: landLoading, failed: priceFailed || categoryFailed}), "gold", "", "공시지가 × 대장면적"],
+    ["최근 실거래 평균", nearbyValue, "teal", "detailRecentTradeAverage", nearbyNote],
+    ["주요 용도지역", displayDataValue(snapshot.zone, {loading: zoneLoading, failed: zoneFailed}), "purple", "", ""]
   ];
-  $("#detailHighlight").innerHTML = items.map(([label, value, tone]) => `
-    <div class="${tone}"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+  $("#detailHighlight").innerHTML = items.map(([label, value, tone, id, note]) => `
+    <div class="${tone}"><dt>${escapeHtml(label)}</dt><dd${id ? ` id="${id}"` : ""}>${escapeHtml(value)}</dd>${note ? `<small${id ? ` id="${id}Meta"` : ""}>${escapeHtml(note)}</small>` : ""}</div>`).join("");
 }
 
 function formatMetric(value, suffix) {
@@ -1380,6 +1390,14 @@ function formatPyeong(area) {
 function formatEstimatedValue(price, area) {
   const amount = Number(price?.pblntfPclnd || 0) * Number(area || 0);
   return amount > 0 ? `${new Intl.NumberFormat("ko-KR", {maximumFractionDigits: 0}).format(amount)}원` : "-";
+}
+
+function formatEstimatedValueCompact(price, area) {
+  const amount = Number(price?.pblntfPclnd || 0) * Number(area || 0);
+  if (!(amount > 0)) return "-";
+  if (amount >= 100000000) return `약 ${new Intl.NumberFormat("ko-KR", {maximumFractionDigits: 1}).format(amount / 100000000)}억원`;
+  if (amount >= 10000) return `약 ${new Intl.NumberFormat("ko-KR", {maximumFractionDigits: 0}).format(amount / 10000)}만원`;
+  return `${new Intl.NumberFormat("ko-KR", {maximumFractionDigits: 0}).format(amount)}원`;
 }
 
 function renderOfficialDocumentAccess(record, landRegister = null) {
