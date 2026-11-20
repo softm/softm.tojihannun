@@ -41,6 +41,8 @@ try {
   await page.goto(base,{waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>window.TojiDistricts && typeof map!=="undefined");
   await page.evaluate(()=>{map.getView().setCenter(ol.proj.fromLonLat([126.855,37.480]));map.getView().setZoom(16);});
+  assert.equal(await page.evaluate(()=>map.getLayers().getArray().find(l=>l.get("name")==="district-boundaries").getVisible()),false);
+  await page.locator('#districtToggle').click();
   await page.locator('[aria-controls="districtPanel"]').click();
   await page.waitForFunction(()=>document.querySelector('[data-district-list]')?.textContent.includes("테스트 지구단위구역"));
   assert.equal(await page.locator('[data-district-list] button').count(),1);
