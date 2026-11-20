@@ -129,3 +129,13 @@ test("대장 바로가기는 탭형 분할 버튼이 아닌 독립 액션으로 
   assert.match(css, /@media \(min-width: 721px\)[\s\S]*?\.detail-ledger-action \{ min-height: 36px;/);
   assert.doesNotMatch(css, /\.detail-ledger-action \+ \.detail-ledger-action/);
 });
+
+
+test("지도 오른쪽 컨트롤은 현위치·구역계·줌 순서로 겹치지 않는다", () => {
+  const css = read("styles.css");
+  const districtCss = read("districts.css");
+  assert.match(css, /\.zoom-controls \{ margin-top: 105px/);
+  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.map-controls \.zoom-controls \{ margin-top: 49px/);
+  assert.match(districtCss, /\.district-controls\{position:fixed;right:20px;top:208px/);
+  assert.match(districtCss, /\.district-controls\{top:max\(333px,calc\(env\(safe-area-inset-top\) \+ 321px\)\);right:13px\}/);
+});
