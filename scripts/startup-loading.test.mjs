@@ -26,7 +26,7 @@ test("외부 스타일과 대형 스크립트는 첫 화면 렌더링을 막지 
   assert.match(html, /rel="preload" as="style" href="https:\/\/cdn\.jsdelivr\.net\/npm\/ol@10\.6\.1\/ol\.css/);
   assert.match(html, /<script defer src="https:\/\/cdn\.jsdelivr\.net\/npm\/ol@10\.6\.1\/dist\/ol\.js"><\/script>/);
   assert.match(html, /<script defer src="https:\/\/cdn\.jsdelivr\.net\/npm\/html2canvas@1\.4\.1/);
-  assert.match(html, /<script defer src="\.\/app\.js\?v=20261120\.1"><\/script>/);
+  assert.match(html, /<script defer src="\.\/app\.js\?v=20261120\.2"><\/script>/);
 });
 
 test("앱은 전체 load를 기다리지 않고 지도 결과에 맞춰 시작 화면을 종료한다", () => {
