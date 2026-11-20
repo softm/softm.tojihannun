@@ -21,7 +21,7 @@ test("모바일 검색 키보드가 열리면 메인 패널을 화면 아래로 
   const css = read("styles.css");
   const app = read("app.js");
 
-  assert.match(html, /styles\.css\?v=20261120\.4/);
+  assert.match(html, /styles\.css\?v=20261120\.8/);
   assert.match(html, /app\.js\?v=20261120\.3/);
   assert.match(css, /\.sheet\.keyboard-hidden \{ --sheet-drag-offset: calc\(100% \+ env\(safe-area-inset-bottom\) \+ 12px\);[^}]*pointer-events: none/);
   assert.match(app, /function setSearchKeyboardSheetHidden\(hidden\)/);
@@ -37,8 +37,8 @@ test("모바일 상세 제목은 전체 폭을 확보하고 외부 액션은 다
   const app = read("app.js");
   const districts = read("districts.css");
 
-  assert.match(html, /styles\.css\?v=20261120\.4/);
-  assert.match(html, /districts\.css\?v=20261120\.1/);
+  assert.match(html, /styles\.css\?v=20261120\.8/);
+  assert.match(html, /districts\.css\?v=20261120\.3/);
   assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.detail-title-row \{ display: grid; grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(css, /\.detail-title-row h2 \{ width: 100%;[\s\S]*?word-break: keep-all/);
   assert.match(css, /\.detail-title-actions \{ width: 100%;[\s\S]*?flex-wrap: nowrap/);
@@ -131,11 +131,23 @@ test("대장 바로가기는 탭형 분할 버튼이 아닌 독립 액션으로 
 });
 
 
-test("지도 오른쪽 컨트롤은 현위치·구역계·줌 순서로 겹치지 않는다", () => {
+test("내 위치 정보와 기존 현위치·확대축소 컨트롤은 독립적으로 표시한다", () => {
+  const html = read("index.html");
   const css = read("styles.css");
+  const app = read("app.js");
   const districtCss = read("districts.css");
-  assert.match(css, /\.zoom-controls \{ margin-top: 105px/);
-  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.map-controls \.zoom-controls \{ margin-top: 49px/);
-  assert.match(districtCss, /\.district-controls\{position:fixed;right:20px;top:208px/);
-  assert.match(districtCss, /\.district-controls\{top:max\(333px,calc\(env\(safe-area-inset-top\) \+ 321px\)\);right:13px\}/);
+
+  // The new action is above search, not in the map-control rail.
+  assert.match(html, /class="search-wrap"[\s\S]*?id="onSiteInfoButton"[\s\S]*?id="searchForm"/);
+  assert.match(css, /\.search-wrap > \.on-site-action-row \{ position: static;/);
+
+  // Original location button and +/- are in one ordered button group.
+  assert.match(html, /class="zoom-controls"[\s\S]*?id="locateButton"[\s\S]*?id="zoomIn"[\s\S]*?id="zoomOut"/);
+  assert.match(css, /\.zoom-controls #locateButton \{ display: grid;/);
+  assert.match(css, /\.map-controls \{ position: fixed; top: 510px; bottom: auto; right: 13px;/);
+
+  // The two GPS handlers must remain independent.
+  assert.match(app, /\$\("#locateButton"\)\.addEventListener\("click"/);
+  assert.match(app, /\$\("#onSiteInfoButton"\)\.addEventListener\("click"/);
+  assert.match(districtCss, /\.district-controls \{ top: 452px; right: 13px; \}/);
 });
