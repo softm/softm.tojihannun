@@ -690,7 +690,8 @@
     const direction = Math.abs(ratio) < 0.05 ? "same" : gap > 0 ? "up" : "down";
     const sign = gap > 0 ? "+" : gap < 0 ? "-" : "±";
     const arrow = gap > 0 ? "▲" : gap < 0 ? "▼" : "•";
-    value.textContent = `${arrow} ${sign}${formatWon(Math.abs(gap))} · ${sign}${formatNumber(Math.abs(ratio), 1)}%`;
+    const gapLabel = Math.abs(gap) < 1 ? "0원" : formatWon(Math.abs(gap));
+    value.textContent = `${arrow} ${sign}${gapLabel} · ${sign}${formatNumber(Math.abs(ratio), 1)}%`;
     meta.textContent = `${summary.areaLabel} 동일 면적 기준 · 최근 5년 ${formatNumber(summary.count)}건`;
     wrap.dataset.direction = direction;
     wrap.hidden = false;
