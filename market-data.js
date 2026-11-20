@@ -1500,6 +1500,9 @@
     resetTransactionView();
     resetAuctionView();
     void loadNearbyLandPrice(state.parcel);
+    // The basic summary needs the representative transaction area even before
+    // the user opens the transaction tab. This reads only already-collected files.
+    void loadTransactions(false, true);
   }
 
   function refreshParcel(parcel) {
@@ -1523,7 +1526,7 @@
     state.transactionSession = null;
     state.transactionCacheKey = "";
     resetTransactionView();
-    if (state.activeTab === "transactions") void loadTransactions();
+    void loadTransactions(false, true);
   }
 
   function activate(tab) {
