@@ -95,7 +95,7 @@ button { color: inherit; }
 #locateButton.locating svg { animation: locate-pulse .9s ease-in-out infinite alternate; }
 @keyframes locate-pulse { to { opacity: .35; transform: scale(.78); } }
 .map-controls > button { border-radius: 14px; box-shadow: 0 7px 22px rgba(25,60,49,.14); }
-.zoom-controls { overflow: hidden; border-radius: 14px; box-shadow: 0 7px 22px rgba(25,60,49,.14); }
+.zoom-controls { margin-top: 105px; overflow: hidden; border-radius: 14px; box-shadow: 0 7px 22px rgba(25,60,49,.14); }
 .zoom-controls button { border: 0; border-bottom: 1px solid #e3e9e5; }
 .zoom-controls button:last-child { border-bottom: 0; }
 
@@ -541,6 +541,7 @@ button { color: inherit; }
   .search-wrap { top: max(126px, calc(env(safe-area-inset-top) + 114px)); width: calc(100% - 24px); }
   .search-suggestions { max-height: max(96px, calc(100dvh - max(126px, calc(env(safe-area-inset-top) + 114px)) - 78px - env(safe-area-inset-bottom))); overflow-y: scroll; scrollbar-width: thin; }
   .map-controls { top: 280px; right: 13px; }
+  .map-controls .zoom-controls { margin-top: 49px; }
   .map-status { top: 280px; left: 13px; max-width: calc(100% - 90px); }
   .map-attribution { display: none; }
   .sheet { width: calc(100% - 16px); max-height: 62dvh; }
