@@ -669,16 +669,19 @@ button { color: inherit; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
-/* Map action stack: share one layout flow instead of competing fixed coordinates. */
-.map-top-actions { position: fixed; z-index: 19; top: max(82px, calc(env(safe-area-inset-top) + 70px)); left: 50%; width: min(660px, calc(100% - 32px)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
-.map-top-actions .map-mode-control { position: static; transform: none; align-self: center; pointer-events: auto; }
-.map-top-actions .on-site-action-row { position: static; transform: none; width: 100%; justify-content: flex-end; }
+/* Unified controls: on-site action is in the same flow as search, never floating over map types. */
+.search-wrap { display: flex; flex-direction: column; gap: 9px; }
+.search-wrap > .on-site-action-row { position: static; inset: auto; transform: none; width: 100%; display: flex; justify-content: flex-end; pointer-events: auto; }
+.search-wrap > .on-site-action-row #onSiteInfoButton { flex: 0 0 auto; }
+.map-controls { z-index: 18; }
+.zoom-controls { display: flex; flex-direction: column; margin: 0; }
+.zoom-controls #locateButton { display: grid; width: 44px; height: 44px; border: 0; border-bottom: 1px solid #e3e9e5; border-radius: 0; background: #fff; visibility: visible; }
 @media (max-width: 720px) {
-  .map-top-actions { top: max(126px, calc(env(safe-area-inset-top) + 114px)); width: calc(100% - 24px); gap: 10px; }
-  .map-top-actions .map-mode-control { position: static; top: auto; max-width: 100%; }
-  .map-top-actions .on-site-action-row { position: static; top: auto; width: 100%; }
-  .search-wrap { top: max(270px, calc(env(safe-area-inset-top) + 258px)); }
-  .map-controls { position: fixed; top: 505px; bottom: auto; right: 13px; z-index: 16; }
-  .map-controls #locateButton { display: grid; width: 44px; height: 44px; visibility: visible; }
+  /* Header, map mode, action row and search occupy distinct vertical bands. */
+  .map-mode-control { top: max(126px, calc(env(safe-area-inset-top) + 114px)); }
+  .search-wrap { top: max(205px, calc(env(safe-area-inset-top) + 193px)); width: calc(100% - 24px); }
+  .search-suggestions { max-height: max(96px, calc(100dvh - 350px - env(safe-area-inset-bottom))); }
+  .map-controls { position: fixed; top: 510px; bottom: auto; right: 13px; }
   .map-controls .zoom-controls { margin-top: 0; }
+  .map-status { top: 418px; }
 }
