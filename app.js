@@ -1349,6 +1349,7 @@ function renderDetailHighlight(record) {
   ];
   $("#detailHighlight").innerHTML = items.map(([label, value, tone, id, note]) => `
     <div class="${tone}"><dt>${escapeHtml(label)}</dt><dd${id ? ` id="${id}"` : ""}>${escapeHtml(value)}</dd>${note ? `<small${id ? ` id="${id}Meta"` : ""}>${escapeHtml(note)}</small>` : ""}</div>`).join("");
+  window.dispatchEvent(new CustomEvent("tojihannun:representative-price-request", {detail:{parcelId:record.id}}));
 }
 function formatMetric(value, suffix) {
   return Number.isFinite(value) && value > 0
@@ -2126,6 +2127,7 @@ function openDetail(record) {
   void loadBuildingDetails(record);
   renderFieldRecord(record);
   window.TojihannunMarketData?.setParcel(record);
+  window.dispatchEvent(new CustomEvent("tojihannun:representative-price-request", {detail:{parcelId:record.id}}));
   updateDetailFavorite(record.id);
   detailSheet.classList.add("open");
   detailSheet.setAttribute("aria-hidden", "false");
