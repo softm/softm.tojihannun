@@ -644,6 +644,65 @@
     };
   }
 
+  function representativeTradeSummary(items) {
+    const recent = new Set(recentMonths(60));
+    const valid = (items || []).filter((item) => {
+      const month = String(item.date || "").slice(0, 7).replace("-", "");
+      return recent.has(month) && !item.cancellationDate && Number(item.amount) > 0 && Number(item.area) > 0;
+    });
+    if (!valid.length) return null;
+    const groups = new Map();
+    for (const item of valid) {
+      const bucket = Math.round(Number(item.area));
+      if (!groups.has(bucket)) groups.set(bucket, []);
+      groups.get(bucket).push(item);
+    }
+    const ranked = [...groups.values()].sort((a, b) =>
+      b.length - a.length ||
+      String(b[0]?.date || "").localeCompare(String(a[0]?.date || "")) ||
+      Number(a[0]?.area || 0) - Number(b[0]?.area || 0));
+    const selected = ranked[0];
+    const area = median(selected.map((item) => Number(item.area)));
+    const averageAmount = selected.reduce((sum, item) => sum + Number(item.amount), 0) / selected.length;
+    return {
+      area,
+      areaLabel: `${formatNumber(area, 1)}㎡ (${formatNumber(area / 3.305785, 1)}평)`,
+      count: selected.length,
+      averageAmount,
+      averageLabel: formatDealAmount(averageAmount)
+    };
+  }
+
+  function publishRepresentativeTradeSummary(group) {
+    const parcelId = state.parcel?.id || "";
+    const summary = representativeTradeSummary(group?.items || []);
+    const payload = summary
+      ? {parcelId, status:"ready", ...summary}
+      : {parcelId, status:"empty"};
+    window.TojihannunRepresentativeTrade = payload;
+
+    const official = $("#detailOfficialPriceAmount");
+    const officialMeta = $("#detailOfficialPriceAmountMeta");
+    const average = $("#detailRecentTradeAverage");
+    const averageMeta = $("#detailRecentTradeAverageMeta");
+    if (!official || !officialMeta || !average || !averageMeta) return;
+
+    if (!summary) {
+      official.textContent = "거래 표본 없음";
+      officialMeta.textContent = "대표 평형을 확인할 수 없음";
+      average.textContent = "거래 표본 없음";
+      averageMeta.textContent = "가장 거래 많은 평형 · 최근 5년";
+      return;
+    }
+    const unitOfficial = Number(state.parcel?.landRegister?.price?.pblntfPclnd || 0);
+    official.textContent = unitOfficial > 0 ? formatWon(unitOfficial * summary.area) : "공시지가 확인 중";
+    officialMeta.textContent = unitOfficial > 0
+      ? `${summary.areaLabel} × ${formatNumber(unitOfficial)}원/㎡`
+      : `${summary.areaLabel} 기준`;
+    average.textContent = summary.averageLabel;
+    averageMeta.textContent = `${summary.areaLabel} · ${formatNumber(summary.count)}건 · 최근 5년`;
+  }
+
   function nearbyPriceQuantile(values, ratio) {
     if (!values.length) return 0;
     const position = (values.length - 1) * ratio;
@@ -1029,6 +1088,7 @@
       snapshotAt: session.snapshotAt, loading: session.loading, error: session.error,
       truncated: [...session.results.values()].some(value => value.truncated)
     };
+    publishRepresentativeTradeSummary(state.transactionGroups);
     renderTransactionView();
   }
 
@@ -1415,6 +1475,7 @@
 
   function setParcel(parcel) {
     state.parcel = parcel || null;
+    window.TojihannunRepresentativeTrade = {parcelId:state.parcel?.id || "", status:"loading"};
     state.transactionController?.abort();
     state.auctionController?.abort();
     state.transactionRequest += 1;
@@ -1446,6 +1507,9 @@
     const previousArea = parseParcelArea(state.parcel);
     const previousType = state.transactionType;
     state.parcel = parcel;
+    if (window.TojihannunRepresentativeTrade?.parcelId === parcel.id && state.transactionGroups) {
+      publishRepresentativeTradeSummary(state.transactionGroups);
+    }
     void loadNearbyLandPrice(parcel);
     const area = parseParcelArea(parcel);
     const areaChanged = previousArea.lawdCode !== area.lawdCode || previousArea.emd !== area.emd || previousArea.lot !== area.lot;
