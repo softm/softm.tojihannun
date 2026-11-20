@@ -1873,7 +1873,10 @@ async function loadBuildingDetails(record) {
   } finally {
     record.buildingLoading = false;
     window.TojihannunMarketData?.refreshParcel(record);
-    if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) renderBuildingSection(record);
+    if (state.selectedId === record.id && $("#detailSheet").classList.contains("open")) {
+      renderBuildingSection(record);
+      window.dispatchEvent(new CustomEvent("tojihannun:representative-price-request", {detail:{parcelId:record.id}}));
+    }
     if (state.favorites.has(record.id)) persistFavorites();
   }
 }
